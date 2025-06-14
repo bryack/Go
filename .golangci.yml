@@ -1,0 +1,6 @@
+linters:
+  enable:
+    - errcheck  # Проверяет обработку ошибок
+    - govet     # Базовые проверки
+    - staticcheck  # Статический анализ
+    - gosimple  # Упрощение кода

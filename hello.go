@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Task struct {
@@ -98,6 +99,10 @@ func printTasks(tasks []Task) {
 		return
 	}
 	for _, task := range tasks {
+		go processTask(task)
+	}
+	time.Sleep(1 * time.Second) // Временная заглушка
+	for _, task := range tasks {
 		status := "  "
 		if task.Done {
 			status = "✓ "
@@ -113,6 +118,10 @@ func clearDescription(tasks *[]Task, id int) error {
 		}
 	}
 	return ErrTaskNotFound
+}
+func processTask(task Task) {
+	time.Sleep(200 * time.Millisecond)
+	fmt.Printf("Processing task ID: %d\n", task.ID)
 }
 func main() {
 	tasks := []Task{}
@@ -197,9 +206,9 @@ func main() {
 				fmt.Println("invalid ID:", err)
 				continue
 			}
-			errClearDescription := clearDescription(&tasks, inputInt)
-			if errClearDescription == ErrTaskNotFound {
-				fmt.Println("error:", errClearDescription)
+			err = clearDescription(&tasks, inputInt)
+			if err == ErrTaskNotFound {
+				fmt.Println("error:", err)
 				continue
 			}
 			fmt.Println("Task dexcription cleared")

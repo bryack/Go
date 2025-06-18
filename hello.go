@@ -184,6 +184,7 @@ func handleError(err error, context string) {
 	}
 }
 
+// showHelp показывает доступные команды
 func showHelp() {
 	fmt.Println("\n=== Available Commands ===")
 	fmt.Println("add     - Add a new task")

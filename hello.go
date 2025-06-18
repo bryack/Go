@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -17,6 +18,11 @@ type Task struct {
 	Description string `json:"description"`
 	Done        bool   `json:"done"`
 }
+
+const (
+	processDelay = 500 * time.Millisecond
+	maxInputSize = 10
+)
 
 var (
 	ErrMaxSizeExceeded = errors.New("input too long")
@@ -29,6 +35,7 @@ var (
 	lastId             int
 )
 
+// loadTasks загружает задачи из файла tasks.json
 func loadTasks() ([]Task, error) {
 	// Попытка прочитать весь файл tasks.json
 	data, err := os.ReadFile("tasks.json")
@@ -41,26 +48,30 @@ func loadTasks() ([]Task, error) {
 	if err := json.Unmarshal(data, &tasks); err != nil {
 		return []Task{}, ErrParseJson
 	}
+	// Обновляем lastId
 	for _, task := range tasks {
 		if task.ID > lastId {
 			lastId = task.ID
 		}
 	}
-	fmt.Println("tasks downloaded from tasks.json:", tasks)
+	fmt.Println("tasks loaded from tasks.json:", tasks)
 	return tasks, nil
 }
+
+// saveTasks сохраняет задачи в файл tasks.json
 func saveTasks(tasks []Task) error {
 	// Преобразуем срез задач в JSON-формат ([]byte)
 	data, err := json.Marshal(tasks)
 	if err != nil {
 		return ErrConversionTask
 	}
-	err = os.WriteFile("tasks.json", data, 0644)
-	if err != nil {
+	if err = os.WriteFile("tasks.json", data, 0644); err != nil {
 		return ErrFailedWriteFile
 	}
 	return nil
 }
+
+// readInput читает пользовательский ввод с ограничением размера
 func readInput(maxSize int) (string, error) {
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
@@ -79,11 +90,15 @@ func readInput(maxSize int) (string, error) {
 	}
 	return input, nil
 }
+
+// addTask добавляет новую задачу в список
 func addTask(tasks *[]Task, input string) int {
 	lastId++
 	*tasks = append(*tasks, Task{ID: lastId, Description: input, Done: false})
 	return lastId
 }
+
+// markTaskDone помечает задачу как выполненную
 func makeTaskDone(tasks *[]Task, id int) error {
 	for index := range *tasks {
 		if (*tasks)[index].ID == id {
@@ -93,15 +108,13 @@ func makeTaskDone(tasks *[]Task, id int) error {
 	}
 	return ErrTaskNotFound
 }
+
+// printTasks выводит список всех задач
 func printTasks(tasks []Task) {
 	if len(tasks) == 0 {
 		fmt.Println("No tasks available")
 		return
 	}
-	for _, task := range tasks {
-		go processTask(task)
-	}
-	time.Sleep(1 * time.Second) // Временная заглушка
 	for _, task := range tasks {
 		status := "  "
 		if task.Done {
@@ -109,111 +122,171 @@ func printTasks(tasks []Task) {
 		}
 		fmt.Printf("[%s] ID: %d, Description: %s\n", status, task.ID, task.Description)
 	}
+	fmt.Println("================")
 }
+
+// clearTaskDescription очищает описание задачи
 func clearDescription(tasks *[]Task, id int) error {
-	for i, task := range *tasks {
-		if task.ID == id {
+	for i := range *tasks {
+		if (*tasks)[i].ID == id {
 			(*tasks)[i].Description = ""
 			return nil
 		}
 	}
 	return ErrTaskNotFound
 }
-func processTask(task Task) {
-	time.Sleep(200 * time.Millisecond)
+
+// processTask обрабатывает одну задачу (симуляция работы)
+func processTask(task Task, wg *sync.WaitGroup) {
+	defer wg.Done()
 	fmt.Printf("Processing task ID: %d\n", task.ID)
+	time.Sleep(processDelay)
+	fmt.Printf("Task ID: %d processed successfully\n", task.ID)
 }
+
+// processTasks запускает параллельную обработку всех задач
+func processTasks(tasks []Task) {
+	if len(tasks) == 0 {
+		fmt.Println("No tasks to process")
+		return
+	}
+	fmt.Println("Starting parallel task processing...")
+	var wg sync.WaitGroup
+	for _, task := range tasks {
+		wg.Add(1)
+		go processTask(task, &wg)
+	}
+	wg.Wait()
+	fmt.Println("All tasks processed successfully!")
+}
+
+// handleError обрабатывает различные типы ошибок
+func handleError(err error, context string) {
+	switch err {
+	case io.EOF:
+		fmt.Printf("%s: input interrupted by user\n", context)
+	case ErrMaxSizeExceeded:
+		fmt.Printf("%s: input exceeds %d characters\n", context, maxInputSize)
+	case ErrEmptyInput:
+		fmt.Printf("%s: empty input provided\n", context)
+	case ErrTaskNotFound:
+		fmt.Printf("%s: task not found\n", context)
+	case ErrConversionTask:
+		fmt.Printf("%s: failed to convert tasks\n", context)
+	case ErrFailedWriteFile:
+		fmt.Printf("%s: failed to write file\n", context)
+	case ErrFileNotFound:
+		fmt.Printf("%s: file not found\n", context)
+	case ErrParseJson:
+		fmt.Printf("%s: JSON parsinf error\n", context)
+	default:
+		fmt.Printf("%s: %v\n", context, err)
+	}
+}
+
+func showHelp() {
+	fmt.Println("\n=== Available Commands ===")
+	fmt.Println("add     - Add a new task")
+	fmt.Println("done    - Mark task as completed")
+	fmt.Println("list    - Show all tasks")
+	fmt.Println("process - Process all tasks in parallel")
+	fmt.Println("load    - Load tasks from file")
+	fmt.Println("clear   - Clear task description")
+	fmt.Println("help    - Show this help")
+	fmt.Println("exit    - Save and exit")
+	fmt.Println("=========================")
+}
+
 func main() {
 	tasks := []Task{}
-	fmt.Println("Task Manager. Commands: add, done, list, load, clear, exit")
+	fmt.Println("🚀 Task Manager Started!")
+	showHelp()
 	for {
+		fmt.Print("\nEnter command: ")
 		input, err := readInput(10)
 		if err != nil {
-			switch err {
-			case io.EOF:
-				fmt.Println("input interrupted by user:", err)
-			case ErrMaxSizeExceeded:
-				fmt.Println("input exceeds 10 bytes:", err)
-			case ErrEmptyInput:
-				fmt.Println("you should enter smth:", err)
-			default:
-				fmt.Printf("%v\n", err)
-			}
+			handleError(err, "Input error")
 			continue
 		}
-		switch {
-		case input == "exit":
-			errSave := saveTasks(tasks)
-			if errSave == ErrConversionTask {
-				fmt.Println("tasks could not converse:", errSave)
-				return
+		switch input {
+		case "exit":
+			if err := saveTasks(tasks); err != nil {
+				handleError(err, "Save error")
+			} else {
+				fmt.Println("Tasks saved successfully!")
 			}
-			if errSave == ErrFailedWriteFile {
-				fmt.Println("file could not write:", errSave)
-			}
-			fmt.Println("Bye")
+			fmt.Println("👋 Bye!")
 			return
-		case input == "list":
+
+		case "list":
 			printTasks(tasks)
-		case input == "add":
+
+		case "add":
 			fmt.Println("enter task description:")
-			desc, err := readInput(10)
+			desc, err := readInput(50)
 			if err != nil {
-				fmt.Println("error reading description:", err)
+				handleError(err, "Description input error")
 				continue
 			}
 			id := addTask(&tasks, desc)
-			fmt.Printf("Task added (ID: %d)\n", id)
-		case input == "done":
-			fmt.Println("enter task id for done:")
+			fmt.Printf("✅ Task added (ID: %d)\n", id)
+
+		case "done":
+			fmt.Println("Enter task ID to mark as done:")
 			input, err := readInput(10)
 			if err != nil {
-				fmt.Println("error reading ID", err)
+				handleError(err, "ID input error")
 				continue
 			}
-			inputInt, err := strconv.Atoi(input)
+
+			id, err := strconv.Atoi(input)
 			if err != nil {
-				fmt.Println("invalid ID:", err)
+				fmt.Println("❌ Invalid ID format")
 			}
-			if err := makeTaskDone(&tasks, inputInt); err != nil {
-				fmt.Println("error:", err)
+			if err := makeTaskDone(&tasks, id); err != nil {
+				handleError(err, "Mark done error")
 				continue
 			}
 			fmt.Println("Task marked as done")
-		case input == "load":
+
+		case "load":
 			tasks, err = loadTasks()
 			if err != nil {
-				switch err {
-				case ErrFileNotFound:
-					fmt.Println("load error:", err)
-				case ErrParseJson:
-					fmt.Println("parse error:", err)
-				default:
-					fmt.Println("Unknown load file error")
-				}
+				handleError(err, "Load error")
+			} else {
+				fmt.Println("✅ Tasks loaded successfully!")
 			}
-			fmt.Println("tasks downloaded from tasks.json")
-			continue
-		case input == "clear":
+			// continue
+
+		case "clear":
 			fmt.Println("enter task id you want to clear description")
-			input, err := readInput(10)
+			idSrt, err := readInput(maxInputSize)
 			if err != nil {
-				fmt.Println("error reading ID", err)
+				handleError(err, "ID input error")
 				continue
 			}
-			inputInt, err := strconv.Atoi(input)
+
+			id, err := strconv.Atoi(idSrt)
 			if err != nil {
-				fmt.Println("invalid ID:", err)
+				fmt.Println("❌ Invalid ID format")
 				continue
 			}
-			err = clearDescription(&tasks, inputInt)
-			if err == ErrTaskNotFound {
-				fmt.Println("error:", err)
+
+			if err = clearDescription(&tasks, id); err != nil {
+				handleError(err, "Clear description error")
 				continue
 			}
-			fmt.Println("Task dexcription cleared")
+			fmt.Println("✅ Task description cleared!")
+
+		case "process":
+			processTasks(tasks)
+
+		case "help":
+			showHelp()
+
 		default:
-			fmt.Println("Unknown command. Available: add, done, list, load, clear, exit")
+			fmt.Printf("❌ Unknown command: '%s'\n", input)
+			fmt.Println("Type 'help' to see available commands")
 		}
 	}
 }

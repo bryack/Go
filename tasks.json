@@ -1,1 +1,1 @@
-[{"id":1,"description":"task 1","done":false},{"id":2,"description":"","done":false}]
+[{"id":1,"description":"task 1","done":false},{"id":2,"description":"","done":true},{"id":3,"description":"task 3","done":false}]

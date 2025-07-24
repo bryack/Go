@@ -80,7 +80,7 @@ func showHelp() {
 }
 
 func main() {
-	tasks := []task.Task{}
+	tm := task.NewTaskManager()
 	fmt.Println("🚀 Task Manager Started!")
 	showHelp()
 	for {
@@ -92,7 +92,7 @@ func main() {
 		}
 		switch input {
 		case "exit":
-			if err := storage.SaveTasks(tasks); err != nil {
+			if err := storage.SaveTasks(tm.GetTasks()); err != nil {
 				handleError(err, "Save error")
 			} else {
 				fmt.Println("Tasks saved successfully!")
@@ -101,7 +101,7 @@ func main() {
 			return
 
 		case "list":
-			task.PrintTasks(tasks)
+			tm.PrintTasks()
 
 		case "add":
 			fmt.Println("enter task description:")
@@ -110,7 +110,7 @@ func main() {
 				handleError(err, "Description input error")
 				continue
 			}
-			id := task.AddTask(&tasks, desc)
+			id := tm.AddTask(desc)
 			fmt.Printf("✅ Task added (ID: %d)\n", id)
 
 		case "done":
@@ -125,17 +125,18 @@ func main() {
 			if err != nil {
 				fmt.Println("❌ Invalid ID format")
 			}
-			if err := task.MarkTaskDone(&tasks, id); err != nil {
+			if err := tm.MarkTaskDone(id); err != nil {
 				handleError(err, "Mark done error")
 				continue
 			}
 			fmt.Println("Task marked as done")
 
 		case "load":
-			tasks, err = storage.LoadTasks()
+			loadedTasks, err := storage.LoadTasks()
 			if err != nil {
 				handleError(err, "Load error")
 			} else {
+				tm.SetTasks(loadedTasks)
 				fmt.Println("✅ Tasks loaded successfully!")
 			}
 
@@ -153,14 +154,14 @@ func main() {
 				continue
 			}
 
-			if err = task.ClearDescription(&tasks, id); err != nil {
+			if err = tm.ClearDescription(id); err != nil {
 				handleError(err, "Clear description error")
 				continue
 			}
 			fmt.Println("✅ Task description cleared!")
 
 		case "process":
-			task.ProcessTasks(tasks)
+			tm.ProcessTasks()
 
 		case "help":
 			showHelp()

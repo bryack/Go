@@ -13,33 +13,67 @@ type Task struct {
 	Done        bool   `json:"done"`
 }
 
+type TaskManager struct {
+	tasks []Task
+	mu    sync.Mutex
+}
+
 const processDelay = 500 * time.Millisecond
 
 var ErrTaskNotFound = errors.New("task not found")
 
-func generateMaxID(tasks *[]Task) int {
+func NewTaskManager() *TaskManager {
+	return &TaskManager{
+		tasks: make([]Task, 0),
+	}
+}
+
+func (tm *TaskManager) generateMaxID() int {
 	maxID := 0
 
-	for i := range *tasks {
-		if (*tasks)[i].ID > maxID {
-			maxID = (*tasks)[i].ID
+	for _, t := range tm.tasks {
+		if t.ID > maxID {
+			maxID = t.ID
 		}
 	}
 	return maxID + 1
 }
 
+func (tm *TaskManager) GetTasks() []Task {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	tasksCopy := make([]Task, len(tm.tasks))
+	copy(tasksCopy, tm.tasks)
+	return tasksCopy
+}
+
+func (tm *TaskManager) SetTasks(newTask []Task) {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	tm.tasks = make([]Task, len(newTask))
+	copy(tm.tasks, newTask)
+}
+
 // AddTask добавляет новую задачу в список
-func AddTask(tasks *[]Task, input string) int {
-	newID := generateMaxID(tasks)
-	*tasks = append(*tasks, Task{ID: newID, Description: input, Done: false})
+func (tm *TaskManager) AddTask(input string) int {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	newID := tm.generateMaxID()
+	tm.tasks = append(tm.tasks, Task{ID: newID, Description: input, Done: false})
 	return newID
 }
 
 // MarkTaskDone помечает задачу как выполненную
-func MarkTaskDone(tasks *[]Task, id int) error {
-	for index := range *tasks {
-		if (*tasks)[index].ID == id {
-			(*tasks)[index].Done = true
+func (tm *TaskManager) MarkTaskDone(id int) error {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	for i := range tm.tasks {
+		if tm.tasks[i].ID == id {
+			tm.tasks[i].Done = true
 			return nil
 		}
 	}
@@ -47,12 +81,15 @@ func MarkTaskDone(tasks *[]Task, id int) error {
 }
 
 // PrintTasks выводит список всех задач
-func PrintTasks(tasks []Task) {
-	if len(tasks) == 0 {
+func (tm *TaskManager) PrintTasks() {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	if len(tm.tasks) == 0 {
 		fmt.Println("No tasks available")
 		return
 	}
-	for _, task := range tasks {
+	for _, task := range tm.tasks {
 		status := "  "
 		if task.Done {
 			status = "✓ "
@@ -63,10 +100,13 @@ func PrintTasks(tasks []Task) {
 }
 
 // clearTaskDescription очищает описание задачи
-func ClearDescription(tasks *[]Task, id int) error {
-	for i := range *tasks {
-		if (*tasks)[i].ID == id {
-			(*tasks)[i].Description = ""
+func (tm *TaskManager) ClearDescription(id int) error {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	for i := range tm.tasks {
+		if tm.tasks[i].ID == id {
+			tm.tasks[i].Description = ""
 			return nil
 		}
 	}
@@ -82,14 +122,14 @@ func processTask(task Task, wg *sync.WaitGroup) {
 }
 
 // ProcessTasks запускает параллельную обработку всех задач
-func ProcessTasks(tasks []Task) {
-	if len(tasks) == 0 {
+func (tm *TaskManager) ProcessTasks() {
+	if len(tm.tasks) == 0 {
 		fmt.Println("No tasks to process")
 		return
 	}
 	fmt.Println("Starting parallel task processing...")
 	var wg sync.WaitGroup
-	for _, task := range tasks {
+	for _, task := range tm.tasks {
 		wg.Add(1)
 		go processTask(task, &wg)
 	}

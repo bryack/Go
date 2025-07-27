@@ -144,15 +144,20 @@ func processTask(task Task, wg *sync.WaitGroup) {
 
 // ProcessTasks запускает параллельную обработку всех задач
 func (tm *TaskManager) ProcessTasks() {
-	if len(tm.tasks) == 0 {
+	// 1. Получаем независимую, потокобезопасную копию списка задач.
+	//    Метод GetTasks() уже заботится о блокировке мьютекса и создании копии.
+	tasksToProcess := tm.GetTasks() // <-- ИСПОЛЬЗУЕМ GetTasks() здесь!
+
+	if len(tasksToProcess) == 0 {
 		fmt.Println("No tasks to process")
 		return
 	}
 	fmt.Println("Starting parallel task processing...")
 	var wg sync.WaitGroup
-	for _, task := range tm.tasks {
+	// 2. Итерируемся по ЭТОЙ КОПИИ, которая не будет изменяться другими горутинами.
+	for _, task := range tasksToProcess {
 		wg.Add(1)
-		go processTask(task, &wg)
+		go processTask(task, &wg) // Передаем копию Task в горутину
 	}
 	wg.Wait()
 	fmt.Println("All tasks processed successfully!")

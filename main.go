@@ -19,7 +19,7 @@ const (
 var (
 	ErrMaxSizeExceeded = errors.New("input too long")
 	ErrEmptyInput      = errors.New("empty input")
-	ErrInvalidIdFormat = errors.New("invalid id format")
+	ErrInvalidIdFormat = errors.New("invalid ID format")
 )
 
 // readInput читает пользовательский ввод с ограничением размера
@@ -60,7 +60,7 @@ func handleError(err error, context string) {
 	case errors.Is(err, storage.ErrFileNotFound):
 		fmt.Printf("%s: file not found\n", context)
 	case errors.Is(err, storage.ErrParseJson):
-		fmt.Printf("%s: JSON parsinf error\n", context)
+		fmt.Printf("%s: JSON parsing error\n", context)
 	case errors.Is(err, ErrInvalidIdFormat):
 		fmt.Printf("%s: failed to find id\n", context)
 	default:

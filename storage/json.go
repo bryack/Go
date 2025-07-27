@@ -8,6 +8,11 @@ import (
 	"os"
 )
 
+type Storage interface {
+	LoadTasks() ([]task.Task, error)
+	SaveTasks(tasks []task.Task) error
+}
+
 var (
 	ErrFileNotFound    = errors.New("file not found, tasks not downloaded")
 	ErrParseJson       = errors.New("error parsing JSON")

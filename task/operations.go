@@ -48,7 +48,7 @@ func (tm *TaskManager) generateMaxID() int {
 //
 // Возвращает:
 //
-//	[]Task: Независимый срез задач.с
+//	[]Task: Независимый срез задач.
 func (tm *TaskManager) GetTasks() []Task {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()

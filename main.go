@@ -19,6 +19,7 @@ const (
 var (
 	ErrMaxSizeExceeded = errors.New("input too long")
 	ErrEmptyInput      = errors.New("empty input")
+	ErrInvalidIdFormat = errors.New("invalid id format")
 )
 
 // readInput читает пользовательский ввод с ограничением размера
@@ -60,6 +61,8 @@ func handleError(err error, context string) {
 		fmt.Printf("%s: file not found\n", context)
 	case storage.ErrParseJson:
 		fmt.Printf("%s: JSON parsinf error\n", context)
+	case ErrInvalidIdFormat:
+		fmt.Printf("%s: failed to find id\n", context)
 	default:
 		fmt.Printf("%s: %v\n", context, err)
 	}
@@ -123,7 +126,7 @@ func main() {
 
 			id, err := strconv.Atoi(input)
 			if err != nil {
-				fmt.Println("❌ Invalid ID format")
+				handleError(ErrInvalidIdFormat, "❌ Invalid ID format")
 			}
 			if err := tm.MarkTaskDone(id); err != nil {
 				handleError(err, "Mark done error")
@@ -150,7 +153,7 @@ func main() {
 
 			id, err := strconv.Atoi(idSrt)
 			if err != nil {
-				fmt.Println("❌ Invalid ID format")
+				handleError(ErrInvalidIdFormat, "❌ Invalid ID format")
 				continue
 			}
 

@@ -44,24 +44,24 @@ func readInput(maxSize int) (string, error) {
 
 // handleError обрабатывает различные типы ошибок
 func handleError(err error, context string) {
-	switch err {
-	case io.EOF:
+	switch {
+	case errors.Is(err, io.EOF):
 		fmt.Printf("%s: input interrupted by user\n", context)
-	case ErrMaxSizeExceeded:
+	case errors.Is(err, ErrMaxSizeExceeded):
 		fmt.Printf("%s: input exceeds %d characters\n", context, maxInputSize)
-	case ErrEmptyInput:
+	case errors.Is(err, ErrEmptyInput):
 		fmt.Printf("%s: empty input provided\n", context)
-	case task.ErrTaskNotFound:
+	case errors.Is(err, task.ErrTaskNotFound):
 		fmt.Printf("%s: task not found\n", context)
-	case storage.ErrConversionTask:
+	case errors.Is(err, storage.ErrConversionTask):
 		fmt.Printf("%s: failed to convert tasks\n", context)
-	case storage.ErrFailedWriteFile:
+	case errors.Is(err, storage.ErrFailedWriteFile):
 		fmt.Printf("%s: failed to write file\n", context)
-	case storage.ErrFileNotFound:
+	case errors.Is(err, storage.ErrFileNotFound):
 		fmt.Printf("%s: file not found\n", context)
-	case storage.ErrParseJson:
+	case errors.Is(err, storage.ErrParseJson):
 		fmt.Printf("%s: JSON parsinf error\n", context)
-	case ErrInvalidIdFormat:
+	case errors.Is(err, ErrInvalidIdFormat):
 		fmt.Printf("%s: failed to find id\n", context)
 	default:
 		fmt.Printf("%s: %v\n", context, err)
@@ -84,6 +84,7 @@ func showHelp() {
 
 func main() {
 	tm := task.NewTaskManager()
+	var s storage.Storage = storage.JsonStorage{}
 	fmt.Println("🚀 Task Manager Started!")
 	showHelp()
 	for {
@@ -95,7 +96,7 @@ func main() {
 		}
 		switch input {
 		case "exit":
-			if err := storage.SaveTasks(tm.GetTasks()); err != nil {
+			if err := s.SaveTasks(tm.GetTasks()); err != nil {
 				handleError(err, "Save error")
 			} else {
 				fmt.Println("Tasks saved successfully!")
@@ -126,7 +127,7 @@ func main() {
 
 			id, err := strconv.Atoi(input)
 			if err != nil {
-				handleError(ErrInvalidIdFormat, "❌ Invalid ID format")
+				handleError(fmt.Errorf("%w: %v", ErrInvalidIdFormat, err), "❌ Invalid ID format")
 			}
 			if err := tm.MarkTaskDone(id); err != nil {
 				handleError(err, "Mark done error")
@@ -135,7 +136,7 @@ func main() {
 			fmt.Println("Task marked as done")
 
 		case "load":
-			loadedTasks, err := storage.LoadTasks()
+			loadedTasks, err := s.LoadTasks()
 			if err != nil {
 				handleError(err, "Load error")
 			} else {
@@ -153,7 +154,7 @@ func main() {
 
 			id, err := strconv.Atoi(idSrt)
 			if err != nil {
-				handleError(ErrInvalidIdFormat, "❌ Invalid ID format")
+				handleError(fmt.Errorf("%w: %v", ErrInvalidIdFormat, err), "❌ Invalid ID format")
 				continue
 			}
 

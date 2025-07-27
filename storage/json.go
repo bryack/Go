@@ -3,7 +3,6 @@ package storage
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"myproject/task"
 	"os"
 )
@@ -13,6 +12,8 @@ type Storage interface {
 	SaveTasks(tasks []task.Task) error
 }
 
+type JsonStorage struct{}
+
 var (
 	ErrFileNotFound    = errors.New("file not found, tasks not downloaded")
 	ErrParseJson       = errors.New("error parsing JSON")
@@ -21,7 +22,7 @@ var (
 )
 
 // LoadTasks загружает задачи из файла tasks.json
-func LoadTasks() ([]task.Task, error) {
+func (j JsonStorage) LoadTasks() ([]task.Task, error) {
 	// Попытка прочитать весь файл tasks.json
 	data, err := os.ReadFile("tasks.json")
 	if err != nil {
@@ -33,13 +34,11 @@ func LoadTasks() ([]task.Task, error) {
 	if err := json.Unmarshal(data, &tasks); err != nil {
 		return []task.Task{}, ErrParseJson
 	}
-
-	fmt.Println("tasks loaded from tasks.json:", tasks)
 	return tasks, nil
 }
 
 // SaveTasks сохраняет задачи в файл tasks.json
-func SaveTasks(tasks []task.Task) error {
+func (j JsonStorage) SaveTasks(tasks []task.Task) error {
 	// Преобразуем срез задач в JSON-формат ([]byte)
 	data, err := json.Marshal(tasks)
 	if err != nil {

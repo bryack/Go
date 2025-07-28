@@ -62,7 +62,7 @@ func handleError(err error, context string) {
 	case errors.Is(err, storage.ErrParseJson):
 		fmt.Printf("%s: JSON parsing error\n", context)
 	case errors.Is(err, ErrInvalidIdFormat):
-		fmt.Printf("%s: failed to find id\n", context)
+		fmt.Printf("%s: invalid ID format\n", context)
 	default:
 		fmt.Printf("%s: %v\n", context, err)
 	}
@@ -127,7 +127,8 @@ func main() {
 
 			id, err := strconv.Atoi(input)
 			if err != nil {
-				handleError(fmt.Errorf("%w: %v", ErrInvalidIdFormat, err), "❌ Invalid ID format")
+				handleError(fmt.Errorf("%w: %v", ErrInvalidIdFormat, err), "❌ ID conversion error")
+				continue
 			}
 			if err := tm.MarkTaskDone(id); err != nil {
 				handleError(err, "Mark done error")
@@ -154,7 +155,7 @@ func main() {
 
 			id, err := strconv.Atoi(idSrt)
 			if err != nil {
-				handleError(fmt.Errorf("%w: %v", ErrInvalidIdFormat, err), "❌ Invalid ID format")
+				handleError(fmt.Errorf("%w: %v", ErrInvalidIdFormat, err), "❌ ID conversion error")
 				continue
 			}
 

@@ -3,6 +3,7 @@ package task
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -106,18 +107,35 @@ func (tm *TaskManager) PrintTasks() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
-	if len(tm.tasks) == 0 {
+	fmt.Print(formateTasks(tm.tasks))
+}
+
+// formatTask форматирует одну задачу в строку
+func formateTask(task Task) string {
+	status := "  "
+	if task.Done {
+		status = "✓ "
+	}
+	return fmt.Sprintf("[%s] ID: %d, Description: %s", status, task.ID, task.Description)
+}
+
+// formatTasks форматирует список задач в строку
+func formateTasks(tasks []Task) string {
+	var builder strings.Builder
+
+	if len(tasks) == 0 {
 		fmt.Println("No tasks available")
-		return
+		return builder.String()
 	}
-	for _, task := range tm.tasks {
-		status := "  "
-		if task.Done {
-			status = "✓ "
+
+	for i, task := range tasks {
+		strTask := formateTask(task)
+		builder.WriteString(strTask)
+		if i < len(tasks)-1 {
+			builder.WriteString(",\n")
 		}
-		fmt.Printf("[%s] ID: %d, Description: %s\n", status, task.ID, task.Description)
 	}
-	fmt.Println("================")
+	return builder.String()
 }
 
 // clearTaskDescription очищает описание задачи

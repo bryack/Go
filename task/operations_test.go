@@ -273,3 +273,13 @@ func TestClearTaskDescription(t *testing.T) {
 		})
 	}
 }
+
+// func TestFormatTasks(t *testing.T) {
+// 	tasks := []Task{
+// 		{ID: 1, Description: "Task 1", Done: false},
+// 		{ID: 2, Description: "Task 2", Done: true},
+// 	}
+// 	result := FormateTasks(tasks)
+
+// 	fmt.Println(result)
+// }

@@ -283,3 +283,14 @@ func TestClearTaskDescription(t *testing.T) {
 
 // 	fmt.Println(result)
 // }
+
+// func TestGetFormattedTasks(t *testing.T) {
+// 	tm := NewTaskManager()
+// 	tm.AddTask("Test task")
+
+// 	result := tm.GetFormattedTasks()
+
+// 	if !strings.Contains(result, "Test task") {
+// 		t.Error("Formatted tasks should contain added task")
+// 	}
+// }

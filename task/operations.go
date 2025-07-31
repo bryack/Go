@@ -138,6 +138,11 @@ func formateTasks(tasks []Task) string {
 	return builder.String()
 }
 
+func (tm *TaskManager) GetFormattedTasks() string {
+	taskCopy := tm.GetTasks()
+	return formateTasks(taskCopy)
+}
+
 // clearTaskDescription очищает описание задачи
 func (tm *TaskManager) ClearDescription(id int) error {
 	tm.mu.Lock()

@@ -63,6 +63,8 @@ func handleError(err error, context string) {
 		fmt.Printf("%s: JSON parsing error\n", context)
 	case errors.Is(err, ErrInvalidIdFormat):
 		fmt.Printf("%s: invalid ID format\n", context)
+	case errors.Is(err, task.ErrPrintTask):
+		fmt.Printf("%s: failed to print tasks\n", context)
 	default:
 		fmt.Printf("%s: %v\n", context, err)
 	}
@@ -83,7 +85,7 @@ func showHelp() {
 }
 
 func main() {
-	tm := task.NewTaskManager()
+	tm := task.NewTaskManager(os.Stdout)
 	var s storage.Storage = storage.JsonStorage{}
 	fmt.Println("🚀 Task Manager Started!")
 	showHelp()
@@ -105,7 +107,9 @@ func main() {
 			return
 
 		case "list":
-			tm.PrintTasks()
+			if err := tm.PrintTasks(); err != nil {
+				handleError(err, "Print tasks error")
+			}
 
 		case "add":
 			fmt.Println("enter task description:")

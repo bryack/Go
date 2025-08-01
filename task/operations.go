@@ -3,6 +3,7 @@ package task
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"time"
@@ -15,20 +16,27 @@ type Task struct {
 }
 
 type TaskManager struct {
-	tasks []Task
-	mu    sync.Mutex
+	tasks  []Task
+	mu     sync.Mutex
+	writer io.Writer
 }
 
 const processDelay = 500 * time.Millisecond
 
-var ErrTaskNotFound = errors.New("task not found")
+var (
+	ErrTaskNotFound = errors.New("task not found")
+	ErrPrintTask    = errors.New("failed to print tasks")
+)
 
-func NewTaskManager() *TaskManager {
+// NewTaskManager создает новый экземпляр TaskManager с указанным writer для вывода.
+func NewTaskManager(writer io.Writer) *TaskManager {
 	return &TaskManager{
-		tasks: make([]Task, 0),
+		tasks:  make([]Task, 0),
+		writer: writer,
 	}
 }
 
+// generateMaxID возвращает следующий доступный ID для новой задачи.
 func (tm *TaskManager) generateMaxID() int {
 	maxID := 0
 
@@ -78,7 +86,7 @@ func (tm *TaskManager) SetTasks(newTask []Task) {
 	copy(tm.tasks, newTask)
 }
 
-// AddTask добавляет новую задачу в список
+// AddTask добавляет новую задачу с указанным описанием и возвращает ее ID.
 func (tm *TaskManager) AddTask(input string) int {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
@@ -88,7 +96,8 @@ func (tm *TaskManager) AddTask(input string) int {
 	return newID
 }
 
-// MarkTaskDone помечает задачу как выполненную
+// MarkTaskDone помечает задачу с указанным ID как выполненную.
+// Возвращает ErrTaskNotFound, если задача не найдена.
 func (tm *TaskManager) MarkTaskDone(id int) error {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
@@ -102,16 +111,17 @@ func (tm *TaskManager) MarkTaskDone(id int) error {
 	return ErrTaskNotFound
 }
 
-// PrintTasks выводит список всех задач
-func (tm *TaskManager) PrintTasks() {
+// PrintTasks выводит все задачи в указанный writer.
+// Возвращает ошибку при проблемах с записью.
+func (tm *TaskManager) PrintTasks() error {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
-	fmt.Print(formateTasks(tm.tasks))
+	return printToWriter(tm.tasks, tm.writer)
 }
 
-// formatTask форматирует одну задачу в строку
-func formateTask(task Task) string {
+// formatTask форматирует одну задачу в строку со статусом и описанием.
+func formatTask(task Task) string {
 	status := "  "
 	if task.Done {
 		status = "✓ "
@@ -119,31 +129,44 @@ func formateTask(task Task) string {
 	return fmt.Sprintf("[%s] ID: %d, Description: %s", status, task.ID, task.Description)
 }
 
-// formatTasks форматирует список задач в строку
-func formateTasks(tasks []Task) string {
+// formatTasks форматирует список задач в многострочную строку.
+// Возвращает сообщение "No tasks available" для пустого списка.
+func formatTasks(tasks []Task) string {
 	var builder strings.Builder
 
 	if len(tasks) == 0 {
-		fmt.Println("No tasks available")
+		builder.WriteString("No tasks available")
 		return builder.String()
 	}
 
 	for i, task := range tasks {
-		strTask := formateTask(task)
+		strTask := formatTask(task)
 		builder.WriteString(strTask)
 		if i < len(tasks)-1 {
-			builder.WriteString(",\n")
+			builder.WriteString("\n")
 		}
 	}
 	return builder.String()
 }
 
+// GetFormattedTasks возвращает отформатированную строку всех задач.
+// Использует потокобезопасную копию списка задач.
 func (tm *TaskManager) GetFormattedTasks() string {
 	taskCopy := tm.GetTasks()
-	return formateTasks(taskCopy)
+	return formatTasks(taskCopy)
 }
 
-// clearTaskDescription очищает описание задачи
+// printToWriter записывает отформатированный список задач в указанный writer.
+func printToWriter(tasks []Task, writer io.Writer) error {
+	_, err := writer.Write([]byte(formatTasks(tasks)))
+	if err != nil {
+		return ErrPrintTask
+	}
+	return nil
+}
+
+// ClearDescription очищает описание задачи с указанным ID.
+// Возвращает ErrTaskNotFound, если задача не найдена.
 func (tm *TaskManager) ClearDescription(id int) error {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
@@ -157,7 +180,8 @@ func (tm *TaskManager) ClearDescription(id int) error {
 	return ErrTaskNotFound
 }
 
-// processTask обрабатывает одну задачу (симуляция работы)
+// processTask симулирует обработку одной задачи с задержкой.
+// Выполняется в отдельной горутине.
 func processTask(task Task, wg *sync.WaitGroup) {
 	defer wg.Done()
 	fmt.Printf("Processing task ID: %d\n", task.ID)
@@ -165,11 +189,12 @@ func processTask(task Task, wg *sync.WaitGroup) {
 	fmt.Printf("Task ID: %d processed successfully\n", task.ID)
 }
 
-// ProcessTasks запускает параллельную обработку всех задач
+// ProcessTasks запускает параллельную обработку всех задач.
+// Каждая задача обрабатывается в отдельной горутине.
 func (tm *TaskManager) ProcessTasks() {
 	// 1. Получаем независимую, потокобезопасную копию списка задач.
 	//    Метод GetTasks() уже заботится о блокировке мьютекса и создании копии.
-	tasksToProcess := tm.GetTasks() // <-- ИСПОЛЬЗУЕМ GetTasks() здесь!
+	tasksToProcess := tm.GetTasks()
 
 	if len(tasksToProcess) == 0 {
 		fmt.Println("No tasks to process")

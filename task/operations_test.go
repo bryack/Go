@@ -2,6 +2,7 @@ package task
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 
@@ -57,7 +58,7 @@ func TestAddTask(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// ==== ACT ====
-			tm := NewTaskManager()
+			tm := NewTaskManager(&strings.Builder{})
 			tm.SetTasks(tc.initialTasks)
 			actualId := tm.AddTask(tc.input)
 
@@ -84,7 +85,7 @@ func TestAddTask(t *testing.T) {
 
 // TestConcurrentAddTask проверяет, что одновременные вызовы AddTask безопасны
 func TestConcurrentAddTask(t *testing.T) {
-	tm := NewTaskManager()
+	tm := NewTaskManager(&strings.Builder{})
 	const numGoroutines = 100
 	const tasksPerGoroutine = 10
 
@@ -185,7 +186,7 @@ func TestMarkTaskDone(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// ==== ACT ====
-			tm := NewTaskManager()
+			tm := NewTaskManager(&strings.Builder{})
 			tm.SetTasks(tc.initialTasks)
 			actualErr := tm.MarkTaskDone(tc.taskId)
 
@@ -256,7 +257,7 @@ func TestClearTaskDescription(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tm := NewTaskManager()
+			tm := NewTaskManager(&strings.Builder{})
 			tm.SetTasks(tc.initialTasks)
 
 			// ==== ACT ====
@@ -292,5 +293,19 @@ func TestClearTaskDescription(t *testing.T) {
 
 // 	if !strings.Contains(result, "Test task") {
 // 		t.Error("Formatted tasks should contain added task")
+// 	}
+// }
+
+// func TestPrintToWriter(t *testing.T) {
+// 	var buffer strings.Builder
+// 	tasks := []Task{{ID: 1, Description: "Test", Done: false}}
+
+// 	err := printToWriter(tasks, &buffer)
+
+// 	if err != nil {
+// 		t.Error("Should not return error")
+// 	}
+// 	if buffer.String() == "" {
+// 		t.Error("Should write something to buffer")
 // 	}
 // }

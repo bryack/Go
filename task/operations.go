@@ -157,6 +157,8 @@ func (tm *TaskManager) GetFormattedTasks() string {
 }
 
 // printToWriter записывает отформатированный список задач в указанный writer.
+// Абстракция формата вывода: Функция принимает io.Writer, чтобы записывать
+// отформатированные задачи (formateTasks) в любой получатель (консоль, файл, буфер).
 func printToWriter(tasks []Task, writer io.Writer) error {
 	_, err := writer.Write([]byte(formatTasks(tasks)))
 	if err != nil {

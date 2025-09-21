@@ -12,8 +12,18 @@ import (
 	"strings"
 )
 
+type Command string
+
 const (
-	maxInputSize = 10
+	maxInputSize           = 10
+	CommandAdd     Command = "add"
+	CommandDone    Command = "done"
+	CommandList    Command = "list"
+	CommandProcess Command = "process"
+	CommandLoad    Command = "load"
+	CommandClear   Command = "clear"
+	CommandHelp    Command = "help"
+	CommandExit    Command = "exit"
 )
 
 var (
@@ -52,6 +62,10 @@ func validateTaskID(input string) (int, error) {
 		return 0, ErrInvalidTaskId
 	}
 	return id, nil
+}
+
+func (cmd Command) isValid() bool {
+
 }
 
 // handleError обрабатывает различные типы ошибок
@@ -108,22 +122,8 @@ func main() {
 			handleError(err, "Input error")
 			continue
 		}
-		switch input {
-		case "exit":
-			if err := s.SaveTasks(tm.GetTasks()); err != nil {
-				handleError(err, "Save error")
-			} else {
-				fmt.Println("Tasks saved successfully!")
-			}
-			fmt.Println("👋 Bye!")
-			return
-
-		case "list":
-			if err := tm.PrintTasks(); err != nil {
-				handleError(err, "Print tasks error")
-			}
-
-		case "add":
+		switch Command(input) {
+		case CommandAdd:
 			fmt.Println("enter task description:")
 			desc, err := readInput(50)
 			if err != nil {
@@ -133,7 +133,7 @@ func main() {
 			id := tm.AddTask(desc)
 			fmt.Printf("✅ Task added (ID: %d)\n", id)
 
-		case "done":
+		case CommandDone:
 			fmt.Println("Enter task ID to mark as done:")
 			input, err := readInput(10)
 			if err != nil {
@@ -152,7 +152,15 @@ func main() {
 			}
 			fmt.Println("Task marked as done")
 
-		case "load":
+		case CommandList:
+			if err := tm.PrintTasks(); err != nil {
+				handleError(err, "Print tasks error")
+			}
+
+		case CommandProcess:
+			tm.ProcessTasks()
+
+		case CommandLoad:
 			loadedTasks, err := s.LoadTasks()
 			if err != nil {
 				handleError(err, "Load error")
@@ -161,7 +169,7 @@ func main() {
 				fmt.Println("✅ Tasks loaded successfully!")
 			}
 
-		case "clear":
+		case CommandClear:
 			fmt.Println("enter task id you want to clear description")
 			idSrt, err := readInput(maxInputSize)
 			if err != nil {
@@ -181,11 +189,17 @@ func main() {
 			}
 			fmt.Println("✅ Task description cleared!")
 
-		case "process":
-			tm.ProcessTasks()
-
-		case "help":
+		case CommandHelp:
 			showHelp()
+
+		case CommandExit:
+			if err := s.SaveTasks(tm.GetTasks()); err != nil {
+				handleError(err, "Save error")
+			} else {
+				fmt.Println("Tasks saved successfully!")
+			}
+			fmt.Println("👋 Bye!")
+			return
 
 		default:
 			fmt.Printf("❌ Unknown command: '%s'\n", input)

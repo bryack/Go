@@ -19,7 +19,7 @@ const (
 var (
 	ErrMaxSizeExceeded = errors.New("input too long")
 	ErrEmptyInput      = errors.New("empty input")
-	ErrInvalidIdFormat = errors.New("invalid ID format")
+	ErrInvalidTaskId   = errors.New("invalid ID format")
 )
 
 // readInput читает пользовательский ввод с ограничением размера
@@ -42,6 +42,18 @@ func readInput(maxSize int) (string, error) {
 	return input, nil
 }
 
+// validateTaskID проверяет, может ли строка быть валидным ID задачи
+func validateTaskID(input string) (int, error) {
+	id, err := strconv.Atoi(input)
+	if err != nil {
+		return 0, ErrInvalidTaskId
+	}
+	if id <= 0 {
+		return 0, ErrInvalidTaskId
+	}
+	return id, nil
+}
+
 // handleError обрабатывает различные типы ошибок
 func handleError(err error, context string) {
 	switch {
@@ -61,8 +73,8 @@ func handleError(err error, context string) {
 		fmt.Printf("%s: file not found\n", context)
 	case errors.Is(err, storage.ErrParseJson):
 		fmt.Printf("%s: JSON parsing error\n", context)
-	case errors.Is(err, ErrInvalidIdFormat):
-		fmt.Printf("%s: invalid ID format\n", context)
+	case errors.Is(err, ErrInvalidTaskId):
+		fmt.Printf("%s: ID must be a positive number (greater than 0)\n", context)
 	case errors.Is(err, task.ErrPrintTask):
 		fmt.Printf("%s: failed to print tasks\n", context)
 	default:
@@ -129,9 +141,9 @@ func main() {
 				continue
 			}
 
-			id, err := strconv.Atoi(input)
+			id, err := validateTaskID(input)
 			if err != nil {
-				handleError(fmt.Errorf("%w: %v", ErrInvalidIdFormat, err), "❌ ID conversion error")
+				handleError(err, "❌ ID conversion error")
 				continue
 			}
 			if err := tm.MarkTaskDone(id); err != nil {
@@ -157,9 +169,9 @@ func main() {
 				continue
 			}
 
-			id, err := strconv.Atoi(idSrt)
+			id, err := validateTaskID(idSrt)
 			if err != nil {
-				handleError(fmt.Errorf("%w: %v", ErrInvalidIdFormat, err), "❌ ID conversion error")
+				handleError(err, "❌ ID conversion error")
 				continue
 			}
 

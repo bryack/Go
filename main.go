@@ -12,24 +12,28 @@ import (
 	"strings"
 )
 
+// Command represents a valid user command in the task manager CLI.
+// Commands are case-insensitive and validated against a predefined set.
 type Command string
 
 const (
 	maxInputSize           = 10
-	CommandAdd     Command = "add"
-	CommandDone    Command = "done"
-	CommandList    Command = "list"
-	CommandProcess Command = "process"
-	CommandLoad    Command = "load"
-	CommandClear   Command = "clear"
-	CommandHelp    Command = "help"
-	CommandExit    Command = "exit"
+	CommandAdd     Command = "add"     // Add a new task
+	CommandDone    Command = "done"    // Mark task as completed
+	CommandList    Command = "list"    // Show all tasks
+	CommandProcess Command = "process" // Process all tasks in parallel
+	CommandLoad    Command = "load"    // Load tasks from file
+	CommandClear   Command = "clear"   // Clear task description
+	CommandHelp    Command = "help"    // Show available commands
+	CommandExit    Command = "exit"    // Save and exit program
 )
 
 var (
+	validCommands      = []Command{CommandAdd, CommandDone, CommandList, CommandProcess, CommandLoad, CommandClear, CommandHelp, CommandExit}
 	ErrMaxSizeExceeded = errors.New("input too long")
 	ErrEmptyInput      = errors.New("empty input")
 	ErrInvalidTaskId   = errors.New("invalid ID format")
+	ErrInvalidCommand  = errors.New("invalid command")
 )
 
 // readInput читает пользовательский ввод с ограничением размера
@@ -52,7 +56,8 @@ func readInput(maxSize int) (string, error) {
 	return input, nil
 }
 
-// validateTaskID проверяет, может ли строка быть валидным ID задачи
+// validateTaskID converts a string input to a valid task ID.
+// Returns the parsed ID if valid (positive integer), or an error if invalid.
 func validateTaskID(input string) (int, error) {
 	id, err := strconv.Atoi(input)
 	if err != nil {
@@ -64,8 +69,39 @@ func validateTaskID(input string) (int, error) {
 	return id, nil
 }
 
+// isValid checks if the command is in the list of supported commands.
+// Returns true if the command is valid, false otherwise.
 func (cmd Command) isValid() bool {
+	for _, valid := range validCommands {
+		if cmd == valid {
+			return true
+		}
+	}
+	return false
+}
 
+// validateCommand converts user input to a valid Command.
+// Input is normalized to lowercase before validation.
+// Returns the valid command or an error if the command is not recognized.
+func validateCommand(input string) (Command, error) {
+	inputToLower := strings.ToLower(input)
+	cmd := Command(inputToLower)
+	if cmd.isValid() {
+		return cmd, nil
+	}
+	return "", ErrInvalidCommand
+}
+
+// suggestCommand attempts to find a command that matches the input prefix.
+// Returns the first matching command, or empty string if no match is found.
+// Used to provide helpful suggestions for typos or partial commands.
+func suggestCommand(input string) Command {
+	for _, cmd := range validCommands {
+		if strings.HasPrefix(string(cmd), input) {
+			return cmd
+		}
+	}
+	return ""
 }
 
 // handleError обрабатывает различные типы ошибок
@@ -91,6 +127,8 @@ func handleError(err error, context string) {
 		fmt.Printf("%s: ID must be a positive number (greater than 0)\n", context)
 	case errors.Is(err, task.ErrPrintTask):
 		fmt.Printf("%s: failed to print tasks\n", context)
+	case errors.Is(err, ErrInvalidCommand):
+		fmt.Printf("%s: failed to assume command\n", context)
 	default:
 		fmt.Printf("%s: %v\n", context, err)
 	}
@@ -122,7 +160,20 @@ func main() {
 			handleError(err, "Input error")
 			continue
 		}
-		switch Command(input) {
+
+		cmd, err := validateCommand(input)
+		if err != nil {
+			suggestion := suggestCommand(input)
+			if suggestion != "" {
+				fmt.Printf("❌ Unknown command: '%s', maybe you wanted: '%s'\n", input, suggestion)
+			} else {
+				handleError(err, "Command validate error")
+				fmt.Println("Type 'help' to see available commands")
+			}
+			continue
+		}
+
+		switch Command(cmd) {
 		case CommandAdd:
 			fmt.Println("enter task description:")
 			desc, err := readInput(50)
@@ -200,10 +251,6 @@ func main() {
 			}
 			fmt.Println("👋 Bye!")
 			return
-
-		default:
-			fmt.Printf("❌ Unknown command: '%s'\n", input)
-			fmt.Println("Type 'help' to see available commands")
 		}
 	}
 }

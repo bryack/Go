@@ -37,16 +37,16 @@ var (
 )
 
 // readInput читает пользовательский ввод с ограничением размера
-func readInput(maxSize int) (string, error) {
-	reader := bufio.NewReader(os.Stdin)
-	input, err := reader.ReadString('\n')
+func readInput(reader io.Reader, maxSize int) (string, error) {
+	bufReader := bufio.NewReader(reader)
+	input, err := bufReader.ReadString('\n')
 	if err != nil {
 		if err == io.EOF {
 			return "", io.EOF
 		}
 		return "", err
 	}
-	input = strings.TrimSpace(strings.TrimRight(input, "\r\n"))
+	input = strings.TrimSpace(input)
 	if len(input) > maxSize {
 		return "", ErrMaxSizeExceeded
 	}
@@ -155,7 +155,7 @@ func main() {
 	showHelp()
 	for {
 		fmt.Print("\nEnter command: ")
-		input, err := readInput(10)
+		input, err := readInput(os.Stdin, 10)
 		if err != nil {
 			handleError(err, "Input error")
 			continue
@@ -176,7 +176,7 @@ func main() {
 		switch Command(cmd) {
 		case CommandAdd:
 			fmt.Println("enter task description:")
-			desc, err := readInput(50)
+			desc, err := readInput(os.Stdin, 50)
 			if err != nil {
 				handleError(err, "Description input error")
 				continue
@@ -186,7 +186,7 @@ func main() {
 
 		case CommandDone:
 			fmt.Println("Enter task ID to mark as done:")
-			input, err := readInput(10)
+			input, err := readInput(os.Stdin, 10)
 			if err != nil {
 				handleError(err, "ID input error")
 				continue
@@ -222,7 +222,7 @@ func main() {
 
 		case CommandClear:
 			fmt.Println("enter task id you want to clear description")
-			idSrt, err := readInput(maxInputSize)
+			idSrt, err := readInput(os.Stdin, maxInputSize)
 			if err != nil {
 				handleError(err, "ID input error")
 				continue

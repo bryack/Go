@@ -26,10 +26,11 @@ const (
 	CommandClear   Command = "clear"   // Clear task description
 	CommandHelp    Command = "help"    // Show available commands
 	CommandExit    Command = "exit"    // Save and exit program
+	CommandUpdate  Command = "update"
 )
 
 var (
-	validCommands      = []Command{CommandAdd, CommandDone, CommandList, CommandProcess, CommandLoad, CommandClear, CommandHelp, CommandExit}
+	validCommands      = []Command{CommandAdd, CommandDone, CommandList, CommandProcess, CommandLoad, CommandClear, CommandHelp, CommandExit, CommandUpdate}
 	ErrMaxSizeExceeded = errors.New("input too long")
 	ErrEmptyInput      = errors.New("empty input")
 	ErrInvalidTaskId   = errors.New("invalid ID format")
@@ -143,6 +144,7 @@ func showHelp() {
 	fmt.Println("process - Process all tasks in parallel")
 	fmt.Println("load    - Load tasks from file")
 	fmt.Println("clear   - Clear task description")
+	fmt.Println("update  - Update task description")
 	fmt.Println("help    - Show this help")
 	fmt.Println("exit    - Save and exit")
 	fmt.Println("=========================")
@@ -155,7 +157,7 @@ func main() {
 	showHelp()
 	for {
 		fmt.Print("\nEnter command: ")
-		input, err := readInput(os.Stdin, 10)
+		input, err := readInput(os.Stdin, maxInputSize)
 		if err != nil {
 			handleError(err, "Input error")
 			continue
@@ -186,7 +188,7 @@ func main() {
 
 		case CommandDone:
 			fmt.Println("Enter task ID to mark as done:")
-			input, err := readInput(os.Stdin, 10)
+			input, err := readInput(os.Stdin, maxInputSize)
 			if err != nil {
 				handleError(err, "ID input error")
 				continue
@@ -251,6 +253,33 @@ func main() {
 			}
 			fmt.Println("👋 Bye!")
 			return
+		case CommandUpdate:
+			fmt.Println("enter task id you want to update")
+			idStr, err := readInput(os.Stdin, maxInputSize)
+			if err != nil {
+				handleError(err, "ID input error")
+				continue
+			}
+
+			id, err := validateTaskID(idStr)
+			if err != nil {
+				handleError(err, "❌ ID conversion error")
+				continue
+			}
+
+			fmt.Println("enter new task description")
+			description, err := readInput(os.Stdin, 50)
+			if err != nil {
+				handleError(err, "Description input error")
+				continue
+			}
+
+			err = tm.UpdateTaskDescription(id, description)
+			if err != nil {
+				handleError(err, "Update task error")
+				continue
+			}
+			fmt.Printf("✅ Task updated (ID: %d)\n", id)
 		}
 	}
 }

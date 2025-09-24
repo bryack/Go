@@ -182,6 +182,21 @@ func (tm *TaskManager) ClearDescription(id int) error {
 	return ErrTaskNotFound
 }
 
+// UpdateTaskDescription updates the description of a task with the specified ID.
+// Returns ErrTaskNotFound if the task is not found.
+func (tm *TaskManager) UpdateTaskDescription(id int, description string) error {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	for i := range tm.tasks {
+		if tm.tasks[i].ID == id {
+			tm.tasks[i].Description = description
+			return nil
+		}
+	}
+	return ErrTaskNotFound
+}
+
 // processTask симулирует обработку одной задачи с задержкой.
 // Выполняется в отдельной горутине.
 func processTask(task Task, wg *sync.WaitGroup) {

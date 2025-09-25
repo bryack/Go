@@ -196,14 +196,22 @@ func main() {
 
 			id, err := validateTaskID(input)
 			if err != nil {
-				handleError(err, "❌ ID conversion error")
+				handleError(err, "ID validation error")
 				continue
 			}
+
+			task, err := tm.GetTaskByID(id)
+			if err != nil {
+				handleError(err, "Task lookup error")
+				continue
+			}
+			fmt.Printf("Task to mark done: '%s'\n", task)
+
 			if err := tm.MarkTaskDone(id); err != nil {
 				handleError(err, "Mark done error")
 				continue
 			}
-			fmt.Println("Task marked as done")
+			fmt.Println("✅ Task marked as done")
 
 		case CommandList:
 			if err := tm.PrintTasks(); err != nil {
@@ -232,9 +240,16 @@ func main() {
 
 			id, err := validateTaskID(idSrt)
 			if err != nil {
-				handleError(err, "❌ ID conversion error")
+				handleError(err, "ID validation error")
 				continue
 			}
+
+			task, err := tm.GetTaskByID(id)
+			if err != nil {
+				handleError(err, "Task lookup error")
+				continue
+			}
+			fmt.Printf("Task to clear: '%s'\n", task)
 
 			if err = tm.ClearDescription(id); err != nil {
 				handleError(err, "Clear description error")
@@ -254,7 +269,7 @@ func main() {
 			fmt.Println("👋 Bye!")
 			return
 		case CommandUpdate:
-			fmt.Println("enter task id you want to update")
+			fmt.Println("Enter task ID to update")
 			idStr, err := readInput(os.Stdin, maxInputSize)
 			if err != nil {
 				handleError(err, "ID input error")
@@ -263,11 +278,18 @@ func main() {
 
 			id, err := validateTaskID(idStr)
 			if err != nil {
-				handleError(err, "❌ ID conversion error")
+				handleError(err, "ID validation error")
 				continue
 			}
 
-			fmt.Println("enter new task description")
+			task, err := tm.GetTaskByID(id)
+			if err != nil {
+				handleError(err, "Task lookup error")
+				continue
+			}
+			fmt.Printf("Current task: '%s'\n", task)
+
+			fmt.Println("Enter new description")
 			description, err := readInput(os.Stdin, 50)
 			if err != nil {
 				handleError(err, "Description input error")

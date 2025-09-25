@@ -197,6 +197,22 @@ func (tm *TaskManager) UpdateTaskDescription(id int, description string) error {
 	return ErrTaskNotFound
 }
 
+// GetTaskByID retrieves a task by its ID and returns it as a formatted string.
+// The returned string includes task status, ID, and description in display format.
+// Returns ErrTaskNotFound if no task with the specified ID exists.
+func (tm *TaskManager) GetTaskByID(id int) (strTask string, err error) {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	for i, task := range tm.tasks {
+		if tm.tasks[i].ID == id {
+			strTask = formatTask(task)
+			return strTask, nil
+		}
+	}
+	return "", ErrTaskNotFound
+}
+
 // processTask симулирует обработку одной задачи с задержкой.
 // Выполняется в отдельной горутине.
 func processTask(task Task, wg *sync.WaitGroup) {

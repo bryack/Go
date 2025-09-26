@@ -275,37 +275,74 @@ func TestClearTaskDescription(t *testing.T) {
 	}
 }
 
-// func TestFormatTasks(t *testing.T) {
-// 	tasks := []Task{
-// 		{ID: 1, Description: "Task 1", Done: false},
-// 		{ID: 2, Description: "Task 2", Done: true},
-// 	}
-// 	result := FormateTasks(tasks)
+func TestFormatTask(t *testing.T) {
+	// ====Arrange====
+	testCases := []struct {
+		name         string
+		task         Task
+		expectedTask string
+	}{
+		{
+			name:         "Incomplete task",
+			task:         Task{ID: 1, Description: "task 1", Done: false},
+			expectedTask: "[  ] ID: 1, Description: task 1",
+		},
+		{
+			name:         "Complete task",
+			task:         Task{ID: 1, Description: "task 1", Done: true},
+			expectedTask: "[✓ ] ID: 1, Description: task 1",
+		},
+		{
+			name:         "Task with empty description",
+			task:         Task{ID: 1, Description: "", Done: true},
+			expectedTask: "[✓ ] ID: 1, Description: ",
+		},
+		{
+			name:         "Task with zero ID",
+			task:         Task{ID: 0, Description: "task 1", Done: true},
+			expectedTask: "[✓ ] ID: 0, Description: task 1",
+		},
+		{
+			name:         "Task with negative ID",
+			task:         Task{ID: -1, Description: "task 1", Done: true},
+			expectedTask: "[✓ ] ID: -1, Description: task 1",
+		},
+		{
+			name:         "Task with description with special characters",
+			task:         Task{ID: 1, Description: "#@`[]$%^*", Done: true},
+			expectedTask: "[✓ ] ID: 1, Description: #@`[]$%^*",
+		},
+		{
+			name:         "Task with description with spaces only",
+			task:         Task{ID: 1, Description: "      ", Done: true},
+			expectedTask: "[✓ ] ID: 1, Description:       ",
+		},
+		{
+			name:         "Task with very long description",
+			task:         Task{ID: 1, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.", Done: true},
+			expectedTask: "[✓ ] ID: 1, Description: Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.",
+		},
+		{
+			name:         "Task with very large ID",
+			task:         Task{ID: 1111111111111111111, Description: "task 1", Done: true},
+			expectedTask: "[✓ ] ID: 1111111111111111111, Description: task 1",
+		},
+		{
+			name:         "Task with Unicode characters",
+			task:         Task{ID: 1, Description: "Buy 🍞 and 🥛", Done: true},
+			expectedTask: "[✓ ] ID: 1, Description: Buy 🍞 and 🥛",
+		},
+	}
 
-// 	fmt.Println(result)
-// }
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// ====Act====
+			fTask := formatTask(tc.task)
 
-// func TestGetFormattedTasks(t *testing.T) {
-// 	tm := NewTaskManager()
-// 	tm.AddTask("Test task")
-
-// 	result := tm.GetFormattedTasks()
-
-// 	if !strings.Contains(result, "Test task") {
-// 		t.Error("Formatted tasks should contain added task")
-// 	}
-// }
-
-// func TestPrintToWriter(t *testing.T) {
-// 	var buffer strings.Builder
-// 	tasks := []Task{{ID: 1, Description: "Test", Done: false}}
-
-// 	err := printToWriter(tasks, &buffer)
-
-// 	if err != nil {
-// 		t.Error("Should not return error")
-// 	}
-// 	if buffer.String() == "" {
-// 		t.Error("Should write something to buffer")
-// 	}
-// }
+			// ====Assert====
+			if diff := cmp.Diff(tc.expectedTask, fTask); diff != "" {
+				t.Errorf("Task mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

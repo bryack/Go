@@ -26,7 +26,7 @@ const (
 	CommandClear   Command = "clear"   // Clear task description
 	CommandHelp    Command = "help"    // Show available commands
 	CommandExit    Command = "exit"    // Save and exit program
-	CommandUpdate  Command = "update"
+	CommandUpdate  Command = "update"  // Update task description
 )
 
 var (

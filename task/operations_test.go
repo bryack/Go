@@ -1,6 +1,7 @@
 package task
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -342,6 +343,231 @@ func TestFormatTask(t *testing.T) {
 			// ====Assert====
 			if diff := cmp.Diff(tc.expectedTask, fTask); diff != "" {
 				t.Errorf("Task mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestUpdateTaskDescription(t *testing.T) {
+	// ====Arrange====
+	testCases := []struct {
+		name          string
+		id            int
+		description   string
+		initialTasks  []Task
+		expectedTasks []Task
+		expectedErr   error
+	}{
+		{
+			name:          "Existent task in one-task list",
+			id:            1,
+			description:   "new task 1",
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedTasks: []Task{{ID: 1, Description: "new task 1", Done: false}},
+			expectedErr:   nil,
+		},
+		{
+			name:          "Completed task in multiple tasks list",
+			id:            3,
+			description:   "new task 3",
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "new task 3", Done: true}},
+			expectedErr:   nil,
+		},
+		{
+			name:          "Non-existent task in multiple tasks list",
+			id:            5,
+			description:   "new task 5",
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedErr:   ErrTaskNotFound,
+		},
+		{
+			name:          "Task in empty task list",
+			id:            1,
+			description:   "new task 1",
+			initialTasks:  []Task{},
+			expectedTasks: []Task{},
+			expectedErr:   ErrTaskNotFound,
+		},
+		{
+			name:          "Empty description",
+			id:            1,
+			description:   "",
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedTasks: []Task{{ID: 1, Description: "", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedErr:   nil,
+		},
+		{
+			name:          "Zero ID",
+			id:            0,
+			description:   "new task 0",
+			initialTasks:  []Task{{ID: 0, Description: "task 0", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedTasks: []Task{{ID: 0, Description: "new task 0", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedErr:   nil,
+		},
+		{
+			name:          "Negative ID",
+			id:            -1,
+			description:   "new task -1",
+			initialTasks:  []Task{{ID: -1, Description: "task -1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedTasks: []Task{{ID: -1, Description: "new task -1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedErr:   nil,
+		},
+		{
+			name:          "Very large ID",
+			id:            1111111111111111111,
+			description:   "new task 1111111111111111111",
+			initialTasks:  []Task{{ID: 1111111111111111111, Description: "task 1111111111111111111", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedTasks: []Task{{ID: 1111111111111111111, Description: "new task 1111111111111111111", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedErr:   nil,
+		},
+		{
+			name:          "New task description with special characters",
+			id:            1,
+			description:   "#@`[]$%^*",
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedTasks: []Task{{ID: 1, Description: "#@`[]$%^*", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedErr:   nil,
+		},
+		{
+			name:          "New task description with Unicode characters",
+			id:            2,
+			description:   "Buy 🍞 and 🥛",
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "Buy 🍞 and 🥛", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedErr:   nil,
+		},
+		{
+			name:          "Very long description update",
+			id:            3,
+			description:   "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.",
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.", Done: true}},
+			expectedErr:   nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tm := NewTaskManager(&strings.Builder{})
+			tm.SetTasks(tc.initialTasks)
+
+			// ====Act====
+			err := tm.UpdateTaskDescription(tc.id, tc.description)
+
+			// ====Assert====
+			if !errors.Is(err, tc.expectedErr) {
+				t.Errorf("Expected %v, got %v", tc.expectedErr, err)
+			}
+
+			if len(tm.GetTasks()) != len(tc.expectedTasks) {
+				t.Errorf("Expected task list length '%d', got '%d'", len(tc.expectedTasks), len(tm.GetTasks()))
+			}
+
+			if diff := cmp.Diff(tm.GetTasks(), tc.expectedTasks); diff != "" {
+				t.Errorf("Struct mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestGetTaskByID(t *testing.T) {
+	// ====Arrange====
+	testCases := []struct {
+		name            string
+		id              int
+		initialTasks    []Task
+		expectedStrTask string
+		expectedErr     error
+	}{
+		{
+			name:            "Existent task in one-task list",
+			id:              1,
+			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedStrTask: "[  ] ID: 1, Description: task 1",
+			expectedErr:     nil,
+		},
+		{
+			name:            "Completed task in multiple tasks list",
+			id:              3,
+			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedStrTask: "[✓ ] ID: 3, Description: task 3",
+			expectedErr:     nil,
+		},
+		{
+			name:            "Non-existent task in multiple tasks list",
+			id:              4,
+			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedStrTask: "",
+			expectedErr:     ErrTaskNotFound,
+		},
+		{
+			name:            "Non-existent task in empty tasks list",
+			id:              1,
+			initialTasks:    []Task{},
+			expectedStrTask: "",
+			expectedErr:     ErrTaskNotFound,
+		},
+		{
+			name:            "Zero ID",
+			id:              0,
+			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedStrTask: "",
+			expectedErr:     ErrTaskNotFound,
+		},
+		{
+			name:            "Negative ID",
+			id:              -1,
+			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedStrTask: "",
+			expectedErr:     ErrTaskNotFound,
+		},
+		{
+			name:            "Very large ID",
+			id:              1111111111111111111,
+			initialTasks:    []Task{{ID: 1111111111111111111, Description: "task 1111111111111111111", Done: false}},
+			expectedStrTask: "[  ] ID: 1111111111111111111, Description: task 1111111111111111111",
+			expectedErr:     nil,
+		},
+		{
+			name:            "Existent task with very long description",
+			id:              3,
+			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.", Done: true}},
+			expectedStrTask: "[✓ ] ID: 3, Description: Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.",
+			expectedErr:     nil,
+		},
+		{
+			name:            "Existent task with empty description",
+			id:              3,
+			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "", Done: true}},
+			expectedStrTask: "[✓ ] ID: 3, Description: ",
+			expectedErr:     nil,
+		},
+		{
+			name:            "Existent task with Unicode and special characters",
+			id:              3,
+			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Buy 🍞 and 🥛#@`[]$%^*", Done: true}},
+			expectedStrTask: "[✓ ] ID: 3, Description: Buy 🍞 and 🥛#@`[]$%^*",
+			expectedErr:     nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tm := NewTaskManager(&strings.Builder{})
+			tm.SetTasks(tc.initialTasks)
+
+			// ====Act====
+			strTask, err := tm.GetTaskByID(tc.id)
+
+			// ====Assert====
+			if !errors.Is(err, tc.expectedErr) {
+				t.Errorf("Expected '%v', got '%v'", tc.expectedErr, err)
+			}
+
+			if diff := cmp.Diff(tc.expectedStrTask, strTask); diff != "" {
+				t.Errorf("String mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

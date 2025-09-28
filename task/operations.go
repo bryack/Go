@@ -74,10 +74,6 @@ func (tm *TaskManager) GetTasks() []Task {
 // newTasks копируется во внутреннее хранилище, что гарантирует, что
 // последующие внешние модификации newTasks не повлияют на внутреннее
 // состояние TaskManager.
-//
-// Параметры:
-//
-//	newTasks []Task: Новый список задач для установки.
 func (tm *TaskManager) SetTasks(newTask []Task) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()

@@ -105,13 +105,35 @@ func suggestCommand(input string) Command {
 	return ""
 }
 
+// promptForTaskID prompts the user for a task ID with a custom message.
+// Returns the validated task ID or an error if input is invalid.
+func promptForTaskID(prompt string) (int, error) {
+	fmt.Println(prompt)
+	input, err := readInput(os.Stdin, maxInputSize)
+	if err != nil {
+		return 0, ErrInvalidTaskId
+	}
+	return validateTaskID(input)
+}
+
+func handleAddCommand(tm *task.TaskManager) error {
+	fmt.Println("enter task description:")
+	desc, err := readInput(os.Stdin, 50)
+	if err != nil {
+		return fmt.Errorf("Description input error: %w", err)
+	}
+	id := tm.AddTask(desc)
+	fmt.Printf("✅ Task added (ID: %d)\n", id)
+	return nil
+}
+
 // handleError обрабатывает различные типы ошибок
 func handleError(err error, context string) {
 	switch {
 	case errors.Is(err, io.EOF):
 		fmt.Printf("%s: input interrupted by user\n", context)
-	case errors.Is(err, ErrMaxSizeExceeded):
-		fmt.Printf("%s: input exceeds %d characters\n", context, maxInputSize)
+	// case errors.Is(err, ErrMaxSizeExceeded):
+	// 	fmt.Printf("%s: input exceeds %d characters\n", context, maxInputSize)
 	case errors.Is(err, ErrEmptyInput):
 		fmt.Printf("%s: empty input provided\n", context)
 	case errors.Is(err, task.ErrTaskNotFound):
@@ -177,24 +199,13 @@ func main() {
 
 		switch Command(cmd) {
 		case CommandAdd:
-			fmt.Println("enter task description:")
-			desc, err := readInput(os.Stdin, 50)
-			if err != nil {
-				handleError(err, "Description input error")
-				continue
+			if err := handleAddCommand(tm); err != nil {
+				handleError(err, "Add command error")
 			}
-			id := tm.AddTask(desc)
-			fmt.Printf("✅ Task added (ID: %d)\n", id)
 
 		case CommandDone:
-			fmt.Println("Enter task ID to mark as done:")
-			input, err := readInput(os.Stdin, maxInputSize)
-			if err != nil {
-				handleError(err, "ID input error")
-				continue
-			}
-
-			id, err := validateTaskID(input)
+			prompt := "Enter task ID to mark as done:"
+			id, err := promptForTaskID(prompt)
 			if err != nil {
 				handleError(err, "ID validation error")
 				continue
@@ -231,14 +242,8 @@ func main() {
 			}
 
 		case CommandClear:
-			fmt.Println("enter task id you want to clear description")
-			idSrt, err := readInput(os.Stdin, maxInputSize)
-			if err != nil {
-				handleError(err, "ID input error")
-				continue
-			}
-
-			id, err := validateTaskID(idSrt)
+			prompt := "Enter task id you want to clear description"
+			id, err := promptForTaskID(prompt)
 			if err != nil {
 				handleError(err, "ID validation error")
 				continue
@@ -269,14 +274,8 @@ func main() {
 			fmt.Println("👋 Bye!")
 			return
 		case CommandUpdate:
-			fmt.Println("Enter task ID to update")
-			idStr, err := readInput(os.Stdin, maxInputSize)
-			if err != nil {
-				handleError(err, "ID input error")
-				continue
-			}
-
-			id, err := validateTaskID(idStr)
+			prompt := "Enter task ID to update"
+			id, err := promptForTaskID(prompt)
 			if err != nil {
 				handleError(err, "ID validation error")
 				continue

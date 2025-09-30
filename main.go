@@ -120,10 +120,89 @@ func handleAddCommand(tm *task.TaskManager) error {
 	fmt.Println("enter task description:")
 	desc, err := readInput(os.Stdin, 50)
 	if err != nil {
-		return fmt.Errorf("Description input error: %w", err)
+		return err
 	}
 	id := tm.AddTask(desc)
 	fmt.Printf("✅ Task added (ID: %d)\n", id)
+	return nil
+}
+
+func handleDoneCommand(tm *task.TaskManager) error {
+	prompt := "Enter task ID to mark as done:"
+	id, err := promptForTaskID(prompt)
+	if err != nil {
+		return err
+	}
+
+	task, err := tm.GetTaskByID(id)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Task to mark done: '%s'\n", task)
+
+	if err := tm.MarkTaskDone(id); err != nil {
+		return err
+	}
+
+	fmt.Println("✅ Task marked as done")
+	return nil
+}
+
+func handleClearCommand(tm *task.TaskManager) error {
+	prompt := "Enter task id you want to clear description"
+	id, err := promptForTaskID(prompt)
+	if err != nil {
+		return err
+	}
+
+	task, err := tm.GetTaskByID(id)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Task to clear: '%s'\n", task)
+
+	if err = tm.ClearDescription(id); err != nil {
+		return err
+	}
+	fmt.Println("✅ Task description cleared!")
+	return nil
+}
+
+func handleUpdateCommand(tm *task.TaskManager) error {
+	prompt := "Enter task ID to update"
+	id, err := promptForTaskID(prompt)
+	if err != nil {
+		return err
+	}
+
+	task, err := tm.GetTaskByID(id)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Current task: '%s'\n", task)
+
+	fmt.Println("Enter new description")
+	description, err := readInput(os.Stdin, 50)
+	if err != nil {
+		return err
+	}
+
+	err = tm.UpdateTaskDescription(id, description)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("✅ Task updated (ID: %d)\n", id)
+	return nil
+}
+
+func handleLoadCommand(tm *task.TaskManager, s storage.Storage) error {
+	loadedTasks, err := s.LoadTasks()
+	if err != nil {
+		return err
+	}
+	tm.SetTasks(loadedTasks)
+	fmt.Println("✅ Tasks loaded successfully!")
+
 	return nil
 }
 
@@ -204,25 +283,9 @@ func main() {
 			}
 
 		case CommandDone:
-			prompt := "Enter task ID to mark as done:"
-			id, err := promptForTaskID(prompt)
-			if err != nil {
-				handleError(err, "ID validation error")
-				continue
+			if err := handleDoneCommand(tm); err != nil {
+				handleError(err, "Done command error")
 			}
-
-			task, err := tm.GetTaskByID(id)
-			if err != nil {
-				handleError(err, "Task lookup error")
-				continue
-			}
-			fmt.Printf("Task to mark done: '%s'\n", task)
-
-			if err := tm.MarkTaskDone(id); err != nil {
-				handleError(err, "Mark done error")
-				continue
-			}
-			fmt.Println("✅ Task marked as done")
 
 		case CommandList:
 			if err := tm.PrintTasks(); err != nil {
@@ -233,34 +296,14 @@ func main() {
 			tm.ProcessTasks()
 
 		case CommandLoad:
-			loadedTasks, err := s.LoadTasks()
-			if err != nil {
-				handleError(err, "Load error")
-			} else {
-				tm.SetTasks(loadedTasks)
-				fmt.Println("✅ Tasks loaded successfully!")
+			if err := handleLoadCommand(tm, s); err != nil {
+				handleError(err, "Load command error")
 			}
 
 		case CommandClear:
-			prompt := "Enter task id you want to clear description"
-			id, err := promptForTaskID(prompt)
-			if err != nil {
-				handleError(err, "ID validation error")
-				continue
+			if err := handleClearCommand(tm); err != nil {
+				handleError(err, "Clear command error")
 			}
-
-			task, err := tm.GetTaskByID(id)
-			if err != nil {
-				handleError(err, "Task lookup error")
-				continue
-			}
-			fmt.Printf("Task to clear: '%s'\n", task)
-
-			if err = tm.ClearDescription(id); err != nil {
-				handleError(err, "Clear description error")
-				continue
-			}
-			fmt.Println("✅ Task description cleared!")
 
 		case CommandHelp:
 			showHelp()
@@ -273,34 +316,11 @@ func main() {
 			}
 			fmt.Println("👋 Bye!")
 			return
+
 		case CommandUpdate:
-			prompt := "Enter task ID to update"
-			id, err := promptForTaskID(prompt)
-			if err != nil {
-				handleError(err, "ID validation error")
-				continue
+			if err := handleUpdateCommand(tm); err != nil {
+				handleError(err, "Update command error")
 			}
-
-			task, err := tm.GetTaskByID(id)
-			if err != nil {
-				handleError(err, "Task lookup error")
-				continue
-			}
-			fmt.Printf("Current task: '%s'\n", task)
-
-			fmt.Println("Enter new description")
-			description, err := readInput(os.Stdin, 50)
-			if err != nil {
-				handleError(err, "Description input error")
-				continue
-			}
-
-			err = tm.UpdateTaskDescription(id, description)
-			if err != nil {
-				handleError(err, "Update task error")
-				continue
-			}
-			fmt.Printf("✅ Task updated (ID: %d)\n", id)
 		}
 	}
 }

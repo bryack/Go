@@ -1,9 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
+	"myproject/internal/handlers"
 	"net/http"
 	"time"
 )
@@ -15,27 +15,27 @@ type HealthResponse struct {
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Task Manager API\n")
-	fmt.Fprintf(w, "Available endpoints:\n")
-	fmt.Fprintf(w, "  GET /health - Health check\n")
-	fmt.Fprintf(w, "  GET / - This message\n")
+	response := map[string]interface{}{
+		"message": "Task Manager API",
+		"enpoints": []string{
+			"Get /health - Health check",
+			"Get / - This message",
+		},
+	}
+	handlers.JSONSuccess(w, response)
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	response := HealthResponse{
 		Status:    "healthy",
 		Timestamp: time.Now(),
 		Service:   "task-manager-api",
 	}
-
-	json.NewEncoder(w).Encode(response)
+	handlers.JSONSuccess(w, response)
 }
 
 func main() {
 	http.HandleFunc("/health", healthHandler)
-
 	http.HandleFunc("/", rootHandler)
 
 	fmt.Println("🚀 HTTP Server starting on http://localhost:8080")

@@ -26,6 +26,10 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		handlers.HandleMethodNotAllowed(w, []string{"GET"})
+		return
+	}
 	response := HealthResponse{
 		Status:    "healthy",
 		Timestamp: time.Now(),
@@ -34,9 +38,21 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	handlers.JSONSuccess(w, response)
 }
 
+// logRequest is a simple logging middleware
+func logRequest(handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		handler(w, r)
+
+		duration := time.Since(start)
+		log.Printf("%s %s - %v", r.Method, r.URL.Path, duration)
+	}
+}
+
 func main() {
-	http.HandleFunc("/health", healthHandler)
-	http.HandleFunc("/", rootHandler)
+	http.HandleFunc("/health", logRequest(healthHandler))
+	http.HandleFunc("/", logRequest(rootHandler))
 
 	fmt.Println("🚀 HTTP Server starting on http://localhost:8080")
 	fmt.Println("Endpoints:")

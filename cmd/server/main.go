@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"log"
 	"myproject/internal/handlers"
+	"myproject/storage"
+	"myproject/task"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -50,14 +53,44 @@ func logRequest(handler http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// tasksHandler returns a handler function that has access to TaskManager
+func tasksHandler(tm *task.TaskManager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			response := tm.GetTasks()
+			handlers.JSONSuccess(w, response)
+		case http.MethodPost:
+			response := tm.GetTasks()
+			handlers.JSONSuccess(w, response)
+		default:
+			handlers.HandleMethodNotAllowed(w, []string{"GET", "POST"})
+			return
+		}
+	}
+}
+
 func main() {
+	tm := task.NewTaskManager(os.Stdout)
+	var s storage.Storage = storage.JsonStorage{}
+
+	loadedTask, err := s.LoadTasks()
+	if err == nil {
+		tm.SetTasks(loadedTask)
+		fmt.Println("Loaded existing tasks")
+	} else {
+		fmt.Println("Starting with empty task list")
+	}
+
 	http.HandleFunc("/health", logRequest(healthHandler))
 	http.HandleFunc("/", logRequest(rootHandler))
+	http.HandleFunc("/tasks", logRequest(tasksHandler(tm)))
 
 	fmt.Println("🚀 HTTP Server starting on http://localhost:8080")
 	fmt.Println("Endpoints:")
 	fmt.Println("  GET http://localhost:8080/")
 	fmt.Println("  GET http://localhost:8080/health")
+	fmt.Println("  GET http://localhost:8080/tasks")
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

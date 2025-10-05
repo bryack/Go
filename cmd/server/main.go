@@ -17,6 +17,10 @@ type HealthResponse struct {
 	Service   string    `json:"service"`
 }
 
+type CreateTaskRequest struct {
+	Description string `json:"description"`
+}
+
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"message": "Task Manager API",

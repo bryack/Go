@@ -134,11 +134,11 @@ func handleDoneCommand(tm *task.TaskManager) error {
 		return err
 	}
 
-	task, err := tm.GetTaskByID(id)
+	t, err := tm.GetTaskByID(id)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Task to mark done: '%s'\n", task)
+	fmt.Printf("Task to mark done: '%s'\n", task.FormatTask(t))
 
 	if err := tm.MarkTaskDone(id); err != nil {
 		return err
@@ -155,11 +155,11 @@ func handleClearCommand(tm *task.TaskManager) error {
 		return err
 	}
 
-	task, err := tm.GetTaskByID(id)
+	t, err := tm.GetTaskByID(id)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Task to clear: '%s'\n", task)
+	fmt.Printf("Task to clear: '%s'\n", task.FormatTask(t))
 
 	if err = tm.ClearDescription(id); err != nil {
 		return err
@@ -175,11 +175,11 @@ func handleUpdateCommand(tm *task.TaskManager) error {
 		return err
 	}
 
-	task, err := tm.GetTaskByID(id)
+	t, err := tm.GetTaskByID(id)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Current task: '%s'\n", task)
+	fmt.Printf("Current task: '%s'\n", task.FormatTask(t))
 
 	fmt.Println("Enter new description")
 	description, err := readInput(os.Stdin, 50)

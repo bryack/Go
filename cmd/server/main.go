@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"myproject/internal/handlers"
 	"myproject/storage"
@@ -65,8 +67,37 @@ func tasksHandler(tm *task.TaskManager) http.HandlerFunc {
 			response := tm.GetTasks()
 			handlers.JSONSuccess(w, response)
 		case http.MethodPost:
-			response := tm.GetTasks()
-			handlers.JSONSuccess(w, response)
+			var taskRequest CreateTaskRequest
+			if r.Header.Get("Content-Type") != "application/json" {
+				handlers.JSONError(w, http.StatusUnsupportedMediaType, "Content-Type must be application/json")
+				return
+			}
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "Failed to read body", http.StatusBadRequest)
+				return
+			}
+			err = json.Unmarshal(body, &taskRequest)
+			if err != nil {
+				handlers.JSONError(w, http.StatusBadRequest, "Invalid JSON format")
+				return
+			}
+
+			if taskRequest.Description == "" {
+				handlers.JSONError(w, http.StatusBadRequest, "Description is required")
+				return
+			}
+
+			if len(taskRequest.Description) > 200 {
+				handlers.JSONError(w, http.StatusBadRequest, "Description too long (max 200 characters)")
+				return
+			}
+			id := tm.AddTask(string(taskRequest.Description))
+			response, err := tm.GetTaskByID(id)
+			if err != nil {
+				handlers.JSONError(w, http.StatusInternalServerError, "Failed to retrieve created task")
+			}
+			handlers.JSONResponse(w, http.StatusCreated, response)
 		default:
 			handlers.HandleMethodNotAllowed(w, []string{"GET", "POST"})
 			return

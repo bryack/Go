@@ -116,8 +116,8 @@ func (tm *TaskManager) PrintTasks() error {
 	return printToWriter(tm.tasks, tm.writer)
 }
 
-// formatTask форматирует одну задачу в строку со статусом и описанием.
-func formatTask(task Task) string {
+// FormatTask форматирует одну задачу в строку со статусом и описанием.
+func FormatTask(task Task) string {
 	status := "  "
 	if task.Done {
 		status = "✓ "
@@ -136,7 +136,7 @@ func formatTasks(tasks []Task) string {
 	}
 
 	for i, task := range tasks {
-		strTask := formatTask(task)
+		strTask := FormatTask(task)
 		builder.WriteString(strTask)
 		if i < len(tasks)-1 {
 			builder.WriteString("\n")
@@ -193,20 +193,18 @@ func (tm *TaskManager) UpdateTaskDescription(id int, description string) error {
 	return ErrTaskNotFound
 }
 
-// GetTaskByID retrieves a task by its ID and returns it as a formatted string.
-// The returned string includes task status, ID, and description in display format.
+// GetTaskByID retrieves a task by its ID and returns the Task struct.
 // Returns ErrTaskNotFound if no task with the specified ID exists.
-func (tm *TaskManager) GetTaskByID(id int) (strTask string, err error) {
+func (tm *TaskManager) GetTaskByID(id int) (Task, error) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
 	for i, task := range tm.tasks {
 		if tm.tasks[i].ID == id {
-			strTask = formatTask(task)
-			return strTask, nil
+			return task, nil
 		}
 	}
-	return "", ErrTaskNotFound
+	return Task{}, ErrTaskNotFound
 }
 
 // processTask симулирует обработку одной задачи с задержкой.

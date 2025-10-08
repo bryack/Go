@@ -62,6 +62,7 @@ func logRequest(handler http.HandlerFunc) http.HandlerFunc {
 // tasksHandler returns a handler function that has access to TaskManager
 func tasksHandler(tm *task.TaskManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
 		switch r.Method {
 		case http.MethodGet:
 			response := tm.GetTasks()

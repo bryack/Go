@@ -27,10 +27,11 @@ const (
 	CommandHelp    Command = "help"    // Show available commands
 	CommandExit    Command = "exit"    // Save and exit program
 	CommandUpdate  Command = "update"  // Update task description
+	CommandDelete  Command = "delete"
 )
 
 var (
-	validCommands      = []Command{CommandAdd, CommandDone, CommandList, CommandProcess, CommandLoad, CommandClear, CommandHelp, CommandExit, CommandUpdate}
+	validCommands      = []Command{CommandAdd, CommandDone, CommandList, CommandProcess, CommandLoad, CommandClear, CommandHelp, CommandExit, CommandUpdate, CommandDelete}
 	ErrMaxSizeExceeded = errors.New("input too long")
 	ErrEmptyInput      = errors.New("empty input")
 	ErrInvalidTaskId   = errors.New("invalid ID format")
@@ -206,6 +207,26 @@ func handleLoadCommand(tm *task.TaskManager, s storage.Storage) error {
 	return nil
 }
 
+func handleDeleteCommand(tm *task.TaskManager) error {
+	prompt := "Enter task ID to delete task:"
+	id, err := promptForTaskID(prompt)
+	if err != nil {
+		return err
+	}
+
+	t, err := tm.GetTaskByID(id)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Task to delete: '%s'\n", task.FormatTask(t))
+	if err := tm.DeleteTask(id); err != nil {
+		return err
+	}
+
+	fmt.Println("Task deleted")
+	return nil
+}
+
 // handleError обрабатывает различные типы ошибок
 func handleError(err error, context string) {
 	switch {
@@ -246,6 +267,7 @@ func showHelp() {
 	fmt.Println("load    - Load tasks from file")
 	fmt.Println("clear   - Clear task description")
 	fmt.Println("update  - Update task description")
+	fmt.Println("delete  - Delete task")
 	fmt.Println("help    - Show this help")
 	fmt.Println("exit    - Save and exit")
 	fmt.Println("=========================")
@@ -303,6 +325,11 @@ func main() {
 		case CommandClear:
 			if err := handleClearCommand(tm); err != nil {
 				handleError(err, "Clear command error")
+			}
+
+		case CommandDelete:
+			if err := handleDeleteCommand(tm); err != nil {
+				handleError(err, "Delete command error")
 			}
 
 		case CommandHelp:

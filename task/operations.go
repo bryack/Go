@@ -207,6 +207,19 @@ func (tm *TaskManager) GetTaskByID(id int) (Task, error) {
 	return Task{}, ErrTaskNotFound
 }
 
+func (tm *TaskManager) DeleteTask(id int) error {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	for i := range tm.tasks {
+		if tm.tasks[i].ID == id {
+			tm.tasks = append(tm.tasks[:i], tm.tasks[i+1:]...)
+			return nil
+		}
+	}
+	return ErrTaskNotFound
+}
+
 // processTask симулирует обработку одной задачи с задержкой.
 // Выполняется в отдельной горутине.
 func processTask(task Task, wg *sync.WaitGroup) {

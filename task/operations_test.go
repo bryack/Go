@@ -572,3 +572,83 @@ func TestGetTaskByID(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteTask(t *testing.T) {
+	// ====Arrange====
+	testCases := []struct {
+		name          string
+		taskId        int
+		initialTasks  []Task
+		expectedTasks []Task
+		expectedErr   error
+	}{
+		{
+			name:          "Delete first task",
+			taskId:        1,
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedTasks: []Task{{ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedErr:   nil,
+		},
+		{
+			name:          "Delete last task",
+			taskId:        4,
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: true}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}},
+			expectedErr:   nil,
+		},
+		{
+			name:          "Delete non-existense task",
+			taskId:        7,
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedErr:   ErrTaskNotFound,
+		},
+		{
+			name:          "Delete task in empty list",
+			taskId:        1,
+			initialTasks:  []Task{},
+			expectedTasks: []Task{},
+			expectedErr:   ErrTaskNotFound,
+		},
+		{
+			name:          "Delete task with negative ID",
+			taskId:        -1,
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedErr:   ErrTaskNotFound,
+		},
+		{
+			name:          "Delete task with zero ID",
+			taskId:        0,
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedErr:   ErrTaskNotFound,
+		},
+		{
+			name:          "Delete task with max int value ID",
+			taskId:        9223372036854775807,
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 9223372036854775807, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedErr:   nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tm := NewTaskManager(&strings.Builder{})
+			tm.SetTasks(tc.initialTasks)
+
+			// ==== ACT ====
+			err := tm.DeleteTask(tc.taskId)
+
+			// ==== ASSERT ====
+			if err != tc.expectedErr {
+				t.Errorf("Expected %v, got %v", tc.expectedErr, err)
+			}
+
+			if diff := cmp.Diff(tc.expectedTasks, tm.GetTasks()); diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

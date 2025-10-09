@@ -6,7 +6,7 @@
   - Follow existing method patterns and error handling
   - _Requirements: 3.1, 3.2_
 
-- [x]* 1.1 Write unit tests for DeleteTask method
+- [x] 1.1 Write unit tests for DeleteTask method
   - Test successful deletion returns no error
   - Test deletion of non-existent task returns ErrTaskNotFound
   - Test thread safety with concurrent operations

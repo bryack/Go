@@ -8,6 +8,7 @@ import (
 	"myproject/internal/handlers"
 	"myproject/storage"
 	"myproject/task"
+	"myproject/validation"
 	"net/http"
 	"os"
 	"time"
@@ -65,8 +66,27 @@ func tasksHandler(tm *task.TaskManager) http.HandlerFunc {
 		defer r.Body.Close()
 		switch r.Method {
 		case http.MethodGet:
-			response := tm.GetTasks()
-			handlers.JSONSuccess(w, response)
+			q := r.URL.Query()
+
+			if !q.Has("id") {
+				response := tm.GetTasks()
+				handlers.JSONSuccess(w, response)
+				return
+			}
+
+			idStr := q.Get("id")
+			id, err := validation.ValidateTaskID(idStr)
+			if err != nil {
+				handlers.JSONError(w, http.StatusBadRequest, "Invalid task ID")
+				return
+			}
+			response, err := tm.GetTaskByID(id)
+			if err != nil {
+				handlers.JSONError(w, http.StatusInternalServerError, "Failed to retrieve required task")
+				return
+			}
+			handlers.JSONResponse(w, http.StatusCreated, response)
+
 		case http.MethodPost:
 			var taskRequest CreateTaskRequest
 			if r.Header.Get("Content-Type") != "application/json" {

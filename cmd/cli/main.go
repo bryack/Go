@@ -7,8 +7,8 @@ import (
 	"io"
 	"myproject/storage"
 	"myproject/task"
+	"myproject/validation"
 	"os"
-	"strconv"
 	"strings"
 )
 
@@ -58,19 +58,6 @@ func readInput(reader io.Reader, maxSize int) (string, error) {
 	return input, nil
 }
 
-// validateTaskID converts a string input to a valid task ID.
-// Returns the parsed ID if valid (positive integer), or an error if invalid.
-func validateTaskID(input string) (int, error) {
-	id, err := strconv.Atoi(input)
-	if err != nil {
-		return 0, ErrInvalidTaskId
-	}
-	if id <= 0 {
-		return 0, ErrInvalidTaskId
-	}
-	return id, nil
-}
-
 // isValid checks if the command is in the list of supported commands.
 // Returns true if the command is valid, false otherwise.
 func (cmd Command) isValid() bool {
@@ -114,7 +101,7 @@ func promptForTaskID(prompt string) (int, error) {
 	if err != nil {
 		return 0, ErrInvalidTaskId
 	}
-	return validateTaskID(input)
+	return validation.ValidateTaskID(input)
 }
 
 func handleAddCommand(tm *task.TaskManager) error {

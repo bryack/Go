@@ -9,12 +9,16 @@ import (
 	"time"
 )
 
+// Task represents a single task with unique ID, description, and completion status.
+// All fields are JSON-serializable for API responses.
 type Task struct {
 	ID          int    `json:"id"`
 	Description string `json:"description"`
 	Done        bool   `json:"done"`
 }
 
+// TaskManager provides thread-safe operations for managing a collection of tasks.
+// Uses mutex synchronization to prevent race conditions in concurrent access.
 type TaskManager struct {
 	tasks  []Task
 	mu     sync.Mutex
@@ -48,16 +52,8 @@ func (tm *TaskManager) generateMaxID() int {
 	return maxID + 1
 }
 
-// GetTasks возвращает независимую копию текущего списка задач.
-//
-// Этот метод обеспечивает потокобезопасное чтение внутреннего списка задач,
-// используя мьютекс для предотвращения состояний гонки. Возвращаемый срез
-// является копией, что гарантирует, что внешние модификации не повлияют
-// на внутреннее состояние TaskManager.
-//
-// Возвращает:
-//
-//	[]Task: Независимый срез задач.
+// GetTasks returns an independent copy of all tasks in the manager.
+// This method is thread-safe and prevents external modifications to internal state.
 func (tm *TaskManager) GetTasks() []Task {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
@@ -67,13 +63,8 @@ func (tm *TaskManager) GetTasks() []Task {
 	return tasksCopy
 }
 
-// SetTasks устанавливает новый список задач, заменяя текущий.
-//
-// Этот метод обеспечивает потокобезопасное обновление внутреннего списка задач,
-// используя мьютекс для предотвращения состояний гонки. Входящий срез
-// newTasks копируется во внутреннее хранилище, что гарантирует, что
-// последующие внешние модификации newTasks не повлияют на внутреннее
-// состояние TaskManager.
+// SetTasks replaces the current task collection with the provided tasks.
+// Creates an independent copy to prevent external modifications after assignment.
 func (tm *TaskManager) SetTasks(newTask []Task) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
@@ -94,13 +85,29 @@ func (tm *TaskManager) AddTask(input string) int {
 
 // MarkTaskDone помечает задачу с указанным ID как выполненную.
 // Возвращает ErrTaskNotFound, если задача не найдена.
-func (tm *TaskManager) MarkTaskDone(id int) error {
+// func (tm *TaskManager) MarkTaskDone(id int) error {
+// 	tm.mu.Lock()
+// 	defer tm.mu.Unlock()
+
+// 	for i := range tm.tasks {
+// 		if tm.tasks[i].ID == id {
+// 			tm.tasks[i].Done = true
+// 			return nil
+// 		}
+// 	}
+// 	return ErrTaskNotFound
+// }
+
+// UpdateTaskStatus sets the completion status of a task by ID.
+// Returns ErrTaskNotFound if the task doesn't exist.
+// This operation is thread-safe.
+func (tm *TaskManager) UpdateTaskStatus(id int, done bool) error {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
 	for i := range tm.tasks {
 		if tm.tasks[i].ID == id {
-			tm.tasks[i].Done = true
+			tm.tasks[i].Done = done
 			return nil
 		}
 	}
@@ -207,6 +214,8 @@ func (tm *TaskManager) GetTaskByID(id int) (Task, error) {
 	return Task{}, ErrTaskNotFound
 }
 
+// DeleteTask removes a task with the specified ID from the collection.
+// Returns ErrTaskNotFound if no task exists with the given ID.
 func (tm *TaskManager) DeleteTask(id int) error {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()

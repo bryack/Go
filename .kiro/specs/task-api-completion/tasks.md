@@ -24,7 +24,7 @@
   - Test malformed URL handling
   - _Requirements: 4.1, 4.2_
 
-- [ ] 3. Implement GET /tasks/{id} endpoint
+- [x] 3. Implement GET /tasks/{id} endpoint
   - Create handler function for individual task retrieval
   - Integrate with existing GetTaskByID method
   - Return appropriate HTTP status codes (200, 400, 404)
@@ -38,14 +38,14 @@
   - Test 405 response for wrong HTTP method
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
 
-- [ ] 4. Create UpdateTaskRequest model and validation
+- [x] 4. Create UpdateTaskRequest model and validation
   - Define struct for PUT request payload with Description and Done fields
   - Implement validation function for update requests
   - Add description length validation (max 200 characters)
   - Handle required field validation
   - _Requirements: 2.3, 2.5, 6.1, 6.2, 6.3_
 
-- [ ] 5. Implement PUT /tasks/{id} endpoint
+- [x] 5. Implement PUT /tasks/{id} endpoint
   - Create handler function for task updates
   - Parse and validate JSON request body
   - Integrate with existing UpdateTaskDescription and MarkTaskDone methods
@@ -61,7 +61,7 @@
   - Test 405 response for wrong HTTP method
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
 
-- [ ] 6. Implement DELETE /tasks/{id} endpoint
+- [x] 6. Implement DELETE /tasks/{id} endpoint
   - Create handler function for task deletion
   - Integrate with new DeleteTask method
   - Return 204 No Content status for successful deletion

@@ -124,11 +124,93 @@ func TestConcurrentAddTask(t *testing.T) {
 	}
 }
 
-func TestMarkTaskDone(t *testing.T) {
+// func TestMarkTaskDone(t *testing.T) {
+// 	// ====Arrange====
+// 	testCases := []struct {
+// 		name          string
+// 		taskId        int
+// 		initialTasks  []Task
+// 		expectedTasks []Task
+// 		expectedErr   error
+// 	}{
+// 		{
+// 			name:          "Mark task done in one-task list",
+// 			taskId:        1,
+// 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}},
+// 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: true}},
+// 			expectedErr:   nil,
+// 		},
+// 		{
+// 			name:          "Mark task done in empty list",
+// 			taskId:        1,
+// 			initialTasks:  []Task{},
+// 			expectedTasks: []Task{},
+// 			expectedErr:   ErrTaskNotFound,
+// 		},
+// 		{
+// 			name:          "Mark specific task in multiple tasks",
+// 			taskId:        3,
+// 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+// 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}, {ID: 4, Description: "task 4", Done: false}},
+// 			expectedErr:   nil,
+// 		},
+// 		{
+// 			name:          "Mark non-existence task done",
+// 			taskId:        8,
+// 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+// 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+// 			expectedErr:   ErrTaskNotFound,
+// 		},
+// 		{
+// 			name:          "Mark already completed task",
+// 			taskId:        1,
+// 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: true}},
+// 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: true}},
+// 			expectedErr:   nil,
+// 		},
+// 		{
+// 			name:          "Mark task with negative ID",
+// 			taskId:        -1,
+// 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}},
+// 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}},
+// 			expectedErr:   ErrTaskNotFound,
+// 		},
+// 		{
+// 			name:          "Mark task with zero ID",
+// 			taskId:        0,
+// 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}},
+// 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}},
+// 			expectedErr:   ErrTaskNotFound,
+// 		},
+// 	}
+
+// 	for _, tc := range testCases {
+// 		t.Run(tc.name, func(t *testing.T) {
+// 			// ==== ACT ====
+// 			tm := NewTaskManager(&strings.Builder{})
+// 			tm.SetTasks(tc.initialTasks)
+// 			actualErr := tm.MarkTaskDone(tc.taskId)
+
+// 			// === ASSERT ===
+// 			if tc.expectedErr != actualErr {
+// 				t.Errorf("Expected error: '%v', got '%v'", tc.expectedErr, actualErr)
+// 			}
+
+// 			if diff := cmp.Diff(tc.expectedTasks, tm.GetTasks()); diff != "" {
+// 				t.Errorf("mismatch (-want +got):\n%s", diff)
+// 			}
+// 		})
+// 	}
+// }
+
+// TestUpdateTaskStatus tests UpdateTaskStatus with various scenarios:
+// completion/incompletion, valid/invalid IDs, and edge cases.
+func TestUpdateTaskStatus(t *testing.T) {
 	// ====Arrange====
 	testCases := []struct {
 		name          string
 		taskId        int
+		done          bool
 		initialTasks  []Task
 		expectedTasks []Task
 		expectedErr   error
@@ -136,27 +218,55 @@ func TestMarkTaskDone(t *testing.T) {
 		{
 			name:          "Mark task done in one-task list",
 			taskId:        1,
+			done:          true,
 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: true}},
 			expectedErr:   nil,
 		},
 		{
+			name:          "Mark task undone in one-task list",
+			taskId:        1,
+			done:          false,
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: true}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedErr:   nil,
+		},
+		{
 			name:          "Mark task done in empty list",
 			taskId:        1,
+			done:          true,
 			initialTasks:  []Task{},
 			expectedTasks: []Task{},
 			expectedErr:   ErrTaskNotFound,
 		},
 		{
-			name:          "Mark specific task in multiple tasks",
+			name:          "Mark specific task done in multiple tasks",
 			taskId:        3,
+			done:          true,
 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}, {ID: 4, Description: "task 4", Done: false}},
 			expectedErr:   nil,
 		},
 		{
+			name:          "Mark specific task undone in multiple tasks",
+			taskId:        4,
+			done:          false,
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: true}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedErr:   nil,
+		},
+		{
 			name:          "Mark non-existence task done",
 			taskId:        8,
+			done:          true,
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedErr:   ErrTaskNotFound,
+		},
+		{
+			name:          "Mark non-existence task undone",
+			taskId:        8,
+			done:          true,
 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedErr:   ErrTaskNotFound,
@@ -164,20 +274,31 @@ func TestMarkTaskDone(t *testing.T) {
 		{
 			name:          "Mark already completed task",
 			taskId:        1,
+			done:          true,
 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: true}},
 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: true}},
 			expectedErr:   nil,
 		},
 		{
-			name:          "Mark task with negative ID",
+			name:          "Mark incompleted task undone",
+			taskId:        1,
+			done:          false,
+			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedErr:   nil,
+		},
+		{
+			name:          "Mark task done with negative ID",
 			taskId:        -1,
+			done:          true,
 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedErr:   ErrTaskNotFound,
 		},
 		{
-			name:          "Mark task with zero ID",
+			name:          "Mark task done with zero ID",
 			taskId:        0,
+			done:          true,
 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedErr:   ErrTaskNotFound,
@@ -189,7 +310,7 @@ func TestMarkTaskDone(t *testing.T) {
 			// ==== ACT ====
 			tm := NewTaskManager(&strings.Builder{})
 			tm.SetTasks(tc.initialTasks)
-			actualErr := tm.MarkTaskDone(tc.taskId)
+			actualErr := tm.UpdateTaskStatus(tc.taskId, tc.done)
 
 			// === ASSERT ===
 			if tc.expectedErr != actualErr {

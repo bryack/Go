@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"myproject/internal/handlers"
 	"myproject/storage"
@@ -14,16 +12,29 @@ import (
 	"time"
 )
 
+// HealthResponse represents the JSON response structure for health check endpoints.
+// Contains service status, timestamp, and service identification.
 type HealthResponse struct {
 	Status    string    `json:"status"`
 	Timestamp time.Time `json:"timestamp"`
 	Service   string    `json:"service"`
 }
 
+// CreateTaskRequest represents the JSON payload for creating new tasks.
+// Contains the required task description field.
 type CreateTaskRequest struct {
 	Description string `json:"description"`
 }
 
+// UpdateTaskRequest represents the JSON payload for updating existing tasks.
+// All fields are optional pointers to support partial updates.
+type UpdateTaskRequest struct {
+	Description *string `json:"description,omitempty"`
+	Done        *bool   `json:"done,omitempty"`
+}
+
+// rootHandler serves the API information and available endpoints.
+// Returns a JSON response with service description and endpoint list.
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"message": "Task Manager API",
@@ -35,6 +46,8 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	handlers.JSONSuccess(w, response)
 }
 
+// healthHandler provides service health status information.
+// Only accepts GET requests and returns current service status with timestamp.
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		handlers.HandleMethodNotAllowed(w, []string{"GET"})
@@ -66,54 +79,22 @@ func tasksHandler(tm *task.TaskManager) http.HandlerFunc {
 		defer r.Body.Close()
 		switch r.Method {
 		case http.MethodGet:
-			q := r.URL.Query()
-
-			if !q.Has("id") {
-				response := tm.GetTasks()
-				handlers.JSONSuccess(w, response)
-				return
-			}
-
-			idStr := q.Get("id")
-			id, err := validation.ValidateTaskID(idStr)
-			if err != nil {
-				handlers.JSONError(w, http.StatusBadRequest, "Invalid task ID")
-				return
-			}
-			response, err := tm.GetTaskByID(id)
-			if err != nil {
-				handlers.JSONError(w, http.StatusInternalServerError, "Failed to retrieve required task")
-				return
-			}
-			handlers.JSONResponse(w, http.StatusCreated, response)
+			response := tm.GetTasks()
+			handlers.JSONSuccess(w, response)
 
 		case http.MethodPost:
 			var taskRequest CreateTaskRequest
-			if r.Header.Get("Content-Type") != "application/json" {
-				handlers.JSONError(w, http.StatusUnsupportedMediaType, "Content-Type must be application/json")
-				return
-			}
-			body, err := io.ReadAll(r.Body)
-			if err != nil {
-				http.Error(w, "Failed to read body", http.StatusBadRequest)
-				return
-			}
-			err = json.Unmarshal(body, &taskRequest)
-			if err != nil {
-				handlers.JSONError(w, http.StatusBadRequest, "Invalid JSON format")
+			if err := handlers.ParseJSONRequest(w, r, &taskRequest); err != nil {
 				return
 			}
 
-			if taskRequest.Description == "" {
-				handlers.JSONError(w, http.StatusBadRequest, "Description is required")
+			desc, err := validation.ValidateTaskDescription(string(taskRequest.Description))
+			if err != nil {
+				handlers.JSONError(w, http.StatusBadRequest, err.Error())
 				return
 			}
 
-			if len(taskRequest.Description) > 200 {
-				handlers.JSONError(w, http.StatusBadRequest, "Description too long (max 200 characters)")
-				return
-			}
-			id := tm.AddTask(string(taskRequest.Description))
+			id := tm.AddTask(desc)
 			response, err := tm.GetTaskByID(id)
 			if err != nil {
 				handlers.JSONError(w, http.StatusInternalServerError, "Failed to retrieve created task")
@@ -121,6 +102,77 @@ func tasksHandler(tm *task.TaskManager) http.HandlerFunc {
 			handlers.JSONResponse(w, http.StatusCreated, response)
 		default:
 			handlers.HandleMethodNotAllowed(w, []string{"GET", "POST"})
+			return
+		}
+	}
+}
+
+func taskHandler(tm *task.TaskManager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		response := task.Task{}
+		path := r.URL.Path
+		id, err := validation.ExtractTaskIDFromPath(path)
+		if err != nil {
+			handlers.JSONError(w, http.StatusBadRequest, "Invalid ID format")
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			response, err = tm.GetTaskByID(id)
+			if err != nil {
+				handlers.JSONError(w, http.StatusNotFound, "Task not found")
+				return
+			}
+			handlers.JSONSuccess(w, response)
+		case http.MethodPut:
+			var taskRequest UpdateTaskRequest
+			if err := handlers.ParseJSONRequest(w, r, &taskRequest); err != nil {
+				return
+			}
+
+			if taskRequest.Description == nil && taskRequest.Done == nil {
+				handlers.JSONError(w, http.StatusBadRequest, "At least one field must be provided for update")
+				return
+			}
+
+			if taskRequest.Description != nil {
+				desc := string(*taskRequest.Description)
+				desc, err = validation.ValidateTaskDescription(desc)
+				if err != nil {
+					handlers.JSONError(w, http.StatusBadRequest, err.Error())
+					return
+				}
+
+				if err := tm.UpdateTaskDescription(id, desc); err != nil {
+					handlers.JSONError(w, http.StatusNotFound, "Task not found")
+					return
+				}
+			}
+
+			if taskRequest.Done != nil {
+				if err := tm.UpdateTaskStatus(id, *taskRequest.Done); err != nil {
+					handlers.JSONError(w, http.StatusNotFound, "Task not found")
+					return
+				}
+			}
+
+			response, err = tm.GetTaskByID(id)
+			if err != nil {
+				handlers.JSONError(w, http.StatusNotFound, "Task not found")
+				return
+			}
+			handlers.JSONSuccess(w, response)
+
+		case http.MethodDelete:
+			if err := tm.DeleteTask(id); err != nil {
+				handlers.JSONError(w, http.StatusNotFound, "Task not found")
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+
+		default:
+			handlers.HandleMethodNotAllowed(w, []string{"GET", "PUT", "DELETE"})
 			return
 		}
 	}
@@ -139,14 +191,19 @@ func main() {
 	}
 
 	http.HandleFunc("/health", logRequest(healthHandler))
-	http.HandleFunc("/", logRequest(rootHandler))
+	http.HandleFunc("/tasks/", logRequest(taskHandler(tm)))
 	http.HandleFunc("/tasks", logRequest(tasksHandler(tm)))
+	http.HandleFunc("/", logRequest(rootHandler))
 
 	fmt.Println("🚀 HTTP Server starting on http://localhost:8080")
 	fmt.Println("Endpoints:")
 	fmt.Println("  GET http://localhost:8080/")
 	fmt.Println("  GET http://localhost:8080/health")
 	fmt.Println("  GET http://localhost:8080/tasks")
+	fmt.Println("  POST http://localhost:8080/tasks")
+	fmt.Println("  GET http://localhost:8080/tasks/{id}")
+	fmt.Println("  PUT http://localhost:8080/tasks/{id}")
+	fmt.Println("  DELETE http://localhost:8080/tasks/{id}")
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

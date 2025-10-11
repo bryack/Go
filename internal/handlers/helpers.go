@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 )
 
@@ -42,4 +44,23 @@ func joinMethods(methods []string) string {
 		result += method
 	}
 	return result
+}
+
+func ParseJSONRequest(w http.ResponseWriter, r *http.Request, target interface{}) error {
+	if r.Header.Get("Content-Type") != "application/json" {
+		JSONError(w, http.StatusUnsupportedMediaType, "Content-Type must be application/json")
+		return errors.New("Invalid content type")
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		return err
+	}
+	err = json.Unmarshal(body, target)
+	if err != nil {
+		JSONError(w, http.StatusBadRequest, "Invalid JSON format")
+		return err
+	}
+
+	return nil
 }

@@ -19,7 +19,7 @@ type Command string
 const (
 	maxInputSize           = 10
 	CommandAdd     Command = "add"     // Add a new task
-	CommandDone    Command = "done"    // Mark task as completed
+	CommandStatus  Command = "status"  // Change task status
 	CommandList    Command = "list"    // Show all tasks
 	CommandProcess Command = "process" // Process all tasks in parallel
 	CommandLoad    Command = "load"    // Load tasks from file
@@ -31,7 +31,7 @@ const (
 )
 
 var (
-	validCommands      = []Command{CommandAdd, CommandDone, CommandList, CommandProcess, CommandLoad, CommandClear, CommandHelp, CommandExit, CommandUpdate, CommandDelete}
+	validCommands      = []Command{CommandAdd, CommandStatus, CommandList, CommandProcess, CommandLoad, CommandClear, CommandHelp, CommandExit, CommandUpdate, CommandDelete}
 	ErrMaxSizeExceeded = errors.New("input too long")
 	ErrEmptyInput      = errors.New("empty input")
 	ErrInvalidTaskId   = errors.New("invalid ID format")
@@ -104,6 +104,8 @@ func promptForTaskID(prompt string) (int, error) {
 	return validation.ValidateTaskID(input)
 }
 
+// handleAddCommand prompts for task description and creates a new task.
+// Returns error if input reading or task creation fails.
 func handleAddCommand(tm *task.TaskManager) error {
 	fmt.Println("enter task description:")
 	desc, err := readInput(os.Stdin, 50)
@@ -115,8 +117,10 @@ func handleAddCommand(tm *task.TaskManager) error {
 	return nil
 }
 
-func handleDoneCommand(tm *task.TaskManager) error {
-	prompt := "Enter task ID to mark as done:"
+// handleStatusCommand prompts for task ID and updates its completion status.
+// Returns error if ID validation fails or task is not found.
+func handleStatusCommand(tm *task.TaskManager) error {
+	prompt := "Enter task ID to change status:"
 	id, err := promptForTaskID(prompt)
 	if err != nil {
 		return err
@@ -126,16 +130,34 @@ func handleDoneCommand(tm *task.TaskManager) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Task to mark done: '%s'\n", task.FormatTask(t))
+	fmt.Printf("Current task: '%s'\n", task.FormatTask(t))
 
-	if err := tm.MarkTaskDone(id); err != nil {
+	fmt.Println("Enter new status 'done' // 'undone'")
+	str, err := readInput(os.Stdin, 50)
+	if err != nil {
 		return err
 	}
 
-	fmt.Println("✅ Task marked as done")
+	var done bool
+	switch str {
+	case "done":
+		done = true
+	case "undone":
+		done = false
+	default:
+		return err
+	}
+
+	if err := tm.UpdateTaskStatus(id, done); err != nil {
+		return err
+	}
+
+	fmt.Println("✅ Task status is has changed")
 	return nil
 }
 
+// handleClearCommand prompts for task ID and clears its description.
+// Returns error if ID validation fails or task is not found.
 func handleClearCommand(tm *task.TaskManager) error {
 	prompt := "Enter task id you want to clear description"
 	id, err := promptForTaskID(prompt)
@@ -156,6 +178,8 @@ func handleClearCommand(tm *task.TaskManager) error {
 	return nil
 }
 
+// handleUpdateCommand prompts for task ID and new description to update.
+// Returns error if ID validation fails or task is not found.
 func handleUpdateCommand(tm *task.TaskManager) error {
 	prompt := "Enter task ID to update"
 	id, err := promptForTaskID(prompt)
@@ -183,6 +207,8 @@ func handleUpdateCommand(tm *task.TaskManager) error {
 	return nil
 }
 
+// handleLoadCommand loads tasks from storage and replaces current task collection.
+// Returns error if storage loading fails.
 func handleLoadCommand(tm *task.TaskManager, s storage.Storage) error {
 	loadedTasks, err := s.LoadTasks()
 	if err != nil {
@@ -194,6 +220,8 @@ func handleLoadCommand(tm *task.TaskManager, s storage.Storage) error {
 	return nil
 }
 
+// handleDeleteCommand prompts for task ID and removes the specified task.
+// Returns error if ID validation fails or task is not found.
 func handleDeleteCommand(tm *task.TaskManager) error {
 	prompt := "Enter task ID to delete task:"
 	id, err := promptForTaskID(prompt)
@@ -248,7 +276,7 @@ func handleError(err error, context string) {
 func showHelp() {
 	fmt.Println("\n=== Available Commands ===")
 	fmt.Println("add     - Add a new task")
-	fmt.Println("done    - Mark task as completed")
+	fmt.Println("status  - Change task status")
 	fmt.Println("list    - Show all tasks")
 	fmt.Println("process - Process all tasks in parallel")
 	fmt.Println("load    - Load tasks from file")
@@ -291,9 +319,9 @@ func main() {
 				handleError(err, "Add command error")
 			}
 
-		case CommandDone:
-			if err := handleDoneCommand(tm); err != nil {
-				handleError(err, "Done command error")
+		case CommandStatus:
+			if err := handleStatusCommand(tm); err != nil {
+				handleError(err, "Status command error")
 			}
 
 		case CommandList:

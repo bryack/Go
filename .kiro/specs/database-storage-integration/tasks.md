@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Set up database foundation and dependencies
+- [x] 1. Set up database foundation and dependencies
   - Add SQLite driver dependency (`modernc.io/sqlite`) to go.mod
   - Create storage/errors.go with database-specific error types
   - _Requirements: 4.1, 4.2, 4.3, 4.4_

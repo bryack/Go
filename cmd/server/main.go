@@ -74,7 +74,7 @@ func logRequest(handler http.HandlerFunc) http.HandlerFunc {
 }
 
 // tasksHandler returns a handler function that has access to TaskManager
-func tasksHandler(tm *task.TaskManager) http.HandlerFunc {
+func tasksHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		switch r.Method {
@@ -99,6 +99,11 @@ func tasksHandler(tm *task.TaskManager) http.HandlerFunc {
 			if err != nil {
 				handlers.JSONError(w, http.StatusInternalServerError, "Failed to retrieve created task")
 			}
+
+			if err := s.SaveTasks(tm.GetTasks()); err != nil {
+				log.Printf("Failed to save tasks: %w", err)
+			}
+
 			handlers.JSONResponse(w, http.StatusCreated, response)
 		default:
 			handlers.HandleMethodNotAllowed(w, []string{"GET", "POST"})
@@ -107,7 +112,7 @@ func tasksHandler(tm *task.TaskManager) http.HandlerFunc {
 	}
 }
 
-func taskHandler(tm *task.TaskManager) http.HandlerFunc {
+func taskHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		response := task.Task{}
@@ -162,6 +167,11 @@ func taskHandler(tm *task.TaskManager) http.HandlerFunc {
 				handlers.JSONError(w, http.StatusNotFound, "Task not found")
 				return
 			}
+
+			if err := s.SaveTasks(tm.GetTasks()); err != nil {
+				log.Printf("Failed to save tasks: %w", err)
+			}
+
 			handlers.JSONSuccess(w, response)
 
 		case http.MethodDelete:
@@ -169,6 +179,11 @@ func taskHandler(tm *task.TaskManager) http.HandlerFunc {
 				handlers.JSONError(w, http.StatusNotFound, "Task not found")
 				return
 			}
+
+			if err := s.SaveTasks(tm.GetTasks()); err != nil {
+				log.Printf("Failed to save tasks: %w", err)
+			}
+
 			w.WriteHeader(http.StatusNoContent)
 
 		default:
@@ -191,8 +206,8 @@ func main() {
 	}
 
 	http.HandleFunc("/health", logRequest(healthHandler))
-	http.HandleFunc("/tasks/", logRequest(taskHandler(tm)))
-	http.HandleFunc("/tasks", logRequest(tasksHandler(tm)))
+	http.HandleFunc("/tasks/", logRequest(taskHandler(tm, s)))
+	http.HandleFunc("/tasks", logRequest(tasksHandler(tm, s)))
 	http.HandleFunc("/", logRequest(rootHandler))
 
 	fmt.Println("🚀 HTTP Server starting on http://localhost:8080")

@@ -17,7 +17,7 @@
     - _Requirements: 2.3, 4.1_
 
 - [ ] 3. Create database schema and migration system
-  - [ ] 3.1 Design and implement migrations.go with Migration struct and Migrator
+  - [x] 3.1 Design and implement migrations.go with Migration struct and Migrator
     - Write Migration struct with Version, Name, Up, Down fields
     - Create Migrator with database reference and migration slice
     - _Requirements: 3.1, 3.2, 3.4_

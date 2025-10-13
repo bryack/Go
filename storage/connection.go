@@ -29,7 +29,7 @@ type ConnectionManager struct {
 func CreateConnection(config *ConnectionConfig, path string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
-		return nil, ErrDatabaseConnection
+		return nil, mapSQLiteError(err)
 	}
 
 	_, err = retry(func() (struct{}, error) {
@@ -38,7 +38,7 @@ func CreateConnection(config *ConnectionConfig, path string) (*sql.DB, error) {
 
 	if err != nil {
 		db.Close()
-		return nil, ErrDatabaseConnection
+		return nil, mapSQLiteError(err)
 	}
 
 	db.SetMaxOpenConns(config.MaxOpenConns)

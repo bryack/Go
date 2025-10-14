@@ -1,6 +1,16 @@
 package storage
 
-import "database/sql"
+import (
+	"database/sql"
+)
+
+const (
+	createSchemaMigrationsTable = `
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY,
+            applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );`
+)
 
 // Migration represents a database schema change with version control.
 // It contains SQL statements for both applying and rolling back the change.
@@ -27,14 +37,81 @@ func NewMigrator(db *sql.DB) *Migrator {
 	}
 }
 
+func NewMigratorWithDefaults(db *sql.DB) *Migrator {
+	migrator := NewMigrator(db)
+
+	initialMigration := Migration{
+		Version: 1,
+		Name:    "create_tasks_table",
+		Up: `
+            CREATE TABLE tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                description TEXT NOT NULL,
+                done BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE INDEX idx_tasks_done ON tasks(done);
+            CREATE INDEX idx_tasks_created_at ON tasks(created_at);
+        `,
+		Down: `
+            DROP INDEX IF EXISTS idx_tasks_created_at;
+            DROP INDEX IF EXISTS idx_tasks_done;
+            DROP TABLE IF EXISTS tasks;
+        `,
+	}
+
+	migrator.AddMigration(initialMigration)
+	return migrator
+}
+
 func (m *Migrator) ApplyMigrations() error {
+	if _, err := m.db.Exec(createSchemaMigrationsTable); err != nil {
+		return mapSQLiteError(err)
+	}
+
+	current, err := m.GetCurrentVersion()
+	if err != nil {
+		return mapSQLiteError(err)
+	}
+
+	// Find pending migrations
+	var pendingMigrations []Migration
+	for _, migration := range m.migrations {
+		if migration.Version > current {
+			pendingMigrations = append(pendingMigrations, migration)
+		}
+	}
+
+	if len(pendingMigrations) == 0 {
+		return nil
+	}
+
+	for _, migration := range pendingMigrations {
+
+	}
+
 	return nil
 }
 
 func (m *Migrator) GetCurrentVersion() (int, error) {
-	return 0, nil
+	if _, err := m.db.Exec(createSchemaMigrationsTable); err != nil {
+		return 0, mapSQLiteError(err)
+	}
+
+	var version int
+	err := m.db.QueryRow("SELECT MAX(version) FROM schema_migrations").Scan(&version)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+
+	if err != nil {
+		return 0, mapSQLiteError(err)
+	}
+	return version, nil
 }
 
 func (m *Migrator) AddMigration(migration Migration) {
-
+	m.migrations = append(m.migrations, migration)
 }

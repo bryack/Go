@@ -22,12 +22,12 @@
     - Create Migrator with database reference and migration slice
     - _Requirements: 3.1, 3.2, 3.4_
 
-  - [ ] 3.2 Implement initial schema migration (version 1)
+  - [x] 3.2 Implement initial schema migration (version 1)
     - Write SQL for tasks table creation with proper indexes
     - Create schema_migrations table for tracking applied migrations
     - _Requirements: 1.2, 3.4, 5.4_
 
-  - [ ] 3.3 Add migration execution logic with rollback support
+  - [x] 3.3 Add migration execution logic with rollback support
     - Implement migration application with transaction safety
     - Add rollback functionality for failed migrations
     - _Requirements: 3.2, 3.3_

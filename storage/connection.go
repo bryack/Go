@@ -32,10 +32,7 @@ func CreateConnection(config *ConnectionConfig, path string) (*sql.DB, error) {
 		return nil, mapSQLiteError(err)
 	}
 
-	_, err = retry(func() (struct{}, error) {
-		return struct{}{}, db.Ping()
-	}, 3)
-
+	err = db.Ping()
 	if err != nil {
 		db.Close()
 		return nil, mapSQLiteError(err)

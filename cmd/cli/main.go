@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"myproject/storage"
 	"myproject/task"
 	"myproject/validation"
@@ -290,8 +291,15 @@ func showHelp() {
 
 func main() {
 	tm := task.NewTaskManager(os.Stdout)
-	var s storage.Storage = storage.JsonStorage{}
+
+	dbPath := storage.GetDatabasePath()
+	s, err := storage.NewDatabaseStorage(dbPath)
+	if err != nil {
+		log.Fatal("Failed to initialize database storage:", err)
+	}
+
 	fmt.Println("🚀 Task Manager Started!")
+	fmt.Println("📁 Database storage initialized")
 	showHelp()
 	for {
 		fmt.Print("\nEnter command: ")

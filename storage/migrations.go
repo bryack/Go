@@ -89,7 +89,24 @@ func (m *Migrator) ApplyMigrations() error {
 	}
 
 	for _, migration := range pendingMigrations {
+		tx, err := m.db.Begin()
+		if err != nil {
+			return mapSQLiteError(err)
+		}
 
+		_, err = tx.Exec(migration.Up)
+		if err != nil {
+			tx.Rollback()
+			return mapSQLiteError(err)
+		}
+
+		_, err = tx.Exec("INSERT INTO schema_migrations (version) VALUES (?)", migration.Version)
+		if err != nil {
+			tx.Rollback()
+			return mapSQLiteError(err)
+		}
+
+		tx.Commit()
 	}
 
 	return nil
@@ -100,16 +117,16 @@ func (m *Migrator) GetCurrentVersion() (int, error) {
 		return 0, mapSQLiteError(err)
 	}
 
-	var version int
+	var version sql.NullInt64
 	err := m.db.QueryRow("SELECT MAX(version) FROM schema_migrations").Scan(&version)
-	if err == sql.ErrNoRows {
-		return 0, nil
-	}
-
 	if err != nil {
 		return 0, mapSQLiteError(err)
 	}
-	return version, nil
+
+	if !version.Valid {
+		return 0, nil
+	}
+	return int(version.Int64), nil
 }
 
 func (m *Migrator) AddMigration(migration Migration) {

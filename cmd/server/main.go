@@ -195,15 +195,14 @@ func taskHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 
 func main() {
 	tm := task.NewTaskManager(os.Stdout)
-	var s storage.Storage = storage.JsonStorage{}
 
-	loadedTask, err := s.LoadTasks()
-	if err == nil {
-		tm.SetTasks(loadedTask)
-		fmt.Println("Loaded existing tasks")
-	} else {
-		fmt.Println("Starting with empty task list")
+	dbPath := storage.GetDatabasePath()
+	s, err := storage.NewDatabaseStorage(dbPath)
+	if err != nil {
+		log.Fatal("Failed to initialize database storage:", err)
 	}
+
+	fmt.Println("🚀 Database storage initialized")
 
 	http.HandleFunc("/health", logRequest(healthHandler))
 	http.HandleFunc("/tasks/", logRequest(taskHandler(tm, s)))

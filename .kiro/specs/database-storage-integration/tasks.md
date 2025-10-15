@@ -33,17 +33,17 @@
     - _Requirements: 3.2, 3.3_
 
 - [ ] 4. Implement DatabaseStorage struct and core operations
-  - [ ] 4.1 Create database.go with DatabaseStorage struct implementing Storage interface
+  - [x] 4.1 Create database.go with DatabaseStorage struct implementing Storage interface
     - Write NewDatabaseStorage constructor with database initialization
     - Implement automatic database and schema creation on startup
     - _Requirements: 1.1, 1.2, 2.1_
 
-  - [ ] 4.2 Implement LoadTasks() method with proper SQL queries
+  - [x] 4.2 Implement LoadTasks() method with proper SQL queries
     - Write SELECT query to retrieve all tasks from database
     - Map database rows to task.Task structs maintaining existing format
     - _Requirements: 5.1, 5.4_
 
-  - [ ] 4.3 Implement SaveTasks() method with transaction handling
+  - [x] 4.3 Implement SaveTasks() method with transaction handling
     - Write transaction-based replacement of all tasks (DELETE + INSERT)
     - Handle batch operations efficiently with prepared statements
     - _Requirements: 5.2, 5.5_
@@ -53,17 +53,17 @@
     - _Requirements: 2.4_
 
 - [ ] 5. Integrate database storage with existing application
-  - [ ] 5.1 Update main.go files to use DatabaseStorage instead of JsonStorage
+  - [x] 5.1 Update main.go files to use DatabaseStorage instead of JsonStorage
     - Modify cmd/server/main.go to initialize DatabaseStorage
     - Update cmd/cli/main.go to use new database storage
     - _Requirements: 1.4, 5.3_
 
-  - [ ] 5.2 Add configuration support for database path
+  - [x] 5.2 Add configuration support for database path
     - Implement environment variable support for database file location
     - Add default database path handling
     - _Requirements: 1.1_
 
-  - [ ] 5.3 Implement data migration from JSON to database
+  - [x] 5.3 Implement data migration from JSON to database
     - Create migration utility to convert existing tasks.json to database
     - Add automatic detection and migration of existing JSON data
     - _Requirements: 5.5_

@@ -23,6 +23,8 @@ func ValidateTaskID(input string) (int, error) {
 	return id, nil
 }
 
+// ValidateTaskDescription validates and sanitizes task description input.
+// Returns trimmed description or error if empty or exceeds 200 characters.
 func ValidateTaskDescription(input string) (string, error) {
 	if len(input) == 0 {
 		return "", errors.New("description is required")
@@ -36,6 +38,8 @@ func ValidateTaskDescription(input string) (string, error) {
 	return input, nil
 }
 
+// ExtractTaskIDFromPath extracts and validates a task ID from a URL path.
+// Expects paths like "/tasks/123" and returns the numeric ID or validation error.
 func ExtractTaskIDFromPath(path string) (int, error) {
 	if !strings.HasPrefix(path, "/tasks/") {
 		return 0, ErrInvalidTaskID

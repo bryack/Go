@@ -112,6 +112,8 @@ func tasksHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 	}
 }
 
+// taskHandler returns an HTTP handler for individual task operations by ID.
+// Supports GET, PUT, and DELETE methods with automatic storage persistence.
 func taskHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -200,6 +202,13 @@ func main() {
 	s, err := storage.NewDatabaseStorage(dbPath)
 	if err != nil {
 		log.Fatal("Failed to initialize database storage:", err)
+	}
+
+	// Load existing tasks from database into TaskManager
+	loadedTasks, err := s.LoadTasks()
+	if err == nil && len(loadedTasks) > 0 {
+		tm.SetTasks(loadedTasks)
+		fmt.Printf("📦 Loaded %d tasks from database\n", len(loadedTasks))
 	}
 
 	fmt.Println("🚀 Database storage initialized")

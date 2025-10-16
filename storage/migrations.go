@@ -37,6 +37,8 @@ func NewMigrator(db *sql.DB) *Migrator {
 	}
 }
 
+// NewMigratorWithDefaults creates a migrator pre-loaded with the initial database schema.
+// It includes the tasks table creation migration and is ready for immediate use.
 func NewMigratorWithDefaults(db *sql.DB) *Migrator {
 	migrator := NewMigrator(db)
 
@@ -66,6 +68,8 @@ func NewMigratorWithDefaults(db *sql.DB) *Migrator {
 	return migrator
 }
 
+// ApplyMigrations executes all pending database schema migrations in version order.
+// Each migration runs in its own transaction with automatic rollback on failure.
 func (m *Migrator) ApplyMigrations() error {
 	if _, err := m.db.Exec(createSchemaMigrationsTable); err != nil {
 		return mapSQLiteError(err)
@@ -112,6 +116,8 @@ func (m *Migrator) ApplyMigrations() error {
 	return nil
 }
 
+// GetCurrentVersion returns the highest applied migration version from the database.
+// Returns 0 if no migrations have been applied yet.
 func (m *Migrator) GetCurrentVersion() (int, error) {
 	if _, err := m.db.Exec(createSchemaMigrationsTable); err != nil {
 		return 0, mapSQLiteError(err)
@@ -129,6 +135,8 @@ func (m *Migrator) GetCurrentVersion() (int, error) {
 	return int(version.Int64), nil
 }
 
+// AddMigration adds a new migration to the migrator's execution queue.
+// Migrations are applied in version order when ApplyMigrations is called.
 func (m *Migrator) AddMigration(migration Migration) {
 	m.migrations = append(m.migrations, migration)
 }

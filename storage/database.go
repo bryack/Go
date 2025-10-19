@@ -48,13 +48,6 @@ func NewDatabaseStorage(dbPath string) (*DatabaseStorage, error) {
 		db:       db,
 		migrator: migrator,
 	}
-
-	// // Attempt automatic JSON migration (non-fatal if it fails)
-	// if err := storage.autoMigrateFromJSON(dbPath); err != nil {
-	// 	log.Printf("Warning: JSON migration failed: %v", err)
-	// 	// Don't return error - migration failure shouldn't prevent database usage
-	// }
-
 	return storage, nil
 }
 
@@ -119,64 +112,4 @@ func (ds *DatabaseStorage) SaveTasks(tasks []task.Task) error {
 	}
 
 	return tx.Commit()
-
 }
-
-// // autoMigrateFromJSON automatically migrates tasks from JSON file to database if conditions are met.
-// // It only migrates if: 1) JSON file exists, 2) Database is empty, 3) JSON file has tasks
-// func (ds *DatabaseStorage) autoMigrateFromJSON(dbPath string) error {
-// 	// Determine JSON file path (same directory as database)
-// 	dbDir := filepath.Dir(dbPath)
-// 	jsonPath := filepath.Join(dbDir, "tasks.json")
-
-// 	// Check if JSON file exists
-// 	if _, err := os.Stat(jsonPath); os.IsNotExist(err) {
-// 		// No JSON file to migrate, this is normal
-// 		return nil
-// 	}
-
-// 	fmt.Println("📦 Found existing tasks.json, checking if migration is needed...")
-
-// 	// Load tasks from JSON using existing JsonStorage
-// 	jsonStorage := JsonStorage{}
-// 	tasks, err := jsonStorage.LoadTasks()
-// 	if err != nil {
-// 		log.Printf("Warning: Could not read tasks.json for migration: %v", err)
-// 		return nil // Don't fail, just skip migration
-// 	}
-
-// 	if len(tasks) == 0 {
-// 		fmt.Println("📦 JSON file is empty, no migration needed")
-// 		return nil
-// 	}
-
-// 	// Check if database already has tasks (don't overwrite existing data)
-// 	existingTasks, err := ds.LoadTasks()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if len(existingTasks) > 0 {
-// 		fmt.Printf("📦 Database already has %d tasks, skipping migration\n", len(existingTasks))
-// 		return nil
-// 	}
-
-// 	// Perform migration: JSON → Database
-// 	fmt.Printf("📦 Migrating %d tasks from JSON to database...\n", len(tasks))
-
-// 	if err := ds.SaveTasks(tasks); err != nil {
-// 		return fmt.Errorf("failed to save tasks to database during migration: %w", err)
-// 	}
-
-// 	// Backup original JSON file
-// 	backupPath := jsonPath + ".backup"
-// 	if err := os.Rename(jsonPath, backupPath); err != nil {
-// 		log.Printf("Warning: Could not backup JSON file: %v", err)
-// 		// Don't fail migration for backup issues
-// 	} else {
-// 		fmt.Printf("📁 Backed up original file as %s\n", filepath.Base(backupPath))
-// 	}
-
-// 	fmt.Printf("✅ Successfully migrated %d tasks from JSON to database\n", len(tasks))
-// 	return nil
-// }

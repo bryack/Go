@@ -63,9 +63,14 @@ func (c *ConsoleInputReader) ReadInput(maxSize int) (string, error) {
 }
 
 func (cli *CLI) handleAddCommand() error {
-	fmt.Fprintln(cli.output, "Enter task description:")
+	fmt.Fprintln(cli.output, "Enter task description:\n")
 
 	desc, err := cli.input.ReadInput(200)
+	if err != nil {
+		return err
+	}
+
+	desc, err = validation.ValidateTaskDescription(desc)
 	if err != nil {
 		return err
 	}
@@ -75,30 +80,36 @@ func (cli *CLI) handleAddCommand() error {
 	return nil
 }
 
-func (cli *CLI) promptForTaskID(prompt string) (int, error) {
-	fmt.Fprintln(cli.output, prompt)
+func (cli *CLI) promptForTask(prompt string) (id int, t task.Task, err error) {
+	fmt.Fprint(cli.output, prompt)
 
 	input, err := cli.input.ReadInput(10)
 	if err != nil {
-		return 0, err
+		return 0, t, err
 	}
 
-	return validation.ValidateTaskID(input)
+	id, err = validation.ValidateTaskID(input)
+	if err != nil {
+		return 0, t, err
+	}
+
+	t, err = cli.taskManager.GetTaskByID(id)
+	if err != nil {
+		return 0, t, err
+	}
+
+	fmt.Fprintf(cli.output, "Current task: '%s'\n", task.FormatTask(t))
+
+	return id, t, nil
 }
 
 func (cli *CLI) handleStatusCommand() error {
-	id, err := cli.promptForTaskID("Enter task ID to change status:")
+	id, _, err := cli.promptForTask("Enter task ID to change status:\n")
 	if err != nil {
 		return err
 	}
 
-	t, err := cli.taskManager.GetTaskByID(id)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(cli.output, "Current task: '%s'\n", task.FormatTask(t))
-
-	fmt.Fprintln(cli.output, "Enter new status 'done' // 'undone'")
+	fmt.Fprintln(cli.output, "Enter new status 'done' // 'undone'\n")
 	str, err := cli.input.ReadInput(10)
 	if err != nil {
 		return err
@@ -118,21 +129,15 @@ func (cli *CLI) handleStatusCommand() error {
 		return err
 	}
 
-	fmt.Fprintf(cli.output, "✅ Task (ID: %d) status is has changed", id)
+	fmt.Fprintf(cli.output, "✅ Task (ID: %d) status is has changed\n", id)
 	return nil
 }
 
 func (cli *CLI) handleClearCommand() error {
-	id, err := cli.promptForTaskID("Enter task ID you want to clear description")
+	id, _, err := cli.promptForTask("Enter task ID you want to clear description\n")
 	if err != nil {
 		return err
 	}
-
-	t, err := cli.taskManager.GetTaskByID(id)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(cli.output, "Task to clear: '%s'\n", task.FormatTask(t))
 
 	if err = cli.taskManager.ClearDescription(id); err != nil {
 		return err
@@ -143,25 +148,24 @@ func (cli *CLI) handleClearCommand() error {
 }
 
 func (cli *CLI) handleUpdateCommand() error {
-	id, err := cli.promptForTaskID("Enter task ID to update")
+	id, t, err := cli.promptForTask("Enter task ID to update:\n")
 	if err != nil {
 		return err
 	}
 
-	t, err := cli.taskManager.GetTaskByID(id)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(cli.output, "Current task: '%s'\n", task.FormatTask(t))
-
-	fmt.Fprintln(cli.output, "Enter new description:")
+	fmt.Fprintln(cli.output, "Enter new description:\n")
 	desc, err := cli.input.ReadInput(200)
 	if err != nil {
 		return err
 	}
 
+	desc, err = validation.ValidateTaskDescription(desc)
+	if err != nil {
+		return err
+	}
+
 	if desc == t.Description {
-		return fmt.Errorf("Task (ID: %d) Description unchanged", id)
+		return fmt.Errorf("Task (ID: %d) Description unchanged\n", id)
 	}
 
 	if err = cli.taskManager.UpdateTaskDescription(id, desc); err != nil {
@@ -179,22 +183,18 @@ func (cli *CLI) handleLoadCommand() error {
 	}
 
 	cli.taskManager.SetTasks(loadedTasks)
-	fmt.Fprintf(cli.output, "✅ %d tasks loaded successfully!", len(loadedTasks))
+	fmt.Fprintf(cli.output, "✅ %d tasks loaded successfully!\n", len(loadedTasks))
 
 	return nil
 }
 
 func (cli *CLI) handleDeleteCommand() error {
-	id, err := cli.promptForTaskID("Enter task ID to delete task:")
+	id, _, err := cli.promptForTask("Enter task ID to delete task:\n")
 	if err != nil {
 		return err
 	}
 
-	t, err := cli.taskManager.GetTaskByID(id)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(cli.output, "Task to delete: '%s'. Enter y/N:\n", task.FormatTask(t))
+	fmt.Fprintln(cli.output, "Enter y/N:\n")
 	str, err := cli.input.ReadInput(10)
 	if err != nil {
 		return err
@@ -209,7 +209,7 @@ func (cli *CLI) handleDeleteCommand() error {
 		fmt.Fprintf(cli.output, "✅ Task (ID: %d) deleted\n", id)
 		return nil
 	case "n":
-		fmt.Fprintln(cli.output, "Deletion canceled")
+		fmt.Fprintln(cli.output, "Deletion canceled\n")
 		return nil
 	default:
 		return fmt.Errorf("invalid choice: %q; must be 'y' or 'n'", str)

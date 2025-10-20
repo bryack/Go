@@ -62,24 +62,6 @@ func (c *ConsoleInputReader) ReadInput(maxSize int) (string, error) {
 	return input, nil
 }
 
-func (cli *CLI) handleAddCommand() error {
-	fmt.Fprintln(cli.output, "Enter task description:\n")
-
-	desc, err := cli.input.ReadInput(200)
-	if err != nil {
-		return err
-	}
-
-	desc, err = validation.ValidateTaskDescription(desc)
-	if err != nil {
-		return err
-	}
-
-	id := cli.taskManager.AddTask(desc)
-	fmt.Fprintf(cli.output, "✅ Task added (ID: %d)\n", id)
-	return nil
-}
-
 func (cli *CLI) promptForTask(prompt string) (id int, t task.Task, err error) {
 	fmt.Fprint(cli.output, prompt)
 
@@ -103,13 +85,31 @@ func (cli *CLI) promptForTask(prompt string) (id int, t task.Task, err error) {
 	return id, t, nil
 }
 
+func (cli *CLI) handleAddCommand() error {
+	fmt.Fprintln(cli.output, "Enter task description:\n")
+
+	desc, err := cli.input.ReadInput(200)
+	if err != nil {
+		return err
+	}
+
+	desc, err = validation.ValidateTaskDescription(desc)
+	if err != nil {
+		return err
+	}
+
+	id := cli.taskManager.AddTask(desc)
+	fmt.Fprintf(cli.output, "✅ Task added (ID: %d)\n", id)
+	return nil
+}
+
 func (cli *CLI) handleStatusCommand() error {
 	id, _, err := cli.promptForTask("Enter task ID to change status:\n")
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintln(cli.output, "Enter new status 'done' // 'undone'\n")
+	fmt.Fprint(cli.output, "Enter new status 'done' // 'undone'\n")
 	str, err := cli.input.ReadInput(10)
 	if err != nil {
 		return err
@@ -153,7 +153,7 @@ func (cli *CLI) handleUpdateCommand() error {
 		return err
 	}
 
-	fmt.Fprintln(cli.output, "Enter new description:\n")
+	fmt.Fprint(cli.output, "Enter new description:\n")
 	desc, err := cli.input.ReadInput(200)
 	if err != nil {
 		return err

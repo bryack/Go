@@ -290,20 +290,25 @@ func showHelp() {
 }
 
 func main() {
-	tm := task.NewTaskManager(os.Stdout)
-
 	dbPath := storage.GetDatabasePath()
 	s, err := storage.NewDatabaseStorage(dbPath)
 	if err != nil {
 		log.Fatal("Failed to initialize database storage:", err)
 	}
 
-	fmt.Println("🚀 Task Manager Started!")
-	fmt.Println("📁 Database storage initialized")
+	cli := NewCLI(
+		NewConsoleInputReader(os.Stdin),
+		os.Stdout,
+		task.NewTaskManager(os.Stdout),
+		s,
+	)
+
+	fmt.Fprintln(cli.output, "🚀 Task Manager Started!")
+	fmt.Fprintln(cli.output, "📁 Database storage initialized")
 	showHelp()
 	for {
-		fmt.Print("\nEnter command: ")
-		input, err := readInput(os.Stdin, maxInputSize)
+		fmt.Fprint(cli.output, "\nEnter command: ")
+		input, err := cli.input.ReadInput(maxInputSize)
 		if err != nil {
 			handleError(err, "Input error")
 			continue
@@ -313,45 +318,45 @@ func main() {
 		if err != nil {
 			suggestion := suggestCommand(input)
 			if suggestion != "" {
-				fmt.Printf("❌ Unknown command: '%s', maybe you wanted: '%s'\n", input, suggestion)
+				fmt.Fprintf(cli.output, "❌ Unknown command: '%s', maybe you wanted: '%s'\n", input, suggestion)
 			} else {
 				handleError(err, "Command validate error")
-				fmt.Println("Type 'help' to see available commands")
+				fmt.Fprintln(cli.output, "Type 'help' to see available commands")
 			}
 			continue
 		}
 
 		switch Command(cmd) {
 		case CommandAdd:
-			if err := handleAddCommand(tm); err != nil {
+			if err := cli.handleAddCommand(); err != nil {
 				handleError(err, "Add command error")
 			}
 
 		case CommandStatus:
-			if err := handleStatusCommand(tm); err != nil {
+			if err := cli.handleStatusCommand(); err != nil {
 				handleError(err, "Status command error")
 			}
 
 		case CommandList:
-			if err := tm.PrintTasks(); err != nil {
+			if err := cli.taskManager.PrintTasks(); err != nil {
 				handleError(err, "Print tasks error")
 			}
 
 		case CommandProcess:
-			tm.ProcessTasks()
+			cli.taskManager.ProcessTasks()
 
 		case CommandLoad:
-			if err := handleLoadCommand(tm, s); err != nil {
+			if err := cli.handleLoadCommand(); err != nil {
 				handleError(err, "Load command error")
 			}
 
 		case CommandClear:
-			if err := handleClearCommand(tm); err != nil {
+			if err := cli.handleClearCommand(); err != nil {
 				handleError(err, "Clear command error")
 			}
 
 		case CommandDelete:
-			if err := handleDeleteCommand(tm); err != nil {
+			if err := cli.handleDeleteCommand(); err != nil {
 				handleError(err, "Delete command error")
 			}
 
@@ -359,7 +364,7 @@ func main() {
 			showHelp()
 
 		case CommandExit:
-			if err := s.SaveTasks(tm.GetTasks()); err != nil {
+			if err := cli.storage.SaveTasks(cli.taskManager.GetTasks()); err != nil {
 				handleError(err, "Save error")
 			} else {
 				fmt.Println("Tasks saved successfully!")
@@ -368,7 +373,7 @@ func main() {
 			return
 
 		case CommandUpdate:
-			if err := handleUpdateCommand(tm); err != nil {
+			if err := cli.handleUpdateCommand(); err != nil {
 				handleError(err, "Update command error")
 			}
 		}

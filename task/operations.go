@@ -83,21 +83,6 @@ func (tm *TaskManager) AddTask(input string) int {
 	return newID
 }
 
-// MarkTaskDone помечает задачу с указанным ID как выполненную.
-// Возвращает ErrTaskNotFound, если задача не найдена.
-// func (tm *TaskManager) MarkTaskDone(id int) error {
-// 	tm.mu.Lock()
-// 	defer tm.mu.Unlock()
-
-// 	for i := range tm.tasks {
-// 		if tm.tasks[i].ID == id {
-// 			tm.tasks[i].Done = true
-// 			return nil
-// 		}
-// 	}
-// 	return ErrTaskNotFound
-// }
-
 // UpdateTaskStatus sets the completion status of a task by ID.
 // Returns ErrTaskNotFound if the task doesn't exist.
 // This operation is thread-safe.

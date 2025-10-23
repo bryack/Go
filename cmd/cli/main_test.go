@@ -77,11 +77,14 @@ func TestReadInput(t *testing.T) {
 			expectedErr: nil,
 		},
 	}
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// ====Act====
+
 			testInput := strings.NewReader(tc.input)
-			str, err := readInput(testInput, tc.lenInput)
+			c := NewConsoleInputReader(testInput)
+			str, err := c.ReadInput(tc.lenInput)
 
 			// ====Assert====
 			if str != tc.expectedStr {

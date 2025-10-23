@@ -94,7 +94,7 @@ func (cli *CLI) promptForTask(prompt string) (id int, t task.Task, err error) {
 }
 
 func (cli *CLI) handleAddCommand() error {
-	fmt.Fprintln(cli.output, "Enter task description:\n")
+	fmt.Fprintln(cli.output, "Enter task description:")
 
 	desc, err := cli.input.ReadInput(200)
 	if err != nil {
@@ -114,13 +114,13 @@ func (cli *CLI) handleAddCommand() error {
 func (cli *CLI) handleStatusCommand() error {
 	id, _, err := cli.promptForTask("Enter task ID to change status:\n")
 	if err != nil {
-		return fmt.Errorf("updating status: task id %s validation failed: %w", id, err)
+		return fmt.Errorf("updating status: task id validation failed: %w", err)
 	}
 
 	fmt.Fprint(cli.output, "Enter new status 'done' // 'undone'\n")
 	str, err := cli.input.ReadInput(10)
 	if err != nil {
-		return fmt.Errorf("updating status: read status '%q' for task id %s failed: %w", str, id, err)
+		return fmt.Errorf("updating status: read status for task id %d failed: %w", id, err)
 	}
 
 	var done bool
@@ -130,7 +130,7 @@ func (cli *CLI) handleStatusCommand() error {
 	case "undone":
 		done = false
 	default:
-		return fmt.Errorf("updating status: invalid status: '%q' for task id %d; must be 'done' or 'undone'", str, id)
+		return fmt.Errorf("updating status: invalid status: %q for task id %d; must be 'done' or 'undone'", str, id)
 	}
 
 	if err := cli.taskManager.UpdateTaskStatus(id, done); err != nil {
@@ -144,7 +144,7 @@ func (cli *CLI) handleStatusCommand() error {
 func (cli *CLI) handleClearCommand() error {
 	id, _, err := cli.promptForTask("Enter task ID you want to clear description\n")
 	if err != nil {
-		return fmt.Errorf("clearing task description: task id %s validation failed: %w", id, err)
+		return fmt.Errorf("clearing task description: task id validation failed: %w", err)
 	}
 
 	if err = cli.taskManager.ClearDescription(id); err != nil {
@@ -158,7 +158,7 @@ func (cli *CLI) handleClearCommand() error {
 func (cli *CLI) handleUpdateCommand() error {
 	id, t, err := cli.promptForTask("Enter task ID to update:\n")
 	if err != nil {
-		return fmt.Errorf("updating task description: task id %s validation failed: %w", id, err)
+		return fmt.Errorf("updating task description: task id validation failed: %w", err)
 	}
 
 	fmt.Fprint(cli.output, "Enter new description:\n")
@@ -199,13 +199,13 @@ func (cli *CLI) handleLoadCommand() error {
 func (cli *CLI) handleDeleteCommand() error {
 	id, _, err := cli.promptForTask("Enter task ID to delete task:\n")
 	if err != nil {
-		return fmt.Errorf("deliting task id %s validation failed: %w", id, err)
+		return fmt.Errorf("deliting task: id validation failed: %w", err)
 	}
 
-	fmt.Fprintln(cli.output, "Enter y/N:\n")
+	fmt.Fprintln(cli.output, "Enter y/N:")
 	str, err := cli.input.ReadInput(10)
 	if err != nil {
-		return fmt.Errorf("deliting task id %s: read confirmation failed: %w", id, err)
+		return fmt.Errorf("deliting task id %d: read confirmation failed: %w", id, err)
 	}
 	str = strings.ToLower(str)
 
@@ -217,10 +217,10 @@ func (cli *CLI) handleDeleteCommand() error {
 		fmt.Fprintf(cli.output, "✅ Task (ID: %d) deleted\n", id)
 		return nil
 	case "n":
-		fmt.Fprintln(cli.output, "Deletion canceled\n")
+		fmt.Fprintln(cli.output, "Deletion canceled")
 		return nil
 	default:
-		return fmt.Errorf("deleting task id %d: invalid choice: %q; must be 'y' or 'n'", str)
+		return fmt.Errorf("deleting task id %d: invalid choice: %q; must be 'y' or 'n'", id, str)
 	}
 }
 
@@ -240,32 +240,12 @@ func (cli *CLI) showHelp() {
 }
 
 func (cli *CLI) handleError(err error, context string) {
-	switch {
-	case errors.Is(err, io.EOF):
-		fmt.Fprintf(cli.output, "%s: input interrupted by user", context)
-	// case errors.Is(err, ErrMaxSizeExceeded):
-	// 	fmt.Printf("%s: input exceeds %d characters\n", context, maxInputSize)
-	case errors.Is(err, ErrEmptyInput):
-		fmt.Fprintf(cli.output, "%s: empty input provided\n", context)
-	case errors.Is(err, task.ErrTaskNotFound):
-		fmt.Fprintf(cli.output, "%s: task not found\n", context)
-	case errors.Is(err, storage.ErrConversionTask):
-		fmt.Fprintf(cli.output, "%s: failed to convert tasks\n", context)
-	case errors.Is(err, storage.ErrFailedWriteFile):
-		fmt.Fprintf(cli.output, "%s: failed to write file\n", context)
-	case errors.Is(err, storage.ErrFileNotFound):
-		fmt.Fprintf(cli.output, "%s: file not found\n", context)
-	case errors.Is(err, storage.ErrParseJson):
-		fmt.Fprintf(cli.output, "%s: JSON parsing error\n", context)
-	case errors.Is(err, ErrInvalidTaskId):
-		fmt.Fprintf(cli.output, "%s: ID must be a positive number (greater than 0)\n", context)
-	case errors.Is(err, task.ErrPrintTask):
-		fmt.Fprintf(cli.output, "%s: failed to print tasks\n", context)
-	case errors.Is(err, ErrInvalidCommand):
-		fmt.Fprintf(cli.output, "%s: failed to assume command\n", context)
-	default:
-		fmt.Fprintf(cli.output, "%s: %v\n", context, err)
+	if errors.Is(err, io.EOF) {
+		fmt.Fprintf(cli.output, "%s: input interrupted by user\n", context)
+		return
 	}
+
+	fmt.Fprintf(cli.output, "%s: %v\n", context, err)
 }
 
 func (cli *CLI) RunLoop() {

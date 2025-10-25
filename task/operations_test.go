@@ -517,81 +517,81 @@ func TestUpdateTaskDescription(t *testing.T) {
 func TestGetTaskByID(t *testing.T) {
 	// ====Arrange====
 	testCases := []struct {
-		name            string
-		id              int
-		initialTasks    []Task
-		expectedStrTask Task
-		expectedErr     error
+		name         string
+		id           int
+		initialTasks []Task
+		expectedTask Task
+		expectedErr  error
 	}{
 		{
-			name:            "Existent task in one-task list",
-			id:              1,
-			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}},
-			expectedStrTask: Task{ID: 1, Description: "task 1"},
-			expectedErr:     nil,
+			name:         "Existent task in one-task list",
+			id:           1,
+			initialTasks: []Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedTask: Task{ID: 1, Description: "task 1"},
+			expectedErr:  nil,
 		},
 		{
-			name:            "Completed task in multiple tasks list",
-			id:              3,
-			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-			expectedStrTask: Task{ID: 3, Description: "task 3", Done: true},
-			expectedErr:     nil,
+			name:         "Completed task in multiple tasks list",
+			id:           3,
+			initialTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedTask: Task{ID: 3, Description: "task 3", Done: true},
+			expectedErr:  nil,
 		},
 		{
-			name:            "Non-existent task in multiple tasks list",
-			id:              4,
-			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-			expectedStrTask: Task{},
-			expectedErr:     ErrTaskNotFound,
+			name:         "Non-existent task in multiple tasks list",
+			id:           4,
+			initialTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedTask: Task{},
+			expectedErr:  ErrTaskNotFound,
 		},
 		{
-			name:            "Non-existent task in empty tasks list",
-			id:              1,
-			initialTasks:    []Task{},
-			expectedStrTask: Task{},
-			expectedErr:     ErrTaskNotFound,
+			name:         "Non-existent task in empty tasks list",
+			id:           1,
+			initialTasks: []Task{},
+			expectedTask: Task{},
+			expectedErr:  ErrTaskNotFound,
 		},
 		{
-			name:            "Zero ID",
-			id:              0,
-			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}},
-			expectedStrTask: Task{},
-			expectedErr:     ErrTaskNotFound,
+			name:         "Zero ID",
+			id:           0,
+			initialTasks: []Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedTask: Task{},
+			expectedErr:  ErrTaskNotFound,
 		},
 		{
-			name:            "Negative ID",
-			id:              -1,
-			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}},
-			expectedStrTask: Task{},
-			expectedErr:     ErrTaskNotFound,
+			name:         "Negative ID",
+			id:           -1,
+			initialTasks: []Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedTask: Task{},
+			expectedErr:  ErrTaskNotFound,
 		},
 		{
-			name:            "Very large ID",
-			id:              1111111111111111111,
-			initialTasks:    []Task{{ID: 1111111111111111111, Description: "task 1111111111111111111", Done: false}},
-			expectedStrTask: Task{ID: 1111111111111111111, Description: "task 1111111111111111111"},
-			expectedErr:     nil,
+			name:         "Very large ID",
+			id:           1111111111111111111,
+			initialTasks: []Task{{ID: 1111111111111111111, Description: "task 1111111111111111111", Done: false}},
+			expectedTask: Task{ID: 1111111111111111111, Description: "task 1111111111111111111"},
+			expectedErr:  nil,
 		},
 		{
-			name:            "Existent task with very long description",
-			id:              3,
-			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.", Done: true}},
-			expectedStrTask: Task{ID: 3, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.", Done: true},
-			expectedErr:     nil,
+			name:         "Existent task with very long description",
+			id:           3,
+			initialTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.", Done: true}},
+			expectedTask: Task{ID: 3, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.", Done: true},
+			expectedErr:  nil,
 		},
 		{
-			name:            "Existent task with empty description",
-			id:              3,
-			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "", Done: true}},
-			expectedStrTask: Task{ID: 3, Done: true},
-			expectedErr:     nil,
+			name:         "Existent task with empty description",
+			id:           3,
+			initialTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "", Done: true}},
+			expectedTask: Task{ID: 3, Done: true},
+			expectedErr:  nil,
 		},
 		{
-			name:            "Existent task with Unicode and special characters",
-			id:              3,
-			initialTasks:    []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Buy 🍞 and 🥛#@`[]$%^*", Done: true}},
-			expectedStrTask: Task{ID: 3, Description: "Buy 🍞 and 🥛#@`[]$%^*", Done: true},
-			expectedErr:     nil,
+			name:         "Existent task with Unicode and special characters",
+			id:           3,
+			initialTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Buy 🍞 and 🥛#@`[]$%^*", Done: true}},
+			expectedTask: Task{ID: 3, Description: "Buy 🍞 and 🥛#@`[]$%^*", Done: true},
+			expectedErr:  nil,
 		},
 	}
 
@@ -608,7 +608,7 @@ func TestGetTaskByID(t *testing.T) {
 				t.Errorf("Expected '%v', got '%v'", tc.expectedErr, err)
 			}
 
-			if diff := cmp.Diff(tc.expectedStrTask, strTask); diff != "" {
+			if diff := cmp.Diff(tc.expectedTask, strTask); diff != "" {
 				t.Errorf("String mismatch (-want +got):\n%s", diff)
 			}
 		})

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -190,6 +191,43 @@ func TestValidateCommand(t *testing.T) {
 			if cmd != tc.expectedCmd {
 				t.Errorf("Expected %s, got %s", tc.expectedCmd, cmd)
 			}
+		})
+	}
+}
+
+func TestCLI_PromptForTaskID(t testing.T) {
+	// ====Arrange====
+	prompt := "Enter task ID to change status:\n"
+	testCases := []struct {
+		name        string
+		input       string
+		expectedID  int
+		expectedErr error
+	}{
+		{
+			name:        "valid id",
+			input:       "1",
+			expectedID:  1,
+			expectedErr: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeInput := strings.NewReader(tc.input)
+			output := &bytes.Buffer{}
+			cli := NewCLI(
+				NewConsoleInputReader(fakeInput),
+				output,
+				nil,
+				nil,
+			)
+
+			// ==== ACT ====
+			id, err := cli.promptForTaskID(prompt)
+
+			// === ASSERT ===
+
 		})
 	}
 }

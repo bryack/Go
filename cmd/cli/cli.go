@@ -70,15 +70,19 @@ func (c *ConsoleInputReader) ReadInput(maxSize int) (string, error) {
 	return input, nil
 }
 
-func (cli *CLI) promptForTask(prompt string) (id int, t task.Task, err error) {
+func (cli *CLI) promptForTaskID(prompt string) (id int, err error) {
 	fmt.Fprint(cli.output, prompt)
 
 	input, err := cli.input.ReadInput(10)
 	if err != nil {
-		return 0, t, err
+		return 0, err
 	}
 
-	id, err = validation.ValidateTaskID(input)
+	return validation.ValidateTaskID(input)
+}
+
+func (cli *CLI) promptForTaskWithDisplay(prompt string) (id int, t task.Task, err error) {
+	id, err = cli.promptForTaskID(prompt)
 	if err != nil {
 		return 0, t, err
 	}
@@ -112,7 +116,7 @@ func (cli *CLI) handleAddCommand() error {
 }
 
 func (cli *CLI) handleStatusCommand() error {
-	id, _, err := cli.promptForTask("Enter task ID to change status:\n")
+	id, _, err := cli.promptForTaskWithDisplay("Enter task ID to change status:\n")
 	if err != nil {
 		return fmt.Errorf("updating status: task id validation failed: %w", err)
 	}
@@ -142,7 +146,7 @@ func (cli *CLI) handleStatusCommand() error {
 }
 
 func (cli *CLI) handleClearCommand() error {
-	id, _, err := cli.promptForTask("Enter task ID you want to clear description\n")
+	id, _, err := cli.promptForTaskWithDisplay("Enter task ID you want to clear description\n")
 	if err != nil {
 		return fmt.Errorf("clearing task description: task id validation failed: %w", err)
 	}
@@ -156,7 +160,7 @@ func (cli *CLI) handleClearCommand() error {
 }
 
 func (cli *CLI) handleUpdateCommand() error {
-	id, t, err := cli.promptForTask("Enter task ID to update:\n")
+	id, t, err := cli.promptForTaskWithDisplay("Enter task ID to update:\n")
 	if err != nil {
 		return fmt.Errorf("updating task description: task id validation failed: %w", err)
 	}
@@ -197,15 +201,15 @@ func (cli *CLI) handleLoadCommand() error {
 }
 
 func (cli *CLI) handleDeleteCommand() error {
-	id, _, err := cli.promptForTask("Enter task ID to delete task:\n")
+	id, _, err := cli.promptForTaskWithDisplay("Enter task ID to delete task:\n")
 	if err != nil {
-		return fmt.Errorf("deliting task: id validation failed: %w", err)
+		return fmt.Errorf("deleting task: id validation failed: %w", err)
 	}
 
 	fmt.Fprintln(cli.output, "Enter y/N:")
 	str, err := cli.input.ReadInput(10)
 	if err != nil {
-		return fmt.Errorf("deliting task id %d: read confirmation failed: %w", id, err)
+		return fmt.Errorf("deleting task id %d: read confirmation failed: %w", id, err)
 	}
 	str = strings.ToLower(str)
 

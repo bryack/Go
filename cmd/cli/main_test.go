@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"myproject/task"
+	"myproject/validation"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // TestReadInput tests the readInput function with various input scenarios.
@@ -195,20 +199,77 @@ func TestValidateCommand(t *testing.T) {
 	}
 }
 
-func TestCLI_PromptForTaskID(t testing.T) {
+func TestCLI_PromptForTaskID(t *testing.T) {
 	// ====Arrange====
-	prompt := "Enter task ID to change status:\n"
+	prompt := "Enter task ID:\n"
 	testCases := []struct {
 		name        string
 		input       string
 		expectedID  int
 		expectedErr error
 	}{
+		// Valid inputs
 		{
 			name:        "valid id",
-			input:       "1",
+			input:       "1\n",
 			expectedID:  1,
 			expectedErr: nil,
+		},
+		{
+			name:        "valid id with spaces",
+			input:       " 1 \n",
+			expectedID:  1,
+			expectedErr: nil,
+		},
+		{
+			name:        "input at max size limit",
+			input:       "1234567890\n",
+			expectedID:  1234567890,
+			expectedErr: nil,
+		},
+		// Input size issues
+		{
+			name:        "input over max size",
+			input:       "11111111111\n",
+			expectedID:  0,
+			expectedErr: ErrMaxSizeExceeded,
+		},
+		// Invalid format
+		{
+			name:        "empty input",
+			input:       "\n",
+			expectedID:  0,
+			expectedErr: ErrEmptyInput,
+		},
+		{
+			name:        "input with spaces only",
+			input:       "      \n",
+			expectedID:  0,
+			expectedErr: ErrEmptyInput,
+		},
+		{
+			name:        "zero ID",
+			input:       "0\n",
+			expectedID:  0,
+			expectedErr: validation.ErrInvalidTaskID,
+		},
+		{
+			name:        "negative ID",
+			input:       "-1\n",
+			expectedID:  0,
+			expectedErr: validation.ErrInvalidTaskID,
+		},
+		{
+			name:        "decimal number",
+			input:       "1.5\n",
+			expectedID:  0,
+			expectedErr: validation.ErrInvalidTaskID,
+		},
+		{
+			name:        "input with special characters",
+			input:       "#@`[]$%^*\n",
+			expectedID:  0,
+			expectedErr: validation.ErrInvalidTaskID,
 		},
 	}
 
@@ -227,7 +288,168 @@ func TestCLI_PromptForTaskID(t testing.T) {
 			id, err := cli.promptForTaskID(prompt)
 
 			// === ASSERT ===
+			assert.Equal(t, tc.expectedID, id)
+			assert.ErrorIs(t, tc.expectedErr, err)
+			assert.Equal(t, prompt, output.String())
+		})
+	}
+}
 
+func TestCLI_PromptForTaskWithDisplay(t *testing.T) {
+	// ====Arrange====
+	prompt := "Enter task ID:\n"
+	testCases := []struct {
+		name           string
+		input          string
+		initialTasks   []task.Task
+		expectedID     int
+		expectedTask   task.Task
+		expectedErr    error
+		expectedPrompt string
+	}{
+		// Valid inputs
+		{
+			name:           "existent task in one-task list",
+			input:          "1\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedID:     1,
+			expectedTask:   task.Task{ID: 1, Description: "task 1"},
+			expectedErr:    nil,
+			expectedPrompt: "Enter task ID:\nCurrent task: '[  ] ID: 1, Description: task 1'\n",
+		},
+		{
+			name:           "existent task (valid id with spaces) in multiple tasks list",
+			input:          " 3 \n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedID:     3,
+			expectedTask:   task.Task{ID: 3, Description: "task 3", Done: true},
+			expectedErr:    nil,
+			expectedPrompt: "Enter task ID:\nCurrent task: '[✓ ] ID: 3, Description: task 3'\n",
+		},
+		{
+			name:           "Very large ID",
+			input:          "9999999999\n",
+			initialTasks:   []task.Task{{ID: 9999999999, Description: "task 9999999999", Done: false}},
+			expectedID:     9999999999,
+			expectedTask:   task.Task{ID: 9999999999, Description: "task 9999999999"},
+			expectedErr:    nil,
+			expectedPrompt: "Enter task ID:\nCurrent task: '[  ] ID: 9999999999, Description: task 9999999999'\n",
+		},
+		{
+			name:           "Existent task with very long description",
+			input:          "3\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.", Done: true}},
+			expectedID:     3,
+			expectedTask:   task.Task{ID: 3, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.", Done: true},
+			expectedErr:    nil,
+			expectedPrompt: "Enter task ID:\nCurrent task: '[✓ ] ID: 3, Description: Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.'\n",
+		},
+		{
+			name:           "Existent task with empty description",
+			input:          "3\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "", Done: true}},
+			expectedID:     3,
+			expectedTask:   task.Task{ID: 3, Done: true},
+			expectedErr:    nil,
+			expectedPrompt: "Enter task ID:\nCurrent task: '[✓ ] ID: 3, Description: '\n",
+		},
+		{
+			name:           "Existent task with Unicode and special characters",
+			input:          "3\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Buy 🍞 and 🥛#@`[]$%^*", Done: true}},
+			expectedID:     3,
+			expectedTask:   task.Task{ID: 3, Description: "Buy 🍞 and 🥛#@`[]$%^*", Done: true},
+			expectedErr:    nil,
+			expectedPrompt: "Enter task ID:\nCurrent task: '[✓ ] ID: 3, Description: Buy 🍞 and 🥛#@`[]$%^*'\n",
+		},
+		// Input size issues
+		{
+			name:           "input over max size",
+			input:          "11111111111\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedID:     0,
+			expectedTask:   task.Task{},
+			expectedErr:    ErrMaxSizeExceeded,
+			expectedPrompt: prompt,
+		},
+		// Invalid format
+		{
+			name:           "empty input",
+			input:          "\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedID:     0,
+			expectedTask:   task.Task{},
+			expectedErr:    ErrEmptyInput,
+			expectedPrompt: prompt,
+		},
+		{
+			name:           "input with spaces only",
+			input:          "      \n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedID:     0,
+			expectedTask:   task.Task{},
+			expectedErr:    ErrEmptyInput,
+			expectedPrompt: prompt,
+		},
+		{
+			name:           "zero ID",
+			input:          "0\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedID:     0,
+			expectedTask:   task.Task{},
+			expectedErr:    validation.ErrInvalidTaskID,
+			expectedPrompt: prompt,
+		},
+		{
+			name:           "negative ID",
+			input:          "-1\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedID:     0,
+			expectedTask:   task.Task{},
+			expectedErr:    validation.ErrInvalidTaskID,
+			expectedPrompt: prompt,
+		},
+		{
+			name:           "decimal number",
+			input:          "1.5\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedID:     0,
+			expectedTask:   task.Task{},
+			expectedErr:    validation.ErrInvalidTaskID,
+			expectedPrompt: prompt,
+		},
+		{
+			name:           "input with special characters",
+			input:          "#@`[]$%^*\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedID:     0,
+			expectedTask:   task.Task{},
+			expectedErr:    validation.ErrInvalidTaskID,
+			expectedPrompt: prompt,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeInput := strings.NewReader(tc.input)
+			output := &bytes.Buffer{}
+			taskManager := task.NewTaskManager(output)
+			cli := NewCLI(
+				NewConsoleInputReader(fakeInput),
+				output,
+				taskManager,
+				nil,
+			)
+			cli.taskManager.SetTasks(tc.initialTasks)
+
+			// ==== ACT ====
+			id, task, err := cli.promptForTaskWithDisplay(prompt)
+
+			// === ASSERT ===
+			assert.Equal(t, tc.expectedID, id)
+			assert.Equal(t, tc.expectedTask, task)
+			assert.ErrorIs(t, tc.expectedErr, err)
+			assert.Equal(t, tc.expectedPrompt, output.String())
 		})
 	}
 }

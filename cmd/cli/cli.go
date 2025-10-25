@@ -11,6 +11,13 @@ import (
 	"strings"
 )
 
+const (
+	maxCommandInputSize     = 10
+	maxTaskIDInputSize      = 10
+	maxDescriptionInputSize = 200
+	maxStatusInputSize      = 10
+)
+
 var (
 	ErrMaxSizeExceeded = errors.New("input too long")
 	ErrEmptyInput      = errors.New("empty input")
@@ -73,7 +80,7 @@ func (c *ConsoleInputReader) ReadInput(maxSize int) (string, error) {
 func (cli *CLI) promptForTaskID(prompt string) (id int, err error) {
 	fmt.Fprint(cli.output, prompt)
 
-	input, err := cli.input.ReadInput(10)
+	input, err := cli.input.ReadInput(maxTaskIDInputSize)
 	if err != nil {
 		return 0, err
 	}
@@ -100,7 +107,7 @@ func (cli *CLI) promptForTaskWithDisplay(prompt string) (id int, t task.Task, er
 func (cli *CLI) handleAddCommand() error {
 	fmt.Fprintln(cli.output, "Enter task description:")
 
-	desc, err := cli.input.ReadInput(200)
+	desc, err := cli.input.ReadInput(maxDescriptionInputSize)
 	if err != nil {
 		return fmt.Errorf("adding task: input failed: %w", err)
 	}
@@ -122,7 +129,7 @@ func (cli *CLI) handleStatusCommand() error {
 	}
 
 	fmt.Fprint(cli.output, "Enter new status 'done' // 'undone'\n")
-	str, err := cli.input.ReadInput(10)
+	str, err := cli.input.ReadInput(maxStatusInputSize)
 	if err != nil {
 		return fmt.Errorf("updating status: read status for task id %d failed: %w", id, err)
 	}
@@ -166,7 +173,7 @@ func (cli *CLI) handleUpdateCommand() error {
 	}
 
 	fmt.Fprint(cli.output, "Enter new description:\n")
-	desc, err := cli.input.ReadInput(200)
+	desc, err := cli.input.ReadInput(maxDescriptionInputSize)
 	if err != nil {
 		return fmt.Errorf("updating task description for task id %d: read description '%s' failed: %w", id, desc, err)
 	}
@@ -258,7 +265,7 @@ func (cli *CLI) RunLoop() {
 	cli.showHelp()
 	for {
 		fmt.Fprint(cli.output, "\nEnter command: ")
-		input, err := cli.input.ReadInput(10)
+		input, err := cli.input.ReadInput(maxCommandInputSize)
 		if err != nil {
 			cli.handleError(err, "Input error")
 			continue

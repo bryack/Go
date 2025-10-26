@@ -106,6 +106,8 @@ func TestReadInput(t *testing.T) {
 	}
 }
 
+// TestIsValidCommand verifies that Command.isValid() correctly identifies valid and invalid commands.
+// Tests all valid commands from validCommands slice and common invalid command patterns.
 func TestIsValidCommand(t *testing.T) {
 	copyValidCommands := make([]Command, len(validCommands))
 	copy(copyValidCommands, validCommands)
@@ -136,6 +138,8 @@ func TestIsValidCommand(t *testing.T) {
 	}
 }
 
+// TestValidateCommand tests the validateCommand function with various input formats.
+// Covers valid commands, case-insensitivity, empty input, and invalid command strings.
 func TestValidateCommand(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -202,6 +206,8 @@ func TestValidateCommand(t *testing.T) {
 	}
 }
 
+// TestCLI_PromptForTaskID tests the promptForTaskID method with various input scenarios.
+// Covers valid IDs, size limits, empty input, and invalid ID formats (negative, zero, non-numeric).
 func TestCLI_PromptForTaskID(t *testing.T) {
 	// ====Arrange====
 	prompt := "Enter task ID:\n"
@@ -298,6 +304,8 @@ func TestCLI_PromptForTaskID(t *testing.T) {
 	}
 }
 
+// TestCLI_PromptForTaskWithDisplay tests task ID prompting with task display functionality.
+// Verifies correct task retrieval, formatting, and error handling for non-existent tasks.
 func TestCLI_PromptForTaskWithDisplay(t *testing.T) {
 	// ====Arrange====
 	prompt := "Enter task ID:\n"
@@ -466,6 +474,8 @@ func TestCLI_PromptForTaskWithDisplay(t *testing.T) {
 	}
 }
 
+// TestCLI_HandleAddCommand tests the handleAddCommand method for adding new tasks.
+// Covers valid descriptions, Unicode/special characters, size limits, and empty input validation.
 func TestCLI_HandleAddCommand(t *testing.T) {
 	// ====Arrange====
 	prompt := "Enter task description:\n"
@@ -576,6 +586,8 @@ func TestCLI_HandleAddCommand(t *testing.T) {
 	}
 }
 
+// TestCLI_HandleStatusCommand tests the handleStatusCommand method for changing task completion status.
+// Covers marking tasks done/undone, non-existent tasks, and invalid status input validation.
 func TestCLI_HandleStatusCommand(t *testing.T) {
 	// ====Arrange====
 	testCases := []struct {
@@ -723,6 +735,8 @@ func TestCLI_HandleStatusCommand(t *testing.T) {
 	}
 }
 
+// TestCLI_HandleClearCommand tests the handleClearCommand method for clearing task descriptions.
+// Covers clearing descriptions in various list states and invalid task ID scenarios.
 func TestCLI_HandleClearCommand(t *testing.T) {
 	// ====Arrange====
 	prompt := "Enter task ID you want to clear description\n"
@@ -823,6 +837,8 @@ func TestCLI_HandleClearCommand(t *testing.T) {
 	}
 }
 
+// TestCLI_HandleUpdateCommand tests the handleUpdateCommand method for updating task descriptions.
+// Covers valid updates, unchanged descriptions, empty input, and non-existent task handling.
 func TestCLI_HandleUpdateCommand(t *testing.T) {
 	// ====Arrange====
 	prompt := "Enter task ID to update:\n"
@@ -971,6 +987,8 @@ func TestCLI_HandleUpdateCommand(t *testing.T) {
 	}
 }
 
+// TestCLI_HandleDeleteCommand tests the handleDeleteCommand method for deleting tasks with confirmation.
+// Covers successful deletion, cancellation, invalid confirmation input, and non-existent task errors.
 func TestCLI_HandleDeleteCommand(t *testing.T) {
 	// ====Arrange====
 	prompt := "Enter task ID to delete task:\n"

@@ -28,10 +28,14 @@ var (
 	ErrInvalidConfirmChoice = errors.New("invalid confirm choice")
 )
 
+// InputReader defines an interface for reading user input with size validation.
+// Implementations must trim whitespace and enforce maximum input length constraints.
 type InputReader interface {
 	ReadInput(maxSize int) (string, error)
 }
 
+// CLI manages the command-line interface for task operations.
+// Coordinates user input, task management, and database storage with proper error handling.
 type CLI struct {
 	input       InputReader
 	output      io.Writer
@@ -39,6 +43,8 @@ type CLI struct {
 	storage     *storage.DatabaseStorage
 }
 
+// NewCLI creates a new CLI instance with the provided dependencies.
+// Returns a configured CLI ready to process user commands and manage tasks.
 func NewCLI(input InputReader, output io.Writer, taskManager *task.TaskManager, storage *storage.DatabaseStorage) *CLI {
 	return &CLI{
 		input:       input,
@@ -48,16 +54,22 @@ func NewCLI(input InputReader, output io.Writer, taskManager *task.TaskManager, 
 	}
 }
 
+// ConsoleInputReader implements InputReader for reading from console input streams.
+// Uses buffered reading to handle user input line-by-line with proper error handling.
 type ConsoleInputReader struct {
 	reader *bufio.Reader
 }
 
+// NewConsoleInputReader creates a new ConsoleInputReader from an io.Reader.
+// Returns a reader configured with buffered input for efficient line reading.
 func NewConsoleInputReader(reader io.Reader) *ConsoleInputReader {
 	return &ConsoleInputReader{
 		reader: bufio.NewReader(reader),
 	}
 }
 
+// ReadInput reads a line from the input stream and validates its length.
+// Returns trimmed input or errors for empty input, EOF, or size limit violations.
 func (c *ConsoleInputReader) ReadInput(maxSize int) (string, error) {
 	input, err := c.reader.ReadString('\n')
 	if err != nil {
@@ -79,6 +91,8 @@ func (c *ConsoleInputReader) ReadInput(maxSize int) (string, error) {
 	return input, nil
 }
 
+// promptForTaskID prompts the user for a task ID and validates the input.
+// Returns the validated task ID or an error if input is invalid or exceeds size limits.
 func (cli *CLI) promptForTaskID(prompt string) (id int, err error) {
 	fmt.Fprint(cli.output, prompt)
 
@@ -90,6 +104,8 @@ func (cli *CLI) promptForTaskID(prompt string) (id int, err error) {
 	return validation.ValidateTaskID(input)
 }
 
+// promptForTaskWithDisplay prompts for a task ID and displays the current task details.
+// Returns the task ID, task object, and any errors from validation or task retrieval.
 func (cli *CLI) promptForTaskWithDisplay(prompt string) (id int, t task.Task, err error) {
 	id, err = cli.promptForTaskID(prompt)
 	if err != nil {
@@ -106,6 +122,8 @@ func (cli *CLI) promptForTaskWithDisplay(prompt string) (id int, t task.Task, er
 	return id, t, nil
 }
 
+// handleAddCommand prompts for a task description and adds a new task to the manager.
+// Validates input length and description format before creating the task.
 func (cli *CLI) handleAddCommand() error {
 	fmt.Fprintln(cli.output, "Enter task description:")
 
@@ -124,6 +142,8 @@ func (cli *CLI) handleAddCommand() error {
 	return nil
 }
 
+// handleStatusCommand prompts for a task ID and new status, then updates the task.
+// Accepts 'done' or 'undone' as valid status values with proper validation.
 func (cli *CLI) handleStatusCommand() error {
 	id, _, err := cli.promptForTaskWithDisplay("Enter task ID to change status:\n")
 	if err != nil {
@@ -154,6 +174,8 @@ func (cli *CLI) handleStatusCommand() error {
 	return nil
 }
 
+// handleClearCommand prompts for a task ID and clears its description.
+// Validates the task exists before clearing the description field.
 func (cli *CLI) handleClearCommand() error {
 	id, _, err := cli.promptForTaskWithDisplay("Enter task ID you want to clear description\n")
 	if err != nil {
@@ -168,6 +190,8 @@ func (cli *CLI) handleClearCommand() error {
 	return nil
 }
 
+// handleUpdateCommand prompts for a task ID and new description, then updates the task.
+// Validates that the new description differs from the current one before updating.
 func (cli *CLI) handleUpdateCommand() error {
 	id, t, err := cli.promptForTaskWithDisplay("Enter task ID to update:\n")
 	if err != nil {
@@ -197,6 +221,8 @@ func (cli *CLI) handleUpdateCommand() error {
 	return nil
 }
 
+// handleLoadCommand loads tasks from database storage into the task manager.
+// Replaces current in-memory tasks with the loaded task collection.
 func (cli *CLI) handleLoadCommand() error {
 	loadedTasks, err := cli.storage.LoadTasks()
 	if err != nil {
@@ -209,6 +235,8 @@ func (cli *CLI) handleLoadCommand() error {
 	return nil
 }
 
+// handleDeleteCommand prompts for a task ID and confirmation, then deletes the task.
+// Requires explicit 'y' confirmation to proceed with deletion, 'n' cancels the operation.
 func (cli *CLI) handleDeleteCommand() error {
 	id, _, err := cli.promptForTaskWithDisplay("Enter task ID to delete task:\n")
 	if err != nil {
@@ -237,6 +265,8 @@ func (cli *CLI) handleDeleteCommand() error {
 	}
 }
 
+// showHelp displays the list of available commands and their descriptions.
+// Outputs a formatted help menu to the configured output writer.
 func (cli *CLI) showHelp() {
 	fmt.Fprintln(cli.output, "\n=== Available Commands ===")
 	fmt.Fprintln(cli.output, "add     - Add a new task")
@@ -252,6 +282,8 @@ func (cli *CLI) showHelp() {
 	fmt.Fprintln(cli.output, "=========================")
 }
 
+// handleError formats and displays error messages with context information.
+// Provides user-friendly error messages and handles EOF as input interruption.
 func (cli *CLI) handleError(err error, context string) {
 	if errors.Is(err, io.EOF) {
 		fmt.Fprintf(cli.output, "%s: input interrupted by user\n", context)
@@ -261,6 +293,8 @@ func (cli *CLI) handleError(err error, context string) {
 	fmt.Fprintf(cli.output, "%s: %v\n", context, err)
 }
 
+// RunLoop starts the main command processing loop for the CLI application.
+// Continuously reads commands, executes handlers, and manages application lifecycle until exit.
 func (cli *CLI) RunLoop() {
 	fmt.Fprintln(cli.output, "🚀 Task Manager Started!")
 	fmt.Fprintln(cli.output, "📁 Database storage initialized")

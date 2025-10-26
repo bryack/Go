@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"myproject/task"
 	"myproject/validation"
 	"strings"
@@ -374,6 +375,15 @@ func TestCLI_PromptForTaskWithDisplay(t *testing.T) {
 		},
 		// Invalid format
 		{
+			name:           "reader with no content",
+			input:          "",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedID:     0,
+			expectedTask:   task.Task{},
+			expectedErr:    io.EOF,
+			expectedPrompt: prompt,
+		},
+		{
 			name:           "empty input",
 			input:          "\n",
 			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
@@ -450,6 +460,255 @@ func TestCLI_PromptForTaskWithDisplay(t *testing.T) {
 			assert.Equal(t, tc.expectedTask, task)
 			assert.ErrorIs(t, tc.expectedErr, err)
 			assert.Equal(t, tc.expectedPrompt, output.String())
+		})
+	}
+}
+
+func TestCLI_HandleAddCommand(t *testing.T) {
+	// ====Arrange====
+	prompt := "Enter task description:\n"
+	testCases := []struct {
+		name           string
+		input          string
+		initialTasks   []task.Task
+		expectedPrompt string
+		expectedTasks  []task.Task
+		expectedErr    error
+	}{
+		// Valid inputs
+		{
+			name:           "Add task to empty list",
+			input:          "task 1\n",
+			initialTasks:   []task.Task{},
+			expectedPrompt: "Enter task description:\n✅ Task added (ID: 1)\n",
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedErr:    nil,
+		},
+		{
+			name:           "Add task (description with spaces) to non-empty list",
+			input:          " task 2 \n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedPrompt: "Enter task description:\n✅ Task added (ID: 2)\n",
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}},
+			expectedErr:    nil,
+		},
+		{
+			name:           "Add long description",
+			input:          "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec qu\n",
+			initialTasks:   []task.Task{},
+			expectedPrompt: "Enter task description:\n✅ Task added (ID: 1)\n",
+			expectedTasks:  []task.Task{{ID: 1, Description: "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec qu", Done: false}},
+			expectedErr:    nil,
+		},
+		{
+			name:           "Add task with Unicode and special characters",
+			input:          "Купить 🥛 & 🍞 в магазине \"Пятёрочка\"\n",
+			initialTasks:   []task.Task{},
+			expectedPrompt: "Enter task description:\n✅ Task added (ID: 1)\n",
+			expectedTasks:  []task.Task{{ID: 1, Description: "Купить 🥛 & 🍞 в магазине \"Пятёрочка\"", Done: false}},
+			expectedErr:    nil,
+		},
+		// Input size issues
+		{
+			name:           "Add description over max size",
+			input:          "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec quam\n",
+			initialTasks:   []task.Task{},
+			expectedPrompt: prompt,
+			expectedTasks:  []task.Task{},
+			expectedErr:    ErrMaxSizeExceeded,
+		},
+		// Invalid format
+		{
+			name:           "Reader with no content",
+			input:          "",
+			initialTasks:   []task.Task{},
+			expectedPrompt: prompt,
+			expectedTasks:  []task.Task{},
+			expectedErr:    io.EOF,
+		},
+		{
+			name:           "Add empty description",
+			input:          "\n",
+			initialTasks:   []task.Task{},
+			expectedPrompt: prompt,
+			expectedTasks:  []task.Task{},
+			expectedErr:    ErrEmptyInput,
+		},
+		{
+			name:           "Add description with spaces only",
+			input:          "         \n",
+			initialTasks:   []task.Task{},
+			expectedPrompt: prompt,
+			expectedTasks:  []task.Task{},
+			expectedErr:    ErrEmptyInput,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeInput := strings.NewReader(tc.input)
+			output := &bytes.Buffer{}
+			taskManager := task.NewTaskManager(output)
+
+			cli := NewCLI(
+				NewConsoleInputReader(fakeInput),
+				output,
+				taskManager,
+				nil,
+			)
+			cli.taskManager.SetTasks(tc.initialTasks)
+
+			// ==== ACT ====
+			err := cli.handleAddCommand()
+
+			// === ASSERT ===
+			assert.Equal(t, tc.expectedTasks, cli.taskManager.GetTasks())
+			assert.Equal(t, tc.expectedPrompt, output.String())
+			if tc.expectedErr != nil {
+				assert.Error(t, err)
+				assert.ErrorIs(t, err, tc.expectedErr)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestCLI_HandleStatusCommand(t *testing.T) {
+	// ====Arrange====
+	testCases := []struct {
+		name           string
+		input          string
+		initialTasks   []task.Task
+		expectedTasks  []task.Task
+		expectedPrompt string
+		expectedErr    error
+	}{
+		// Valid inputs
+		{
+			name:           "Mark task done in one-task list",
+			input:          "1\ndone\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: true}},
+			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 1) status is has changed\n",
+			expectedErr:    nil,
+		},
+		{
+			name:           "Mark task undone in one-task list",
+			input:          "1\nundone\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: true}},
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[✓ ] ID: 1, Description: task 1'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 1) status is has changed\n",
+			expectedErr:    nil,
+		},
+		{
+			name:           "Mark specific task done in multiple tasks",
+			input:          "3\ndone\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}, {ID: 4, Description: "task 4", Done: false}},
+			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[  ] ID: 3, Description: task 3'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 3) status is has changed\n",
+			expectedErr:    nil,
+		},
+		{
+			name:           "Mark specific task undone in multiple tasks",
+			input:          "4\nundone\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: true}},
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[✓ ] ID: 4, Description: task 4'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 4) status is has changed\n",
+			expectedErr:    nil,
+		},
+		{
+			name:           "Mark already completed task",
+			input:          "1\ndone\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: true}},
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: true}},
+			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[✓ ] ID: 1, Description: task 1'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 1) status is has changed\n",
+			expectedErr:    nil,
+		},
+		{
+			name:           "Mark incompleted task undone",
+			input:          "1\nundone\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 1) status is has changed\n",
+			expectedErr:    nil,
+		},
+		// Invalid format
+		{
+			name:           "Mark task done in empty list",
+			input:          "1\n",
+			initialTasks:   []task.Task{},
+			expectedTasks:  []task.Task{},
+			expectedPrompt: "Enter task ID to change status:\n",
+			expectedErr:    task.ErrTaskNotFound,
+		},
+		{
+			name:           "Mark non-existent task done",
+			input:          "8\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedPrompt: "Enter task ID to change status:\n",
+			expectedErr:    task.ErrTaskNotFound,
+		},
+		{
+			name:           "Mark non-existent task undone",
+			input:          "8\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedPrompt: "Enter task ID to change status:\n",
+			expectedErr:    task.ErrTaskNotFound,
+		},
+		{
+			name:           "Mark task with negative ID",
+			input:          "-1\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedPrompt: "Enter task ID to change status:\n",
+			expectedErr:    validation.ErrInvalidTaskID,
+		},
+		{
+			name:           "Mark task with empty input",
+			input:          "\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedPrompt: "Enter task ID to change status:\n",
+			expectedErr:    ErrEmptyInput,
+		},
+		{
+			name:           "Invalid status input",
+			input:          "1\ninvalid\n",
+			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter new status 'done' // 'undone'\n",
+			expectedErr:    ErrInvalidStatus,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeInput := strings.NewReader(tc.input)
+			output := &bytes.Buffer{}
+			taskManager := task.NewTaskManager(output)
+			cli := NewCLI(
+				NewConsoleInputReader(fakeInput),
+				output,
+				taskManager,
+				nil,
+			)
+			cli.taskManager.SetTasks(tc.initialTasks)
+
+			// ==== ACT ====
+			err := cli.handleStatusCommand()
+
+			// === ASSERT ===
+			assert.Equal(t, tc.expectedTasks, cli.taskManager.GetTasks())
+			assert.Equal(t, tc.expectedPrompt, output.String())
+			if tc.expectedErr != nil {
+				assert.Error(t, err)
+				assert.ErrorIs(t, err, tc.expectedErr)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

@@ -23,6 +23,7 @@ var (
 	ErrEmptyInput      = errors.New("empty input")
 	ErrInvalidTaskId   = errors.New("invalid ID format")
 	ErrInvalidCommand  = errors.New("invalid command")
+	ErrInvalidStatus   = errors.New("invalid status")
 )
 
 type InputReader interface {
@@ -46,18 +47,17 @@ func NewCLI(input InputReader, output io.Writer, taskManager *task.TaskManager, 
 }
 
 type ConsoleInputReader struct {
-	reader io.Reader
+	reader *bufio.Reader
 }
 
 func NewConsoleInputReader(reader io.Reader) *ConsoleInputReader {
 	return &ConsoleInputReader{
-		reader: reader,
+		reader: bufio.NewReader(reader),
 	}
 }
 
 func (c *ConsoleInputReader) ReadInput(maxSize int) (string, error) {
-	bufReader := bufio.NewReader(c.reader)
-	input, err := bufReader.ReadString('\n')
+	input, err := c.reader.ReadString('\n')
 	if err != nil {
 		if err == io.EOF {
 			return "", io.EOF
@@ -141,7 +141,7 @@ func (cli *CLI) handleStatusCommand() error {
 	case "undone":
 		done = false
 	default:
-		return fmt.Errorf("updating status: invalid status: %q for task id %d; must be 'done' or 'undone'", str, id)
+		return fmt.Errorf("updating status: invalid status: %q for task id %d: %w (must be 'done' or 'undone')", str, id, ErrInvalidStatus)
 	}
 
 	if err := cli.taskManager.UpdateTaskStatus(id, done); err != nil {

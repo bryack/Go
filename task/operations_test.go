@@ -16,42 +16,42 @@ func TestAddTask(t *testing.T) {
 		name          string
 		input         string
 		initialTasks  []Task
-		expectedId    int
+		expectedID    int
 		expectedTasks []Task
 	}{
 		{
 			name:          "Add task to empty list",
 			input:         "task 1",
 			initialTasks:  []Task{},
-			expectedId:    1,
+			expectedID:    1,
 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}},
 		},
 		{
 			name:          "Add task to non-empty list",
 			input:         "task 2",
 			initialTasks:  []Task{{ID: 1, Description: "task 1", Done: false}},
-			expectedId:    2,
+			expectedID:    2,
 			expectedTasks: []Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}},
 		},
 		{
 			name:          "Add empty description",
 			input:         "",
 			initialTasks:  []Task{},
-			expectedId:    1,
+			expectedID:    1,
 			expectedTasks: []Task{{ID: 1, Description: "", Done: false}},
 		},
 		{
 			name:          "Add long description",
 			input:         "Это очень длинное описание задачи, которое содержит много текста и проверяет, может ли наша функция корректно работать с большими строками",
 			initialTasks:  []Task{},
-			expectedId:    1,
+			expectedID:    1,
 			expectedTasks: []Task{{ID: 1, Description: "Это очень длинное описание задачи, которое содержит много текста и проверяет, может ли наша функция корректно работать с большими строками", Done: false}},
 		},
 		{
 			name:          "Add task with special characters",
 			input:         "Купить молоко & хлеб в магазине \"Пятёрочка\"",
 			initialTasks:  []Task{},
-			expectedId:    1,
+			expectedID:    1,
 			expectedTasks: []Task{{ID: 1, Description: "Купить молоко & хлеб в магазине \"Пятёрочка\"", Done: false}},
 		},
 	}
@@ -64,8 +64,8 @@ func TestAddTask(t *testing.T) {
 			actualId := tm.AddTask(tc.input)
 
 			// === ASSERT ===
-			if actualId != tc.expectedId {
-				t.Errorf("Expected ID '%d', got '%d'", tc.expectedId, actualId)
+			if actualId != tc.expectedID {
+				t.Errorf("Expected ID '%d', got '%d'", tc.expectedID, actualId)
 			}
 
 			if len(tm.GetTasks()) != len(tc.expectedTasks) {

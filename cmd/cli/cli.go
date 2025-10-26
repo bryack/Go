@@ -19,11 +19,13 @@ const (
 )
 
 var (
-	ErrMaxSizeExceeded = errors.New("input too long")
-	ErrEmptyInput      = errors.New("empty input")
-	ErrInvalidTaskId   = errors.New("invalid ID format")
-	ErrInvalidCommand  = errors.New("invalid command")
-	ErrInvalidStatus   = errors.New("invalid status")
+	ErrMaxSizeExceeded      = errors.New("input too long")
+	ErrEmptyInput           = errors.New("empty input")
+	ErrInvalidTaskId        = errors.New("invalid ID format")
+	ErrInvalidCommand       = errors.New("invalid command")
+	ErrInvalidStatus        = errors.New("invalid status")
+	ErrDescUnchanged        = errors.New("description unchanged")
+	ErrInvalidConfirmChoice = errors.New("invalid confirm choice")
 )
 
 type InputReader interface {
@@ -184,7 +186,7 @@ func (cli *CLI) handleUpdateCommand() error {
 	}
 
 	if desc == t.Description {
-		return fmt.Errorf("updating task description for task id %d: description unchanged", id)
+		return fmt.Errorf("updating task description for task id %d: %w", id, ErrDescUnchanged)
 	}
 
 	if err = cli.taskManager.UpdateTaskDescription(id, desc); err != nil {
@@ -231,7 +233,7 @@ func (cli *CLI) handleDeleteCommand() error {
 		fmt.Fprintln(cli.output, "Deletion canceled")
 		return nil
 	default:
-		return fmt.Errorf("deleting task id %d: invalid choice: %q; must be 'y' or 'n'", id, str)
+		return fmt.Errorf("deleting task id %d: %q: %w (must be 'y' or 'n')", id, str, ErrInvalidConfirmChoice)
 	}
 }
 

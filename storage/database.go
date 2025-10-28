@@ -7,6 +7,13 @@ import (
 	"time"
 )
 
+// Storage defines the interface for task persistence operations.
+type Storage interface {
+	LoadTasks() ([]task.Task, error)
+	SaveTasks(tasks []task.Task) error
+	CreateTask(task task.Task) (int, error)
+}
+
 // DatabaseStorage provides SQLite-based task persistence with automatic schema management.
 // It implements the Storage interface and handles database connections and migrations.
 type DatabaseStorage struct {
@@ -49,6 +56,25 @@ func NewDatabaseStorage(dbPath string) (*DatabaseStorage, error) {
 		migrator: migrator,
 	}
 	return storage, nil
+}
+
+// CreateTask inserts a new task into the database and returns the generated ID.
+// The database AUTOINCREMENT feature assigns the ID automatically.
+// Timestamps (created_at, updated_at) are set to current time on creation.
+func (ds *DatabaseStorage) CreateTask(task task.Task) (int, error) {
+	result, err := ds.db.Exec(
+		"INSERT INTO tasks (description, done, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+		task.Description, task.Done,
+	)
+	if err != nil {
+		return 0, mapSQLiteError(err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, mapSQLiteError(err)
+	}
+	return int(id), nil
 }
 
 // LoadTasks retrieves all tasks from the database ordered by ID.

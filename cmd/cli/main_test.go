@@ -561,20 +561,32 @@ func TestCLI_HandleAddCommand(t *testing.T) {
 			fakeInput := strings.NewReader(tc.input)
 			output := &bytes.Buffer{}
 			taskManager := task.NewTaskManager(output)
+			tmpFile, err := os.CreateTemp("", "test-*.db")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			t.Cleanup(func() {
+				tmpFile.Close()
+				os.Remove(tmpFile.Name())
+			})
+
+			s, err := storage.NewDatabaseStorage(tmpFile.Name())
 
 			cli := NewCLI(
 				NewConsoleInputReader(fakeInput),
 				output,
 				taskManager,
-				nil,
+				s,
 			)
 			cli.taskManager.SetTasks(tc.initialTasks)
 
 			// ==== ACT ====
-			err := cli.handleAddCommand()
+			err = cli.handleAddCommand()
 
 			// === ASSERT ===
-			assert.Equal(t, tc.expectedTasks, cli.taskManager.GetTasks())
+			lt, _ := cli.storage.LoadTasks()
+			assert.Equal(t, tc.expectedTasks, lt)
 			assert.Equal(t, tc.expectedPrompt, output.String())
 			if tc.expectedErr != nil {
 				assert.Error(t, err)
@@ -1117,59 +1129,6 @@ func TestCLI_HandleDeleteCommand(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-		})
-	}
-}
-
-func TestCLI_handleLoadCommand(t *testing.T) {
-	// ====Arrange====
-	testCases := []struct {
-		name           string
-		initialTasks   []task.Task
-		expectedTasks  []task.Task
-		expectedPrompt string
-		expectedErr    error
-	}{
-		// Valid inputs
-		{
-			name:           "DB with one task",
-			initialTasks:   []task.Task{{ID: 1, Description: "task 1", Done: true}},
-			expectedTasks:  []task.Task{{ID: 1, Description: "task 1", Done: true}},
-			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 1) status is has changed\n",
-			expectedErr:    nil,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			output := &bytes.Buffer{}
-			taskManager := task.NewTaskManager(output)
-			tmpFile, err := os.CreateTemp("", "test-*.db")
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			t.Cleanup(func() {
-				tmpFile.Close()
-				os.Remove(tmpFile.Name())
-			})
-
-			s, err := storage.NewDatabaseStorage(tmpFile.Name())
-			cli := NewCLI(
-				nil,
-				output,
-				taskManager,
-				s,
-			)
-			cli.taskManager.SetTasks(tc.initialTasks)
-			cli.storage.SaveTasks(cli.taskManager.GetTasks())
-
-			// ==== ACT ====
-			err = cli.handleLoadCommand()
-
-			// === ASSERT ===
-			lt, _ := cli.storage.LoadTasks()
-			assert.Equal(t, tc.expectedTasks, lt)
 		})
 	}
 }

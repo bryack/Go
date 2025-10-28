@@ -137,7 +137,14 @@ func (cli *CLI) handleAddCommand() error {
 		return fmt.Errorf("adding task: validation failed: %w", err)
 	}
 
-	id := cli.taskManager.AddTask(desc)
+	newTask := cli.taskManager.AddTask(desc)
+	id, err := cli.storage.CreateTask(newTask)
+	if err != nil {
+		return fmt.Errorf("adding task: creation failed: %w", err)
+	}
+	newTask.ID = id
+	cli.taskManager.AddTaskWithID(newTask)
+
 	fmt.Fprintf(cli.output, "✅ Task added (ID: %d)\n", id)
 	return nil
 }
@@ -221,20 +228,6 @@ func (cli *CLI) handleUpdateCommand() error {
 	return nil
 }
 
-// handleLoadCommand loads tasks from database storage into the task manager.
-// Replaces current in-memory tasks with the loaded task collection.
-func (cli *CLI) handleLoadCommand() error {
-	loadedTasks, err := cli.storage.LoadTasks()
-	if err != nil {
-		return fmt.Errorf("loading tasks failed: %w", err)
-	}
-
-	cli.taskManager.SetTasks(loadedTasks)
-	fmt.Fprintf(cli.output, "✅ %d tasks loaded successfully!\n", len(loadedTasks))
-
-	return nil
-}
-
 // handleDeleteCommand prompts for a task ID and confirmation, then deletes the task.
 // Requires explicit 'y' confirmation to proceed with deletion, 'n' cancels the operation.
 func (cli *CLI) handleDeleteCommand() error {
@@ -273,7 +266,6 @@ func (cli *CLI) showHelp() {
 	fmt.Fprintln(cli.output, "status  - Change task status")
 	fmt.Fprintln(cli.output, "list    - Show all tasks")
 	fmt.Fprintln(cli.output, "process - Process all tasks in parallel")
-	fmt.Fprintln(cli.output, "load    - Load tasks from file")
 	fmt.Fprintln(cli.output, "clear   - Clear task description")
 	fmt.Fprintln(cli.output, "update  - Update task description")
 	fmt.Fprintln(cli.output, "delete  - Delete task")
@@ -331,17 +323,20 @@ func (cli *CLI) RunLoop() {
 			}
 
 		case CommandList:
+			tasks, err := cli.storage.LoadTasks()
+			if err != nil {
+				cli.handleError(err, "Failed to load tasks")
+				break
+			}
+
+			cli.taskManager.SetTasks(tasks)
+
 			if err := cli.taskManager.PrintTasks(); err != nil {
 				cli.handleError(err, "Print tasks error")
 			}
 
 		case CommandProcess:
 			cli.taskManager.ProcessTasks()
-
-		case CommandLoad:
-			if err := cli.handleLoadCommand(); err != nil {
-				cli.handleError(err, "Load command error")
-			}
 
 		case CommandClear:
 			if err := cli.handleClearCommand(); err != nil {

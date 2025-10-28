@@ -40,18 +40,6 @@ func NewTaskManager(writer io.Writer) *TaskManager {
 	}
 }
 
-// generateMaxID возвращает следующий доступный ID для новой задачи.
-func (tm *TaskManager) generateMaxID() int {
-	maxID := 0
-
-	for _, t := range tm.tasks {
-		if t.ID > maxID {
-			maxID = t.ID
-		}
-	}
-	return maxID + 1
-}
-
 // GetTasks returns an independent copy of all tasks in the manager.
 // This method is thread-safe and prevents external modifications to internal state.
 func (tm *TaskManager) GetTasks() []Task {
@@ -73,14 +61,24 @@ func (tm *TaskManager) SetTasks(newTask []Task) {
 	copy(tm.tasks, newTask)
 }
 
-// AddTask добавляет новую задачу с указанным описанием и возвращает ее ID.
-func (tm *TaskManager) AddTask(input string) int {
+// AddTask creates a task object without assigning an ID.
+// The ID will be assigned by the database AUTOINCREMENT.
+// Use AddTaskWithID() to add the task to memory after database creation.
+func (tm *TaskManager) AddTask(input string) Task {
+	return Task{
+		Description: input,
+		Done:        false,
+	}
+}
+
+// AddTaskWithID adds a task with a pre-assigned ID to the manager.
+// Used after creating a task in storage to sync the in-memory state.
+// This method is thread-safe.
+func (tm *TaskManager) AddTaskWithID(t Task) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
-	newID := tm.generateMaxID()
-	tm.tasks = append(tm.tasks, Task{ID: newID, Description: input, Done: false})
-	return newID
+	tm.tasks = append(tm.tasks, t)
 }
 
 // UpdateTaskStatus sets the completion status of a task by ID.

@@ -18,7 +18,6 @@ const (
 	CommandStatus  Command = "status"  // Change task status
 	CommandList    Command = "list"    // Show all tasks
 	CommandProcess Command = "process" // Process all tasks in parallel
-	CommandLoad    Command = "load"    // Load tasks from file
 	CommandClear   Command = "clear"   // Clear task description
 	CommandHelp    Command = "help"    // Show available commands
 	CommandExit    Command = "exit"    // Save and exit program
@@ -27,7 +26,7 @@ const (
 )
 
 var (
-	validCommands = []Command{CommandAdd, CommandStatus, CommandList, CommandProcess, CommandLoad, CommandClear, CommandHelp, CommandExit, CommandUpdate, CommandDelete}
+	validCommands = []Command{CommandAdd, CommandStatus, CommandList, CommandProcess, CommandClear, CommandHelp, CommandExit, CommandUpdate, CommandDelete}
 )
 
 // isValid checks if the command is in the list of supported commands.

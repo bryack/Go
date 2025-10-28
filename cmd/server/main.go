@@ -79,7 +79,11 @@ func tasksHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 		defer r.Body.Close()
 		switch r.Method {
 		case http.MethodGet:
-			response := tm.GetTasks()
+			response, err := s.LoadTasks()
+			if err != nil {
+				handlers.JSONError(w, http.StatusInternalServerError, "Failed to load tasks")
+				return
+			}
 			handlers.JSONSuccess(w, response)
 
 		case http.MethodPost:
@@ -94,17 +98,17 @@ func tasksHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 				return
 			}
 
-			id := tm.AddTask(desc)
-			response, err := tm.GetTaskByID(id)
+			newTask := tm.AddTask(desc)
+			id, err := s.CreateTask(newTask)
 			if err != nil {
-				handlers.JSONError(w, http.StatusInternalServerError, "Failed to retrieve created task")
+				log.Printf("Failed to create task in database: %v", err)
+				handlers.JSONError(w, http.StatusInternalServerError, "Failed to create task")
+				return
 			}
+			newTask.ID = id
+			tm.AddTaskWithID(newTask)
 
-			if err := s.SaveTasks(tm.GetTasks()); err != nil {
-				log.Printf("Failed to save tasks: %w", err)
-			}
-
-			handlers.JSONResponse(w, http.StatusCreated, response)
+			handlers.JSONResponse(w, http.StatusCreated, newTask)
 		default:
 			handlers.HandleMethodNotAllowed(w, []string{"GET", "POST"})
 			return

@@ -572,6 +572,9 @@ func TestCLI_HandleAddCommand(t *testing.T) {
 			})
 
 			s, err := storage.NewDatabaseStorage(tmpFile.Name())
+			if err != nil {
+				t.Log("DB failed", err)
+			}
 
 			cli := NewCLI(
 				NewConsoleInputReader(fakeInput),
@@ -579,7 +582,6 @@ func TestCLI_HandleAddCommand(t *testing.T) {
 				taskManager,
 				s,
 			)
-			cli.taskManager.SetTasks(tc.initialTasks)
 
 			// ==== ACT ====
 			err = cli.handleAddCommand()

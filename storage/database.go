@@ -2,16 +2,24 @@ package storage
 
 import (
 	"database/sql"
+	"errors"
 	"myproject/task"
 	"os"
 	"time"
 )
 
+var (
+	ErrTaskNotFound = errors.New("task not found")
+)
+
 // Storage defines the interface for task persistence operations.
 type Storage interface {
 	LoadTasks() ([]task.Task, error)
-	SaveTasks(tasks []task.Task) error
+	GetTaskByID(id int) (task task.Task, err error)
 	CreateTask(task task.Task) (int, error)
+	UpdateTask(task task.Task) error
+	DeleteTask(id int) error
+	SaveTasks(tasks []task.Task) error
 }
 
 // DatabaseStorage provides SQLite-based task persistence with automatic schema management.
@@ -75,6 +83,64 @@ func (ds *DatabaseStorage) CreateTask(task task.Task) (int, error) {
 		return 0, mapSQLiteError(err)
 	}
 	return int(id), nil
+}
+
+func (ds *DatabaseStorage) UpdateTask(task task.Task) error {
+	result, err := ds.db.Exec(
+		"UPDATE tasks SET description = ?, done = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+		task.Description, task.Done, task.ID,
+	)
+	if err != nil {
+		return mapSQLiteError(err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return mapSQLiteError(err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrTaskNotFound
+	}
+
+	return nil
+}
+
+func (ds *DatabaseStorage) DeleteTask(id int) error {
+	result, err := ds.db.Exec(
+		"DELETE FROM tasks WHERE id = ?",
+		id,
+	)
+	if err != nil {
+		return mapSQLiteError(err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return mapSQLiteError(err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrTaskNotFound
+	}
+
+	return nil
+}
+
+func (ds *DatabaseStorage) GetTaskByID(id int) (task task.Task, err error) {
+	err = ds.db.QueryRow(
+		"SELECT id, description, done FROM tasks WHERE id = ?",
+		id,
+	).Scan(&task.ID, &task.Description, &task.Done)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return task, ErrTaskNotFound
+		}
+		return task, mapSQLiteError(err)
+	}
+
+	return task, nil
 }
 
 // LoadTasks retrieves all tasks from the database ordered by ID.

@@ -74,7 +74,7 @@ func logRequest(handler http.HandlerFunc) http.HandlerFunc {
 }
 
 // tasksHandler returns a handler function that has access to TaskManager
-func tasksHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
+func tasksHandler(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		switch r.Method {
@@ -98,7 +98,7 @@ func tasksHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 				return
 			}
 
-			newTask := tm.AddTask(desc)
+			newTask := task.Task{Description: desc, Done: false}
 			id, err := s.CreateTask(newTask)
 			if err != nil {
 				log.Printf("Failed to create task in database: %v", err)
@@ -106,7 +106,6 @@ func tasksHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 				return
 			}
 			newTask.ID = id
-			tm.AddTaskWithID(newTask)
 
 			handlers.JSONResponse(w, http.StatusCreated, newTask)
 		default:
@@ -118,7 +117,7 @@ func tasksHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 
 // taskHandler returns an HTTP handler for individual task operations by ID.
 // Supports GET, PUT, and DELETE methods with automatic storage persistence.
-func taskHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
+func taskHandler(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		response := task.Task{}
@@ -130,7 +129,7 @@ func taskHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 		}
 		switch r.Method {
 		case http.MethodGet:
-			response, err = tm.GetTaskByID(id)
+			response, err = s.GetTaskByID(id)
 			if err != nil {
 				handlers.JSONError(w, http.StatusNotFound, "Task not found")
 				return
@@ -147,6 +146,11 @@ func taskHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 				return
 			}
 
+			response, err := s.GetTaskByID(id)
+			if err != nil {
+				handlers.JSONError(w, http.StatusNotFound, "Task not found")
+			}
+
 			if taskRequest.Description != nil {
 				desc := string(*taskRequest.Description)
 				desc, err = validation.ValidateTaskDescription(desc)
@@ -154,40 +158,24 @@ func taskHandler(tm *task.TaskManager, s storage.Storage) http.HandlerFunc {
 					handlers.JSONError(w, http.StatusBadRequest, err.Error())
 					return
 				}
-
-				if err := tm.UpdateTaskDescription(id, desc); err != nil {
-					handlers.JSONError(w, http.StatusNotFound, "Task not found")
-					return
-				}
+				response.Description = desc
 			}
 
 			if taskRequest.Done != nil {
-				if err := tm.UpdateTaskStatus(id, *taskRequest.Done); err != nil {
-					handlers.JSONError(w, http.StatusNotFound, "Task not found")
-					return
-				}
+				response.Done = *taskRequest.Done
 			}
 
-			response, err = tm.GetTaskByID(id)
-			if err != nil {
+			if err := s.UpdateTask(response); err != nil {
 				handlers.JSONError(w, http.StatusNotFound, "Task not found")
 				return
-			}
-
-			if err := s.SaveTasks(tm.GetTasks()); err != nil {
-				log.Printf("Failed to save tasks: %w", err)
 			}
 
 			handlers.JSONSuccess(w, response)
 
 		case http.MethodDelete:
-			if err := tm.DeleteTask(id); err != nil {
+			if err := s.DeleteTask(id); err != nil {
 				handlers.JSONError(w, http.StatusNotFound, "Task not found")
 				return
-			}
-
-			if err := s.SaveTasks(tm.GetTasks()); err != nil {
-				log.Printf("Failed to save tasks: %w", err)
 			}
 
 			w.WriteHeader(http.StatusNoContent)
@@ -218,8 +206,8 @@ func main() {
 	fmt.Println("🚀 Database storage initialized")
 
 	http.HandleFunc("/health", logRequest(healthHandler))
-	http.HandleFunc("/tasks/", logRequest(taskHandler(tm, s)))
-	http.HandleFunc("/tasks", logRequest(tasksHandler(tm, s)))
+	http.HandleFunc("/tasks/", logRequest(taskHandler(s)))
+	http.HandleFunc("/tasks", logRequest(tasksHandler(s)))
 	http.HandleFunc("/", logRequest(rootHandler))
 
 	fmt.Println("🚀 HTTP Server starting on http://localhost:8080")

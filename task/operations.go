@@ -4,24 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"myproject/storage"
 	"strings"
 	"sync"
 	"time"
 )
 
-// Task represents a single task with unique ID, description, and completion status.
-// All fields are JSON-serializable for API responses.
-type Task struct {
-	ID          int    `json:"id"`
-	Description string `json:"description"`
-	Done        bool   `json:"done"`
-}
-
-// TaskManager provides thread-safe operations for managing a collection of tasks.
-// Uses mutex synchronization to prevent race conditions in concurrent access.
+// TaskManager provides business logic operations for task management.
+// Delegates all persistence operations to the Storage interface.
 type TaskManager struct {
-	tasks  []Task
-	mu     sync.Mutex
+	s      storage.Storage
 	writer io.Writer
 }
 
@@ -33,81 +25,60 @@ var (
 )
 
 // NewTaskManager создает новый экземпляр TaskManager с указанным writer для вывода.
-func NewTaskManager(writer io.Writer) *TaskManager {
+func NewTaskManager(s storage.Storage, writer io.Writer) *TaskManager {
 	return &TaskManager{
-		tasks:  make([]Task, 0),
+		s:      s,
 		writer: writer,
 	}
 }
 
-// GetTasks returns an independent copy of all tasks in the manager.
-// This method is thread-safe and prevents external modifications to internal state.
-func (tm *TaskManager) GetTasks() []Task {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
-	tasksCopy := make([]Task, len(tm.tasks))
-	copy(tasksCopy, tm.tasks)
-	return tasksCopy
-}
-
-// SetTasks replaces the current task collection with the provided tasks.
-// Creates an independent copy to prevent external modifications after assignment.
-func (tm *TaskManager) SetTasks(newTask []Task) {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
-	tm.tasks = make([]Task, len(newTask))
-	copy(tm.tasks, newTask)
-}
-
-// AddTask creates a task object without assigning an ID.
-// The ID will be assigned by the database AUTOINCREMENT.
-// Use AddTaskWithID() to add the task to memory after database creation.
-func (tm *TaskManager) AddTask(input string) Task {
-	return Task{
+// AddTask creates a new task with the given description and persists it to storage.
+// The ID is automatically assigned by the database and returned.
+// Returns the assigned task ID and any error encountered during creation.
+func (tm *TaskManager) AddTask(input string) (int, error) {
+	task := storage.Task{
 		Description: input,
 		Done:        false,
 	}
+
+	return tm.s.CreateTask(task)
 }
 
-// AddTaskWithID adds a task with a pre-assigned ID to the manager.
-// Used after creating a task in storage to sync the in-memory state.
-// This method is thread-safe.
-func (tm *TaskManager) AddTaskWithID(t Task) {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
-	tm.tasks = append(tm.tasks, t)
-}
-
-// UpdateTaskStatus sets the completion status of a task by ID.
-// Returns ErrTaskNotFound if the task doesn't exist.
-// This operation is thread-safe.
+// UpdateTaskStatus updates the completion status of a task by ID.
+// Fetches the task from storage, modifies the status, and saves it back.
+// Returns an error if the task is not found or if the update fails.
 func (tm *TaskManager) UpdateTaskStatus(id int, done bool) error {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
-	for i := range tm.tasks {
-		if tm.tasks[i].ID == id {
-			tm.tasks[i].Done = done
-			return nil
-		}
+	t, err := tm.s.GetTaskByID(id)
+	if err != nil {
+		return err
 	}
-	return ErrTaskNotFound
+
+	t.Done = done
+
+	if err = tm.s.UpdateTask(t); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // PrintTasks выводит все задачи в указанный writer.
 // Возвращает ошибку при проблемах с записью.
 func (tm *TaskManager) PrintTasks() error {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
+	tasks, err := tm.s.LoadTasks()
+	if err != nil {
+		return err
+	}
 
-	return printToWriter(tm.tasks, tm.writer)
+	if _, err = tm.writer.Write([]byte(formatTasks(tasks))); err != nil {
+		return ErrPrintTask
+	}
+
+	return nil
 }
 
 // FormatTask форматирует одну задачу в строку со статусом и описанием.
-func FormatTask(task Task) string {
+func FormatTask(task storage.Task) string {
 	status := "  "
 	if task.Done {
 		status = "✓ "
@@ -117,7 +88,7 @@ func FormatTask(task Task) string {
 
 // formatTasks форматирует список задач в многострочную строку.
 // Возвращает сообщение "No tasks available" для пустого списка.
-func formatTasks(tasks []Task) string {
+func formatTasks(tasks []storage.Task) string {
 	var builder strings.Builder
 
 	if len(tasks) == 0 {
@@ -135,110 +106,82 @@ func formatTasks(tasks []Task) string {
 	return builder.String()
 }
 
-// GetFormattedTasks возвращает отформатированную строку всех задач.
-// Использует потокобезопасную копию списка задач.
-func (tm *TaskManager) GetFormattedTasks() string {
-	taskCopy := tm.GetTasks()
-	return formatTasks(taskCopy)
+// GetFormattedTasks retrieves all tasks from storage and returns them as a formatted string.
+// Returns an error if tasks cannot be loaded from storage.
+func (tm *TaskManager) GetFormattedTasks() (string, error) {
+	taskCopy, err := tm.s.LoadTasks()
+	if err != nil {
+		return "", err
+	}
+	return formatTasks(taskCopy), nil
 }
 
-// printToWriter записывает отформатированный список задач в указанный writer.
-// Абстракция формата вывода: Функция принимает io.Writer, чтобы записывать
-// отформатированные задачи (formateTasks) в любой получатель (консоль, файл, буфер).
-func printToWriter(tasks []Task, writer io.Writer) error {
-	_, err := writer.Write([]byte(formatTasks(tasks)))
+// ClearDescription clears the description of a task by ID.
+// Fetches the task from storage, clears the description, and saves it back.
+// Returns an error if the task is not found or if the update fails.
+func (tm *TaskManager) ClearDescription(id int) error {
+	t, err := tm.s.GetTaskByID(id)
 	if err != nil {
-		return ErrPrintTask
+		return err
 	}
+
+	t.Description = ""
+
+	if err := tm.s.UpdateTask(t); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// ClearDescription очищает описание задачи с указанным ID.
-// Возвращает ErrTaskNotFound, если задача не найдена.
-func (tm *TaskManager) ClearDescription(id int) error {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
-	for i := range tm.tasks {
-		if tm.tasks[i].ID == id {
-			tm.tasks[i].Description = ""
-			return nil
-		}
-	}
-	return ErrTaskNotFound
-}
-
-// UpdateTaskDescription updates the description of a task with the specified ID.
-// Returns ErrTaskNotFound if the task is not found.
+// UpdateTaskDescription updates the description of a task by ID.
+// Fetches the task from storage, updates the description, and saves it back.
+// Returns an error if the task is not found or if the update fails.
 func (tm *TaskManager) UpdateTaskDescription(id int, description string) error {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
-	for i := range tm.tasks {
-		if tm.tasks[i].ID == id {
-			tm.tasks[i].Description = description
-			return nil
-		}
+	t, err := tm.s.GetTaskByID(id)
+	if err != nil {
+		return err
 	}
-	return ErrTaskNotFound
-}
 
-// GetTaskByID retrieves a task by its ID and returns the Task struct.
-// Returns ErrTaskNotFound if no task with the specified ID exists.
-func (tm *TaskManager) GetTaskByID(id int) (Task, error) {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
+	t.Description = description
 
-	for i, task := range tm.tasks {
-		if tm.tasks[i].ID == id {
-			return task, nil
-		}
+	if err := tm.s.UpdateTask(t); err != nil {
+		return err
 	}
-	return Task{}, ErrTaskNotFound
-}
 
-// DeleteTask removes a task with the specified ID from the collection.
-// Returns ErrTaskNotFound if no task exists with the given ID.
-func (tm *TaskManager) DeleteTask(id int) error {
-	tm.mu.Lock()
-	defer tm.mu.Unlock()
-
-	for i := range tm.tasks {
-		if tm.tasks[i].ID == id {
-			tm.tasks = append(tm.tasks[:i], tm.tasks[i+1:]...)
-			return nil
-		}
-	}
-	return ErrTaskNotFound
+	return nil
 }
 
 // processTask симулирует обработку одной задачи с задержкой.
 // Выполняется в отдельной горутине.
-func processTask(task Task, wg *sync.WaitGroup) {
+func processTask(task storage.Task, wg *sync.WaitGroup) {
 	defer wg.Done()
 	fmt.Printf("Processing task ID: %d\n", task.ID)
 	time.Sleep(processDelay)
 	fmt.Printf("Task ID: %d processed successfully\n", task.ID)
 }
 
-// ProcessTasks запускает параллельную обработку всех задач.
-// Каждая задача обрабатывается в отдельной горутине.
-func (tm *TaskManager) ProcessTasks() {
-	// 1. Получаем независимую, потокобезопасную копию списка задач.
-	//    Метод GetTasks() уже заботится о блокировке мьютекса и создании копии.
-	tasksToProcess := tm.GetTasks()
+// ProcessTasks retrieves all tasks from storage and processes them in parallel.
+// Each task is processed in a separate goroutine with simulated delay.
+// Returns an error if tasks cannot be loaded from storage.
+func (tm *TaskManager) ProcessTasks() error {
+	tasksToProcess, err := tm.s.LoadTasks()
+	if err != nil {
+		return err
+	}
 
 	if len(tasksToProcess) == 0 {
-		fmt.Println("No tasks to process")
-		return
+		fmt.Fprintln(tm.writer, "No tasks to process")
+		return nil
 	}
 	fmt.Println("Starting parallel task processing...")
 	var wg sync.WaitGroup
-	// 2. Итерируемся по ЭТОЙ КОПИИ, которая не будет изменяться другими горутинами.
 	for _, task := range tasksToProcess {
 		wg.Add(1)
 		go processTask(task, &wg) // Передаем копию Task в горутину
 	}
 	wg.Wait()
 	fmt.Println("All tasks processed successfully!")
+
+	return nil
 }

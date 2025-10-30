@@ -3,7 +3,6 @@ package storage
 import (
 	"database/sql"
 	"errors"
-	"myproject/task"
 	"os"
 	"time"
 )
@@ -12,14 +11,22 @@ var (
 	ErrTaskNotFound = errors.New("task not found")
 )
 
+// Task represents a single task with unique ID, description, and completion status.
+// All fields are JSON-serializable for API responses.
+type Task struct {
+	ID          int    `json:"id"`
+	Description string `json:"description"`
+	Done        bool   `json:"done"`
+}
+
 // Storage defines the interface for task persistence operations.
 type Storage interface {
-	LoadTasks() ([]task.Task, error)
-	GetTaskByID(id int) (task task.Task, err error)
-	CreateTask(task task.Task) (int, error)
-	UpdateTask(task task.Task) error
+	LoadTasks() ([]Task, error)
+	GetTaskByID(id int) (task Task, err error)
+	CreateTask(task Task) (int, error)
+	UpdateTask(task Task) error
 	DeleteTask(id int) error
-	SaveTasks(tasks []task.Task) error
+	SaveTasks(tasks []Task) error
 }
 
 // DatabaseStorage provides SQLite-based task persistence with automatic schema management.
@@ -69,7 +76,7 @@ func NewDatabaseStorage(dbPath string) (*DatabaseStorage, error) {
 // CreateTask inserts a new task into the database and returns the generated ID.
 // The database AUTOINCREMENT feature assigns the ID automatically.
 // Timestamps (created_at, updated_at) are set to current time on creation.
-func (ds *DatabaseStorage) CreateTask(task task.Task) (int, error) {
+func (ds *DatabaseStorage) CreateTask(task Task) (int, error) {
 	result, err := ds.db.Exec(
 		"INSERT INTO tasks (description, done, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
 		task.Description, task.Done,
@@ -85,7 +92,7 @@ func (ds *DatabaseStorage) CreateTask(task task.Task) (int, error) {
 	return int(id), nil
 }
 
-func (ds *DatabaseStorage) UpdateTask(task task.Task) error {
+func (ds *DatabaseStorage) UpdateTask(task Task) error {
 	result, err := ds.db.Exec(
 		"UPDATE tasks SET description = ?, done = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
 		task.Description, task.Done, task.ID,
@@ -127,7 +134,7 @@ func (ds *DatabaseStorage) DeleteTask(id int) error {
 	return nil
 }
 
-func (ds *DatabaseStorage) GetTaskByID(id int) (task task.Task, err error) {
+func (ds *DatabaseStorage) GetTaskByID(id int) (task Task, err error) {
 	err = ds.db.QueryRow(
 		"SELECT id, description, done FROM tasks WHERE id = ?",
 		id,
@@ -145,7 +152,7 @@ func (ds *DatabaseStorage) GetTaskByID(id int) (task task.Task, err error) {
 
 // LoadTasks retrieves all tasks from the database ordered by ID.
 // Returns an empty slice if no tasks exist, never returns nil.
-func (ds *DatabaseStorage) LoadTasks() ([]task.Task, error) {
+func (ds *DatabaseStorage) LoadTasks() ([]Task, error) {
 	query := "SELECT id, description, done FROM tasks ORDER BY id"
 	rows, err := ds.db.Query(query)
 	if err != nil {
@@ -153,9 +160,9 @@ func (ds *DatabaseStorage) LoadTasks() ([]task.Task, error) {
 	}
 
 	defer rows.Close()
-	var tasks []task.Task
+	var tasks []Task
 	for rows.Next() {
-		var task task.Task
+		var task Task
 		if err := rows.Scan(&task.ID, &task.Description, &task.Done); err != nil {
 			return nil, mapSQLiteError(err)
 		}
@@ -171,7 +178,7 @@ func (ds *DatabaseStorage) LoadTasks() ([]task.Task, error) {
 
 // SaveTasks replaces all tasks in the database with the provided task slice.
 // Uses a transaction to ensure atomic replacement of all task data.
-func (ds *DatabaseStorage) SaveTasks(tasks []task.Task) error {
+func (ds *DatabaseStorage) SaveTasks(tasks []Task) error {
 	tx, err := ds.db.Begin()
 	if err != nil {
 		return mapSQLiteError(err)

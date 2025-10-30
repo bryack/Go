@@ -106,7 +106,7 @@ func (cli *CLI) promptForTaskID(prompt string) (id int, err error) {
 
 // promptForTaskWithDisplay prompts for a task ID and displays the current task details.
 // Returns the task ID, task object, and any errors from validation or task retrieval.
-func (cli *CLI) promptForTaskWithDisplay(prompt string) (id int, t task.Task, err error) {
+func (cli *CLI) promptForTaskWithDisplay(prompt string) (id int, t storage.Task, err error) {
 	id, err = cli.promptForTaskID(prompt)
 	if err != nil {
 		return 0, t, err

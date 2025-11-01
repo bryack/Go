@@ -112,7 +112,7 @@ func (cli *CLI) promptForTaskWithDisplay(prompt string) (id int, t storage.Task,
 		return 0, t, err
 	}
 
-	t, err = cli.taskManager.GetTaskByID(id)
+	t, err = cli.storage.GetTaskByID(id)
 	if err != nil {
 		return 0, t, err
 	}
@@ -137,13 +137,10 @@ func (cli *CLI) handleAddCommand() error {
 		return fmt.Errorf("adding task: validation failed: %w", err)
 	}
 
-	newTask := cli.taskManager.AddTask(desc)
-	id, err := cli.storage.CreateTask(newTask)
+	id, err := cli.taskManager.AddTask(desc)
 	if err != nil {
 		return fmt.Errorf("adding task: creation failed: %w", err)
 	}
-	newTask.ID = id
-	cli.taskManager.AddTaskWithID(newTask)
 
 	fmt.Fprintf(cli.output, "✅ Task added (ID: %d)\n", id)
 	return nil
@@ -245,7 +242,7 @@ func (cli *CLI) handleDeleteCommand() error {
 
 	switch str {
 	case "y":
-		if err = cli.taskManager.DeleteTask(id); err != nil {
+		if err = cli.storage.DeleteTask(id); err != nil {
 			return fmt.Errorf("deleting task id %d failed: %w", id, err)
 		}
 		fmt.Fprintf(cli.output, "✅ Task (ID: %d) deleted\n", id)
@@ -323,14 +320,6 @@ func (cli *CLI) RunLoop() {
 			}
 
 		case CommandList:
-			tasks, err := cli.storage.LoadTasks()
-			if err != nil {
-				cli.handleError(err, "Failed to load tasks")
-				break
-			}
-
-			cli.taskManager.SetTasks(tasks)
-
 			if err := cli.taskManager.PrintTasks(); err != nil {
 				cli.handleError(err, "Print tasks error")
 			}
@@ -352,11 +341,6 @@ func (cli *CLI) RunLoop() {
 			cli.showHelp()
 
 		case CommandExit:
-			if err := cli.storage.SaveTasks(cli.taskManager.GetTasks()); err != nil {
-				cli.handleError(err, "Save error")
-			} else {
-				fmt.Fprintln(cli.output, "Tasks saved successfully!")
-			}
 			fmt.Fprintln(cli.output, "👋 Bye!")
 			return
 

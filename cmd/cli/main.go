@@ -74,7 +74,7 @@ func main() {
 	cli := NewCLI(
 		NewConsoleInputReader(os.Stdin),
 		os.Stdout,
-		task.NewTaskManager(os.Stdout),
+		task.NewTaskManager(s, os.Stdout),
 		s,
 	)
 

@@ -5,10 +5,8 @@ import (
 	"log"
 	"myproject/internal/handlers"
 	"myproject/storage"
-	"myproject/task"
 	"myproject/validation"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -98,7 +96,7 @@ func tasksHandler(s storage.Storage) http.HandlerFunc {
 				return
 			}
 
-			newTask := task.Task{Description: desc, Done: false}
+			newTask := storage.Task{Description: desc, Done: false}
 			id, err := s.CreateTask(newTask)
 			if err != nil {
 				log.Printf("Failed to create task in database: %v", err)
@@ -120,7 +118,7 @@ func tasksHandler(s storage.Storage) http.HandlerFunc {
 func taskHandler(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		response := task.Task{}
+		response := storage.Task{}
 		path := r.URL.Path
 		id, err := validation.ExtractTaskIDFromPath(path)
 		if err != nil {
@@ -188,8 +186,6 @@ func taskHandler(s storage.Storage) http.HandlerFunc {
 }
 
 func main() {
-	tm := task.NewTaskManager(os.Stdout)
-
 	dbPath := storage.GetDatabasePath()
 	s, err := storage.NewDatabaseStorage(dbPath)
 	if err != nil {
@@ -199,7 +195,6 @@ func main() {
 	// Load existing tasks from database into TaskManager
 	loadedTasks, err := s.LoadTasks()
 	if err == nil && len(loadedTasks) > 0 {
-		tm.SetTasks(loadedTasks)
 		fmt.Printf("📦 Loaded %d tasks from database\n", len(loadedTasks))
 	}
 

@@ -160,7 +160,7 @@ func (ds *DatabaseStorage) LoadTasks() ([]Task, error) {
 	}
 
 	defer rows.Close()
-	var tasks []Task
+	tasks := make([]Task, 0)
 	for rows.Next() {
 		var task Task
 		if err := rows.Scan(&task.ID, &task.Description, &task.Done); err != nil {

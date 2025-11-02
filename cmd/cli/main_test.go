@@ -8,7 +8,6 @@ import (
 	"myproject/storage"
 	"myproject/task"
 	"myproject/validation"
-	"os"
 	"strings"
 	"testing"
 
@@ -23,7 +22,7 @@ func seedTask(t *testing.T, s storage.Storage, task storage.Task) {
 	)
 
 	if err != nil {
-		t.Fatalf("Failed to create task: %w", err)
+		t.Fatalf("Failed to create task: %v", err)
 	}
 }
 
@@ -517,7 +516,7 @@ func TestCLI_HandleAddCommand(t *testing.T) {
 		{
 			name:           "Add task (description with spaces) to non-empty list",
 			input:          " task 2 \n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedPrompt: "Enter task description:\n✅ Task added (ID: 2)\n",
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}},
 			expectedErr:    nil,
@@ -578,17 +577,7 @@ func TestCLI_HandleAddCommand(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeInput := strings.NewReader(tc.input)
 			output := &bytes.Buffer{}
-			tmpFile, err := os.CreateTemp("", "test-*.db")
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			t.Cleanup(func() {
-				tmpFile.Close()
-				os.Remove(tmpFile.Name())
-			})
-
-			s, err := storage.NewDatabaseStorage(tmpFile.Name())
+			s, err := storage.NewDatabaseStorage(":memory:")
 			if err != nil {
 				t.Log("DB failed", err)
 			}
@@ -599,7 +588,9 @@ func TestCLI_HandleAddCommand(t *testing.T) {
 				taskManager,
 				s,
 			)
-
+			for _, it := range tc.initialTasks {
+				seedTask(t, s, it)
+			}
 			// ==== ACT ====
 			err = cli.handleAddCommand()
 
@@ -633,7 +624,7 @@ func TestCLI_HandleStatusCommand(t *testing.T) {
 		{
 			name:           "Mark task done in one-task list",
 			input:          "1\ndone\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: true}},
 			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 1) status is has changed\n",
 			expectedErr:    nil,
@@ -641,7 +632,7 @@ func TestCLI_HandleStatusCommand(t *testing.T) {
 		{
 			name:           "Mark task undone in one-task list",
 			input:          "1\nundone\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[✓ ] ID: 1, Description: task 1'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 1) status is has changed\n",
 			expectedErr:    nil,
@@ -649,7 +640,7 @@ func TestCLI_HandleStatusCommand(t *testing.T) {
 		{
 			name:           "Mark specific task done in multiple tasks",
 			input:          "3\ndone\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}, {ID: 4, Description: "task 4", Done: false}},
 			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[  ] ID: 3, Description: task 3'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 3) status is has changed\n",
 			expectedErr:    nil,
@@ -657,7 +648,7 @@ func TestCLI_HandleStatusCommand(t *testing.T) {
 		{
 			name:           "Mark specific task undone in multiple tasks",
 			input:          "4\nundone\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[✓ ] ID: 4, Description: task 4'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 4) status is has changed\n",
 			expectedErr:    nil,
@@ -665,7 +656,7 @@ func TestCLI_HandleStatusCommand(t *testing.T) {
 		{
 			name:           "Mark already completed task",
 			input:          "1\ndone\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: true}},
 			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[✓ ] ID: 1, Description: task 1'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 1) status is has changed\n",
 			expectedErr:    nil,
@@ -673,7 +664,7 @@ func TestCLI_HandleStatusCommand(t *testing.T) {
 		{
 			name:           "Mark incompleted task undone",
 			input:          "1\nundone\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter new status 'done' // 'undone'\n✅ Task (ID: 1) status is has changed\n",
 			expectedErr:    nil,
@@ -693,28 +684,28 @@ func TestCLI_HandleStatusCommand(t *testing.T) {
 			initialTasks:   []storage.Task{},
 			expectedTasks:  []storage.Task{},
 			expectedPrompt: "Enter task ID to change status:\n",
-			expectedErr:    task.ErrTaskNotFound,
+			expectedErr:    storage.ErrTaskNotFound,
 		},
 		{
 			name:           "Mark non-existent task done",
 			input:          "8\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedPrompt: "Enter task ID to change status:\n",
-			expectedErr:    task.ErrTaskNotFound,
+			expectedErr:    storage.ErrTaskNotFound,
 		},
 		{
 			name:           "Mark non-existent task undone",
 			input:          "8\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedPrompt: "Enter task ID to change status:\n",
-			expectedErr:    task.ErrTaskNotFound,
+			expectedErr:    storage.ErrTaskNotFound,
 		},
 		{
 			name:           "Mark task with negative ID",
 			input:          "-1\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedPrompt: "Enter task ID to change status:\n",
 			expectedErr:    validation.ErrInvalidTaskID,
@@ -722,7 +713,7 @@ func TestCLI_HandleStatusCommand(t *testing.T) {
 		{
 			name:           "Mark task with empty input",
 			input:          "\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedPrompt: "Enter task ID to change status:\n",
 			expectedErr:    ErrEmptyInput,
@@ -730,7 +721,7 @@ func TestCLI_HandleStatusCommand(t *testing.T) {
 		{
 			name:           "Invalid status input",
 			input:          "1\ninvalid\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedPrompt: "Enter task ID to change status:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter new status 'done' // 'undone'\n",
 			expectedErr:    ErrInvalidStatus,
@@ -741,17 +732,7 @@ func TestCLI_HandleStatusCommand(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeInput := strings.NewReader(tc.input)
 			output := &bytes.Buffer{}
-			tmpFile, err := os.CreateTemp("", "test-*.db")
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			t.Cleanup(func() {
-				tmpFile.Close()
-				os.Remove(tmpFile.Name())
-			})
-
-			s, err := storage.NewDatabaseStorage(tmpFile.Name())
+			s, err := storage.NewDatabaseStorage(":memory:")
 			if err != nil {
 				t.Log("DB failed", err)
 			}
@@ -760,9 +741,11 @@ func TestCLI_HandleStatusCommand(t *testing.T) {
 				NewConsoleInputReader(fakeInput),
 				output,
 				taskManager,
-				nil,
+				s,
 			)
-
+			for _, it := range tc.initialTasks {
+				seedTask(t, s, it)
+			}
 			// ==== ACT ====
 			err = cli.handleStatusCommand()
 
@@ -797,7 +780,7 @@ func TestCLI_HandleClearCommand(t *testing.T) {
 		{
 			name:           "Clear task description in one-task list",
 			input:          "1\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "", Done: false}},
 			expectedPrompt: "Enter task ID you want to clear description\nCurrent task: '[  ] ID: 1, Description: task 1'\n✅ Task (ID: 1) description cleared!\n",
 			expectedErr:    nil,
@@ -805,7 +788,7 @@ func TestCLI_HandleClearCommand(t *testing.T) {
 		{
 			name:           "Clear specific task description in multiple tasks",
 			input:          "3\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedPrompt: "Enter task ID you want to clear description\nCurrent task: '[  ] ID: 3, Description: task 3'\n✅ Task (ID: 3) description cleared!\n",
 			expectedErr:    nil,
@@ -825,20 +808,20 @@ func TestCLI_HandleClearCommand(t *testing.T) {
 			initialTasks:   []storage.Task{},
 			expectedTasks:  []storage.Task{},
 			expectedPrompt: prompt,
-			expectedErr:    task.ErrTaskNotFound,
+			expectedErr:    storage.ErrTaskNotFound,
 		},
 		{
 			name:           "Clear non-existent task",
 			input:          "8\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedPrompt: prompt,
-			expectedErr:    task.ErrTaskNotFound,
+			expectedErr:    storage.ErrTaskNotFound,
 		},
 		{
 			name:           "Clear task description with negative ID",
 			input:          "-1\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedPrompt: prompt,
 			expectedErr:    validation.ErrInvalidTaskID,
@@ -846,7 +829,7 @@ func TestCLI_HandleClearCommand(t *testing.T) {
 		{
 			name:           "Clear task description with zero ID",
 			input:          "0\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedPrompt: prompt,
 			expectedErr:    validation.ErrInvalidTaskID,
@@ -857,19 +840,27 @@ func TestCLI_HandleClearCommand(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeInput := strings.NewReader(tc.input)
 			output := &bytes.Buffer{}
-
+			s, err := storage.NewDatabaseStorage(":memory:")
+			if err != nil {
+				t.Log("DB failed", err)
+			}
+			taskManager := task.NewTaskManager(s, output)
 			cli := NewCLI(
 				NewConsoleInputReader(fakeInput),
 				output,
-				nil,
-				nil,
+				taskManager,
+				s,
 			)
+			for _, it := range tc.initialTasks {
+				seedTask(t, s, it)
+			}
 
 			// ==== ACT ====
-			err := cli.handleClearCommand()
+			err = cli.handleClearCommand()
 
 			// === ASSERT ===
-			// assert.Equal(t, tc.expectedTasks, cli.taskManager.GetTasks())
+			lt, _ := cli.storage.LoadTasks()
+			assert.Equal(t, tc.expectedTasks, lt)
 			assert.Equal(t, tc.expectedPrompt, output.String())
 			if tc.expectedErr != nil {
 				assert.Error(t, err)
@@ -898,7 +889,7 @@ func TestCLI_HandleUpdateCommand(t *testing.T) {
 		{
 			name:           "Existent task in one-task list",
 			input:          "1\nnew task 1\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "new task 1", Done: false}},
 			expectedPrompt: "Enter task ID to update:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter new description:\n✅ Task (ID: 1) updated\n",
 			expectedErr:    nil,
@@ -906,23 +897,23 @@ func TestCLI_HandleUpdateCommand(t *testing.T) {
 		{
 			name:           "Completed task in multiple tasks list",
 			input:          "3\nnew task 3\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "new task 3", Done: true}},
 			expectedPrompt: "Enter task ID to update:\nCurrent task: '[✓ ] ID: 3, Description: task 3'\nEnter new description:\n✅ Task (ID: 3) updated\n",
 			expectedErr:    nil,
 		},
 		{
 			name:           "Very large ID",
-			input:          "1111111111\nnew task 1111111111\n",
-			initialTasks:   []storage.Task{{ID: 1111111111, Description: "task 1111111111", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-			expectedTasks:  []storage.Task{{ID: 1111111111, Description: "new task 1111111111", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-			expectedPrompt: "Enter task ID to update:\nCurrent task: '[  ] ID: 1111111111, Description: task 1111111111'\nEnter new description:\n✅ Task (ID: 1111111111) updated\n",
-			expectedErr:    nil,
+			input:          "1111111111\n",
+			initialTasks:   []storage.Task{{Description: "task 1111111111", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
+			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1111111111", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedPrompt: prompt,
+			expectedErr:    storage.ErrTaskNotFound,
 		},
 		{
 			name:           "New task description with special characters",
 			input:          "1\n#@`[]$%^*\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "#@`[]$%^*", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
 			expectedPrompt: "Enter task ID to update:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter new description:\n✅ Task (ID: 1) updated\n",
 			expectedErr:    nil,
@@ -930,7 +921,7 @@ func TestCLI_HandleUpdateCommand(t *testing.T) {
 		{
 			name:           "New task description with Unicode characters",
 			input:          "2\nBuy 🍞 and 🥛\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "Buy 🍞 and 🥛", Done: false}, {ID: 3, Description: "task 3", Done: true}},
 			expectedPrompt: "Enter task ID to update:\nCurrent task: '[  ] ID: 2, Description: task 2'\nEnter new description:\n✅ Task (ID: 2) updated\n",
 			expectedErr:    nil,
@@ -938,7 +929,7 @@ func TestCLI_HandleUpdateCommand(t *testing.T) {
 		{
 			name:           "Very long description update",
 			input:          "3\nLorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type a\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type a", Done: true}},
 			expectedPrompt: "Enter task ID to update:\nCurrent task: '[✓ ] ID: 3, Description: task 3'\nEnter new description:\n✅ Task (ID: 3) updated\n",
 			expectedErr:    nil,
@@ -955,15 +946,15 @@ func TestCLI_HandleUpdateCommand(t *testing.T) {
 		{
 			name:           "Non-existent task in multiple tasks list",
 			input:          "5\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
 			expectedPrompt: prompt,
-			expectedErr:    task.ErrTaskNotFound,
+			expectedErr:    storage.ErrTaskNotFound,
 		},
 		{
 			name:           "Non-existent task in multiple tasks list",
 			input:          "1\ntask 1\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
 			expectedPrompt: "Enter task ID to update:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter new description:\n",
 			expectedErr:    ErrDescUnchanged,
@@ -974,12 +965,12 @@ func TestCLI_HandleUpdateCommand(t *testing.T) {
 			initialTasks:   []storage.Task{},
 			expectedTasks:  []storage.Task{},
 			expectedPrompt: prompt,
-			expectedErr:    task.ErrTaskNotFound,
+			expectedErr:    storage.ErrTaskNotFound,
 		},
 		{
 			name:           "Empty description",
 			input:          "1\n\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
 			expectedPrompt: "Enter task ID to update:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter new description:\n",
 			expectedErr:    ErrEmptyInput,
@@ -987,7 +978,7 @@ func TestCLI_HandleUpdateCommand(t *testing.T) {
 		{
 			name:           "Zero ID",
 			input:          "0\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
 			expectedPrompt: prompt,
 			expectedErr:    validation.ErrInvalidTaskID,
@@ -995,7 +986,7 @@ func TestCLI_HandleUpdateCommand(t *testing.T) {
 		{
 			name:           "Negative ID",
 			input:          "-1\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
 			expectedPrompt: prompt,
 			expectedErr:    validation.ErrInvalidTaskID,
@@ -1006,19 +997,27 @@ func TestCLI_HandleUpdateCommand(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeInput := strings.NewReader(tc.input)
 			output := &bytes.Buffer{}
-
+			s, err := storage.NewDatabaseStorage(":memory:")
+			if err != nil {
+				t.Log("DB failed", err)
+			}
+			taskManager := task.NewTaskManager(s, output)
 			cli := NewCLI(
 				NewConsoleInputReader(fakeInput),
 				output,
-				nil,
-				nil,
+				taskManager,
+				s,
 			)
+			for _, it := range tc.initialTasks {
+				seedTask(t, s, it)
+			}
 
 			// ==== ACT ====
-			err := cli.handleUpdateCommand()
+			err = cli.handleUpdateCommand()
 
 			// === ASSERT ===
-			// assert.Equal(t, tc.expectedTasks, cli.taskManager.GetTasks())
+			lt, _ := cli.storage.LoadTasks()
+			assert.Equal(t, tc.expectedTasks, lt)
 			assert.Equal(t, tc.expectedPrompt, output.String())
 			if tc.expectedErr != nil {
 				assert.Error(t, err)
@@ -1047,7 +1046,7 @@ func TestCLI_HandleDeleteCommand(t *testing.T) {
 		{
 			name:           "Delete first task",
 			input:          "1\ny\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {Description: "task 4", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedPrompt: "Enter task ID to delete task:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter y/N:\n✅ Task (ID: 1) deleted\n",
 			expectedErr:    nil,
@@ -1055,7 +1054,7 @@ func TestCLI_HandleDeleteCommand(t *testing.T) {
 		{
 			name:           "Delete last task",
 			input:          "4\ny\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: true}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {Description: "task 4", Done: true}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}},
 			expectedPrompt: "Enter task ID to delete task:\nCurrent task: '[✓ ] ID: 4, Description: task 4'\nEnter y/N:\n✅ Task (ID: 4) deleted\n",
 			expectedErr:    nil,
@@ -1063,15 +1062,15 @@ func TestCLI_HandleDeleteCommand(t *testing.T) {
 		{
 			name:           "Delete task very large ID",
 			input:          "1111111111\ny\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 1111111111, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-			expectedPrompt: "Enter task ID to delete task:\nCurrent task: '[  ] ID: 1111111111, Description: task 2'\nEnter y/N:\n✅ Task (ID: 1111111111) deleted\n",
-			expectedErr:    nil,
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {Description: "task 4", Done: false}},
+			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			expectedPrompt: prompt,
+			expectedErr:    storage.ErrTaskNotFound,
 		},
 		{
 			name:           "Cancel deletion with 'n'",
 			input:          "1\nn\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}}, // Task should remain
 			expectedPrompt: "Enter task ID to delete task:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter y/N:\nDeletion canceled\n",
 			expectedErr:    nil,
@@ -1088,10 +1087,10 @@ func TestCLI_HandleDeleteCommand(t *testing.T) {
 		{
 			name:           "Delete non-existent task",
 			input:          "7\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedPrompt: prompt,
-			expectedErr:    task.ErrTaskNotFound,
+			expectedErr:    storage.ErrTaskNotFound,
 		},
 		{
 			name:           "Delete task in empty list",
@@ -1099,12 +1098,12 @@ func TestCLI_HandleDeleteCommand(t *testing.T) {
 			initialTasks:   []storage.Task{},
 			expectedTasks:  []storage.Task{},
 			expectedPrompt: prompt,
-			expectedErr:    task.ErrTaskNotFound,
+			expectedErr:    storage.ErrTaskNotFound,
 		},
 		{
 			name:           "Empty confirmation input",
 			input:          "1\n\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedPrompt: "Enter task ID to delete task:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter y/N:\n",
 			expectedErr:    ErrEmptyInput,
@@ -1112,7 +1111,7 @@ func TestCLI_HandleDeleteCommand(t *testing.T) {
 		{
 			name:           "Invalid confirmation input",
 			input:          "1\nmaybe\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedPrompt: "Enter task ID to delete task:\nCurrent task: '[  ] ID: 1, Description: task 1'\nEnter y/N:\n",
 			expectedErr:    ErrInvalidConfirmChoice,
@@ -1120,7 +1119,7 @@ func TestCLI_HandleDeleteCommand(t *testing.T) {
 		{
 			name:           "Delete task with negative ID",
 			input:          "-1\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedPrompt: prompt,
 			expectedErr:    validation.ErrInvalidTaskID,
@@ -1128,7 +1127,7 @@ func TestCLI_HandleDeleteCommand(t *testing.T) {
 		{
 			name:           "Delete task with zero ID",
 			input:          "0\n",
-			initialTasks:   []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:   []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedPrompt: prompt,
 			expectedErr:    validation.ErrInvalidTaskID,
@@ -1139,18 +1138,26 @@ func TestCLI_HandleDeleteCommand(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fakeInput := strings.NewReader(tc.input)
 			output := &bytes.Buffer{}
+			s, err := storage.NewDatabaseStorage(":memory:")
+			if err != nil {
+				t.Log("DB failed", err)
+			}
 			cli := NewCLI(
 				NewConsoleInputReader(fakeInput),
 				output,
 				nil,
-				nil,
+				s,
 			)
+			for _, it := range tc.initialTasks {
+				seedTask(t, s, it)
+			}
 
 			// ==== ACT ====
-			err := cli.handleDeleteCommand()
+			err = cli.handleDeleteCommand()
 
 			// === ASSERT ===
-			// assert.Equal(t, tc.expectedTasks, cli.taskManager.GetTasks())
+			lt, _ := cli.storage.LoadTasks()
+			assert.Equal(t, tc.expectedTasks, lt)
 			assert.Equal(t, tc.expectedPrompt, output.String())
 			if tc.expectedErr != nil {
 				assert.Error(t, err)

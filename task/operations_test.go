@@ -9,37 +9,69 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+func seedTask(t *testing.T, s storage.Storage, task storage.Task) {
+	_, err := s.CreateTask(storage.Task{
+		Description: task.Description,
+		Done:        task.Done,
+	},
+	)
+
+	if err != nil {
+		t.Fatalf("Failed to create task: %v", err)
+	}
+}
+
 func TestAddTask(t *testing.T) {
 	// ====Arrange====
 	testCases := []struct {
-		name         string
-		input        string
-		expectedTask storage.Task
+		name          string
+		input         string
+		initialTasks  []storage.Task
+		expectedTasks []storage.Task
+		expectedErr   error
 	}{
+		// Valid inputs
 		{
-			name:         "Add task to empty list",
-			input:        "task 1",
-			expectedTask: storage.Task{ID: 1, Description: "task 1", Done: false},
+			name:          "Add task to empty list",
+			input:         "task 1",
+			initialTasks:  []storage.Task{},
+			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			expectedErr:   nil,
 		},
 		{
-			name:         "Add task to non-empty list",
-			input:        "task 2",
-			expectedTask: storage.Task{Description: "task 2", Done: false},
+			name:          "Add task (description with spaces) to non-empty list",
+			input:         " task 2 ",
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}},
+			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: " task 2 ", Done: false}},
+			expectedErr:   nil,
 		},
 		{
-			name:         "Add empty description",
-			input:        "",
-			expectedTask: storage.Task{Description: "", Done: false},
+			name:          "Add long description",
+			input:         "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec qu",
+			initialTasks:  []storage.Task{},
+			expectedTasks: []storage.Task{{ID: 1, Description: "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec qu", Done: false}},
+			expectedErr:   nil,
 		},
 		{
-			name:         "Add long description",
-			input:        "Это очень длинное описание задачи, которое содержит много текста и проверяет, может ли наша функция корректно работать с большими строками",
-			expectedTask: storage.Task{Description: "Это очень длинное описание задачи, которое содержит много текста и проверяет, может ли наша функция корректно работать с большими строками", Done: false},
+			name:          "Add task with Unicode and special characters",
+			input:         "Купить 🥛 & 🍞 в магазине \"Пятёрочка\"",
+			initialTasks:  []storage.Task{},
+			expectedTasks: []storage.Task{{ID: 1, Description: "Купить 🥛 & 🍞 в магазине \"Пятёрочка\"", Done: false}},
+			expectedErr:   nil,
 		},
 		{
-			name:         "Add task with special characters",
-			input:        "Купить молоко & хлеб в магазине \"Пятёрочка\"",
-			expectedTask: storage.Task{Description: "Купить молоко & хлеб в магазине \"Пятёрочка\"", Done: false},
+			name:          "Add empty description",
+			input:         "",
+			initialTasks:  []storage.Task{},
+			expectedTasks: []storage.Task{{ID: 1, Description: "", Done: false}},
+			expectedErr:   nil,
+		},
+		{
+			name:          "Add description with spaces only",
+			input:         "         ",
+			initialTasks:  []storage.Task{},
+			expectedTasks: []storage.Task{{ID: 1, Description: "         ", Done: false}},
+			expectedErr:   nil,
 		},
 	}
 
@@ -47,16 +79,30 @@ func TestAddTask(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s, err := storage.NewDatabaseStorage(":memory:")
 			if err != nil {
-				t.Log("DB failed", err)
+				t.Fatalf("Failed to create database: %v", err)
 			}
 			tm := NewTaskManager(s, &strings.Builder{})
+			for _, it := range tc.initialTasks {
+				seedTask(t, s, it)
+			}
 
 			// ==== ACT ====
-			tm.AddTask(tc.input)
+			id, err := tm.AddTask(tc.input)
 
 			// === ASSERT ===
-			lt, _ := s.LoadTasks()
-			if diff := cmp.Diff(tc.expectedTask, lt); diff != "" {
+			if err != tc.expectedErr {
+				t.Errorf("Expected error: %v, got: %v", tc.expectedErr, err)
+			}
+
+			if tc.expectedErr == nil && id != tc.expectedTasks[len(tc.expectedTasks)-1].ID {
+				t.Errorf("Expected ID: %d, got: %d", tc.expectedTasks[len(tc.expectedTasks)-1].ID, id)
+			}
+
+			lt, err := s.LoadTasks()
+			if err != nil {
+				t.Fatalf("Failed to load tasks: %v", err)
+			}
+			if diff := cmp.Diff(tc.expectedTasks, lt); diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -119,7 +165,7 @@ func TestUpdateTaskStatus(t *testing.T) {
 			name:          "Mark task done in one-task list",
 			taskId:        1,
 			done:          true,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: true}},
 			expectedErr:   nil,
 		},
@@ -127,7 +173,7 @@ func TestUpdateTaskStatus(t *testing.T) {
 			name:          "Mark task undone in one-task list",
 			taskId:        1,
 			done:          false,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: true}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: true}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedErr:   nil,
 		},
@@ -137,13 +183,13 @@ func TestUpdateTaskStatus(t *testing.T) {
 			done:          true,
 			initialTasks:  []storage.Task{},
 			expectedTasks: []storage.Task{},
-			expectedErr:   ErrTaskNotFound,
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 		{
 			name:          "Mark specific task done in multiple tasks",
 			taskId:        3,
 			done:          true,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {Description: "task 4", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}, {ID: 4, Description: "task 4", Done: false}},
 			expectedErr:   nil,
 		},
@@ -151,7 +197,7 @@ func TestUpdateTaskStatus(t *testing.T) {
 			name:          "Mark specific task undone in multiple tasks",
 			taskId:        4,
 			done:          false,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: true}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {Description: "task 4", Done: true}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedErr:   nil,
 		},
@@ -159,23 +205,23 @@ func TestUpdateTaskStatus(t *testing.T) {
 			name:          "Mark non-existence task done",
 			taskId:        8,
 			done:          true,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {Description: "task 4", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-			expectedErr:   ErrTaskNotFound,
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 		{
 			name:          "Mark non-existence task undone",
 			taskId:        8,
 			done:          true,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {Description: "task 4", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-			expectedErr:   ErrTaskNotFound,
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 		{
 			name:          "Mark already completed task",
 			taskId:        1,
 			done:          true,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: true}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: true}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: true}},
 			expectedErr:   nil,
 		},
@@ -183,7 +229,7 @@ func TestUpdateTaskStatus(t *testing.T) {
 			name:          "Mark incompleted task undone",
 			taskId:        1,
 			done:          false,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}},
 			expectedErr:   nil,
 		},
@@ -191,17 +237,17 @@ func TestUpdateTaskStatus(t *testing.T) {
 			name:          "Mark task done with negative ID",
 			taskId:        -1,
 			done:          true,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}},
-			expectedErr:   ErrTaskNotFound,
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 		{
 			name:          "Mark task done with zero ID",
 			taskId:        0,
 			done:          true,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}},
-			expectedErr:   ErrTaskNotFound,
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 	}
 
@@ -209,20 +255,26 @@ func TestUpdateTaskStatus(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s, err := storage.NewDatabaseStorage(":memory:")
 			if err != nil {
-				t.Log("DB failed", err)
+				t.Fatalf("Failed to create database: %v", err)
 			}
-
 			tm := NewTaskManager(s, &strings.Builder{})
+			for _, it := range tc.initialTasks {
+				seedTask(t, s, it)
+			}
 
 			// ==== ACT ====
 			actualErr := tm.UpdateTaskStatus(tc.taskId, tc.done)
 
 			// === ASSERT ===
-			if tc.expectedErr != actualErr {
+			if !errors.Is(actualErr, tc.expectedErr) {
 				t.Errorf("Expected error: '%v', got '%v'", tc.expectedErr, actualErr)
 			}
 
-			lt, _ := s.LoadTasks()
+			lt, err := s.LoadTasks()
+			if err != nil {
+				t.Fatalf("Failed to load tasks: %v", err)
+			}
+
 			if diff := cmp.Diff(tc.expectedTasks, lt); diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}
@@ -242,7 +294,7 @@ func TestClearTaskDescription(t *testing.T) {
 		{
 			name:          "Clear task description in one-task list",
 			taskId:        1,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "", Done: false}},
 			expectedErr:   nil,
 		},
@@ -251,35 +303,35 @@ func TestClearTaskDescription(t *testing.T) {
 			taskId:        1,
 			initialTasks:  []storage.Task{},
 			expectedTasks: []storage.Task{},
-			expectedErr:   ErrTaskNotFound,
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 		{
 			name:          "Clear specific task description in multiple tasks",
 			taskId:        3,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {Description: "task 4", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "", Done: false}, {ID: 4, Description: "task 4", Done: false}},
 			expectedErr:   nil,
 		},
 		{
 			name:          "Clear non-existence task description",
 			taskId:        8,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: false}, {Description: "task 4", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-			expectedErr:   ErrTaskNotFound,
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 		{
 			name:          "Clear task description with negative ID",
 			taskId:        -1,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}},
-			expectedErr:   ErrTaskNotFound,
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 		{
 			name:          "Clear task description with zero ID",
 			taskId:        0,
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}},
-			expectedErr:   ErrTaskNotFound,
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 	}
 
@@ -287,20 +339,26 @@ func TestClearTaskDescription(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s, err := storage.NewDatabaseStorage(":memory:")
 			if err != nil {
-				t.Log("DB failed", err)
+				t.Fatalf("Failed to create database: %v", err)
 			}
-
 			tm := NewTaskManager(s, &strings.Builder{})
+			for _, it := range tc.initialTasks {
+				seedTask(t, s, it)
+			}
 
 			// ==== ACT ====
 			actualErr := tm.ClearDescription(tc.taskId)
 
 			// === ASSERT ===
-			if tc.expectedErr != actualErr {
+			if !errors.Is(actualErr, tc.expectedErr) {
 				t.Errorf("Expected error: '%v', got '%v'", tc.expectedErr, actualErr)
 			}
 
-			lt, _ := s.LoadTasks()
+			lt, err := s.LoadTasks()
+			if err != nil {
+				t.Fatalf("Failed to load tasks: %v", err)
+			}
+
 			if diff := cmp.Diff(tc.expectedTasks, lt); diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}
@@ -394,7 +452,7 @@ func TestUpdateTaskDescription(t *testing.T) {
 			name:          "Existent task in one-task list",
 			id:            1,
 			description:   "new task 1",
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "new task 1", Done: false}},
 			expectedErr:   nil,
 		},
@@ -402,7 +460,7 @@ func TestUpdateTaskDescription(t *testing.T) {
 			name:          "Completed task in multiple tasks list",
 			id:            3,
 			description:   "new task 3",
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "new task 3", Done: true}},
 			expectedErr:   nil,
 		},
@@ -410,9 +468,9 @@ func TestUpdateTaskDescription(t *testing.T) {
 			name:          "Non-existent task in multiple tasks list",
 			id:            5,
 			description:   "new task 5",
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-			expectedErr:   ErrTaskNotFound,
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 		{
 			name:          "Task in empty task list",
@@ -420,13 +478,13 @@ func TestUpdateTaskDescription(t *testing.T) {
 			description:   "new task 1",
 			initialTasks:  []storage.Task{},
 			expectedTasks: []storage.Task{},
-			expectedErr:   ErrTaskNotFound,
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 		{
 			name:          "Empty description",
 			id:            1,
 			description:   "",
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
 			expectedErr:   nil,
 		},
@@ -434,31 +492,31 @@ func TestUpdateTaskDescription(t *testing.T) {
 			name:          "Zero ID",
 			id:            0,
 			description:   "new task 0",
-			initialTasks:  []storage.Task{{ID: 0, Description: "task 0", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-			expectedTasks: []storage.Task{{ID: 0, Description: "new task 0", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-			expectedErr:   nil,
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
+			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 		{
 			name:          "Negative ID",
 			id:            -1,
 			description:   "new task -1",
-			initialTasks:  []storage.Task{{ID: -1, Description: "task -1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-			expectedTasks: []storage.Task{{ID: -1, Description: "new task -1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-			expectedErr:   nil,
+			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
+			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 		{
 			name:          "Very large ID",
 			id:            1111111111111111111,
 			description:   "new task 1111111111111111111",
-			initialTasks:  []storage.Task{{ID: 1111111111111111111, Description: "task 1111111111111111111", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-			expectedTasks: []storage.Task{{ID: 1111111111111111111, Description: "new task 1111111111111111111", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-			expectedErr:   nil,
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
+			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			expectedErr:   storage.ErrTaskNotFound,
 		},
 		{
 			name:          "New task description with special characters",
 			id:            1,
 			description:   "#@`[]$%^*",
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "#@`[]$%^*", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
 			expectedErr:   nil,
 		},
@@ -466,7 +524,7 @@ func TestUpdateTaskDescription(t *testing.T) {
 			name:          "New task description with Unicode characters",
 			id:            2,
 			description:   "Buy 🍞 and 🥛",
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "Buy 🍞 and 🥛", Done: false}, {ID: 3, Description: "task 3", Done: true}},
 			expectedErr:   nil,
 		},
@@ -474,7 +532,7 @@ func TestUpdateTaskDescription(t *testing.T) {
 			name:          "Very long description update",
 			id:            3,
 			description:   "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.",
-			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
+			initialTasks:  []storage.Task{{Description: "task 1", Done: false}, {Description: "task 2", Done: false}, {Description: "task 3", Done: true}},
 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.", Done: true}},
 			expectedErr:   nil,
 		},
@@ -484,208 +542,29 @@ func TestUpdateTaskDescription(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s, err := storage.NewDatabaseStorage(":memory:")
 			if err != nil {
-				t.Log("DB failed", err)
+				t.Fatalf("Failed to create database: %v", err)
 			}
-
 			tm := NewTaskManager(s, &strings.Builder{})
-
-			// ====Act====
-			err = tm.UpdateTaskDescription(tc.id, tc.description)
-
-			// ====Assert====
-			if !errors.Is(err, tc.expectedErr) {
-				t.Errorf("Expected %v, got %v", tc.expectedErr, err)
+			for _, it := range tc.initialTasks {
+				seedTask(t, s, it)
 			}
 
-			lt, _ := s.LoadTasks()
+			// ==== ACT ====
+			actualErr := tm.UpdateTaskDescription(tc.id, tc.description)
+
+			// === ASSERT ===
+			if !errors.Is(actualErr, tc.expectedErr) {
+				t.Errorf("Expected error: '%v', got '%v'", tc.expectedErr, actualErr)
+			}
+
+			lt, err := s.LoadTasks()
+			if err != nil {
+				t.Fatalf("Failed to load tasks: %v", err)
+			}
+
 			if diff := cmp.Diff(tc.expectedTasks, lt); diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
 }
-
-// func TestGetTaskByID(t *testing.T) {
-// 	// ====Arrange====
-// 	testCases := []struct {
-// 		name         string
-// 		id           int
-// 		initialTasks []Task
-// 		expectedTask Task
-// 		expectedErr  error
-// 	}{
-// 		{
-// 			name:         "Existent task in one-task list",
-// 			id:           1,
-// 			initialTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}},
-// 			expectedTask: Task{ID: 1, Description: "task 1"},
-// 			expectedErr:  nil,
-// 		},
-// 		{
-// 			name:         "Completed task in multiple tasks list",
-// 			id:           3,
-// 			initialTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-// 			expectedTask: Task{ID: 3, Description: "task 3", Done: true},
-// 			expectedErr:  nil,
-// 		},
-// 		{
-// 			name:         "Non-existent task in multiple tasks list",
-// 			id:           4,
-// 			initialTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: true}},
-// 			expectedTask: Task{},
-// 			expectedErr:  ErrTaskNotFound,
-// 		},
-// 		{
-// 			name:         "Non-existent task in empty tasks list",
-// 			id:           1,
-// 			initialTasks: []storage.Task{},
-// 			expectedTask: Task{},
-// 			expectedErr:  ErrTaskNotFound,
-// 		},
-// 		{
-// 			name:         "Zero ID",
-// 			id:           0,
-// 			initialTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}},
-// 			expectedTask: Task{},
-// 			expectedErr:  ErrTaskNotFound,
-// 		},
-// 		{
-// 			name:         "Negative ID",
-// 			id:           -1,
-// 			initialTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}},
-// 			expectedTask: Task{},
-// 			expectedErr:  ErrTaskNotFound,
-// 		},
-// 		{
-// 			name:         "Very large ID",
-// 			id:           1111111111111111111,
-// 			initialTasks: []storage.Task{{ID: 1111111111111111111, Description: "task 1111111111111111111", Done: false}},
-// 			expectedTask: Task{ID: 1111111111111111111, Description: "task 1111111111111111111"},
-// 			expectedErr:  nil,
-// 		},
-// 		{
-// 			name:         "Existent task with very long description",
-// 			id:           3,
-// 			initialTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.", Done: true}},
-// 			expectedTask: Task{ID: 3, Description: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.", Done: true},
-// 			expectedErr:  nil,
-// 		},
-// 		{
-// 			name:         "Existent task with empty description",
-// 			id:           3,
-// 			initialTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "", Done: true}},
-// 			expectedTask: Task{ID: 3, Done: true},
-// 			expectedErr:  nil,
-// 		},
-// 		{
-// 			name:         "Existent task with Unicode and special characters",
-// 			id:           3,
-// 			initialTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "Buy 🍞 and 🥛#@`[]$%^*", Done: true}},
-// 			expectedTask: Task{ID: 3, Description: "Buy 🍞 and 🥛#@`[]$%^*", Done: true},
-// 			expectedErr:  nil,
-// 		},
-// 	}
-
-// 	for _, tc := range testCases {
-// 		t.Run(tc.name, func(t *testing.T) {
-// 			s, err := storage.NewDatabaseStorage(":memory:")
-// 			if err != nil {
-// 				t.Log("DB failed", err)
-// 			}
-
-// 			tm := NewTaskManager(s, &strings.Builder{})
-
-// 			// ====Act====
-// 			strTask, err := tm.GetTaskByID(tc.id)
-
-// 			// ====Assert====
-// 			if !errors.Is(err, tc.expectedErr) {
-// 				t.Errorf("Expected '%v', got '%v'", tc.expectedErr, err)
-// 			}
-
-// 			if diff := cmp.Diff(tc.expectedTask, strTask); diff != "" {
-// 				t.Errorf("String mismatch (-want +got):\n%s", diff)
-// 			}
-// 		})
-// 	}
-// }
-
-// func TestDeleteTask(t *testing.T) {
-// 	// ====Arrange====
-// 	testCases := []struct {
-// 		name          string
-// 		taskId        int
-// 		initialTasks  []Task
-// 		expectedTasks []Task
-// 		expectedErr   error
-// 	}{
-// 		{
-// 			name:          "Delete first task",
-// 			taskId:        1,
-// 			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-// 			expectedTasks: []storage.Task{{ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-// 			expectedErr:   nil,
-// 		},
-// 		{
-// 			name:          "Delete last task",
-// 			taskId:        4,
-// 			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: true}},
-// 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}},
-// 			expectedErr:   nil,
-// 		},
-// 		{
-// 			name:          "Delete non-existense task",
-// 			taskId:        7,
-// 			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-// 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-// 			expectedErr:   ErrTaskNotFound,
-// 		},
-// 		{
-// 			name:          "Delete task in empty list",
-// 			taskId:        1,
-// 			initialTasks:  []storage.Task{},
-// 			expectedTasks: []storage.Task{},
-// 			expectedErr:   ErrTaskNotFound,
-// 		},
-// 		{
-// 			name:          "Delete task with negative ID",
-// 			taskId:        -1,
-// 			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-// 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-// 			expectedErr:   ErrTaskNotFound,
-// 		},
-// 		{
-// 			name:          "Delete task with zero ID",
-// 			taskId:        0,
-// 			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-// 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 2, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-// 			expectedErr:   ErrTaskNotFound,
-// 		},
-// 		{
-// 			name:          "Delete task with max int value ID",
-// 			taskId:        9223372036854775807,
-// 			initialTasks:  []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 9223372036854775807, Description: "task 2", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-// 			expectedTasks: []storage.Task{{ID: 1, Description: "task 1", Done: false}, {ID: 3, Description: "task 3", Done: false}, {ID: 4, Description: "task 4", Done: false}},
-// 			expectedErr:   nil,
-// 		},
-// 	}
-
-// 	for _, tc := range testCases {
-// 		t.Run(tc.name, func(t *testing.T) {
-// 			tm := NewTaskManager(&strings.Builder{})
-// 			tm.SetTasks(tc.initialTasks)
-
-// 			// ==== ACT ====
-// 			err := tm.DeleteTask(tc.taskId)
-
-// 			// ==== ASSERT ====
-// 			if err != tc.expectedErr {
-// 				t.Errorf("Expected %v, got %v", tc.expectedErr, err)
-// 			}
-
-// 			if diff := cmp.Diff(tc.expectedTasks, tm.GetTasks()); diff != "" {
-// 				t.Errorf("mismatch (-want +got):\n%s", diff)
-// 			}
-// 		})
-// 	}
-// }

@@ -65,6 +65,42 @@ func NewMigratorWithDefaults(db *sql.DB) *Migrator {
 	}
 
 	migrator.AddMigration(initialMigration)
+
+	usersMigration := Migration{
+		Version: 2,
+		Name:    "create_users_table",
+		Up: `
+            CREATE TABLE users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE INDEX idx_users_email ON users(email);
+        `,
+		Down: `
+            DROP INDEX IF EXISTS idx_users_email;
+            DROP TABLE IF EXISTS users;
+        `,
+	}
+
+	migrator.AddMigration(usersMigration)
+
+	taskUserAssociationMigration := Migration{
+		Version: 3,
+		Name:    "task_user_association_table",
+		Up: `
+            ALTER TABLE tasks ADD COLUMN user_id INTEGER;
+            CREATE INDEX idx_tasks_user_id ON tasks(user_id);
+        `,
+		Down: `
+            DROP INDEX IF EXISTS idx_tasks_user_id;
+        `,
+	}
+
+	migrator.AddMigration(taskUserAssociationMigration)
+
 	return migrator
 }
 

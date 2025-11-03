@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"myproject/storage"
 	"regexp"
@@ -87,6 +88,28 @@ func (service *Service) Register(email, password string) (token string, err erro
 	}
 
 	token, err = service.jwtService.GenerateToken(userID)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	return token, nil
+}
+
+// Login authenticates a user with email and password, returning a JWT token on success.
+func (service *Service) Login(email, password string) (token string, err error) {
+	user, err := service.userStorage.GetUserByEmail(email)
+	if err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			return "", fmt.Errorf("invalid credentials")
+		}
+		return "", err
+	}
+
+	if err = service.ComparePassword(user.PasswordHash, password); err != nil {
+		return "", fmt.Errorf("invalid credentials")
+	}
+
+	token, err = service.jwtService.GenerateToken(user.ID)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate token: %w", err)
 	}

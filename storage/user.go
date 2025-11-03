@@ -22,7 +22,7 @@ type UserStorage interface {
 	EmailExists(email string) (bool, error)
 }
 
-func (ds *DatabaseStorage) CreateUser(email string, passwordHash string) (int, error) {
+func (ds *DatabaseStorage) CreateUser(email, passwordHash string) (int, error) {
 	result, err := ds.db.Exec(
 		"INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
 		email, passwordHash,

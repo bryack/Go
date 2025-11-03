@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"myproject/storage"
+	"regexp"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -53,4 +54,42 @@ func (service *Service) ComparePassword(hash, password string) error {
 		return fmt.Errorf("invalid credentials")
 	}
 	return nil
+}
+
+// Register creates a new user account with the provided credentials and returns a JWT token.
+func (service *Service) Register(email, password string) (token string, err error) {
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	if !emailRegex.MatchString(email) {
+		return "", fmt.Errorf("invalid email format")
+	}
+
+	if err = service.ValidatePassword(password); err != nil {
+		return "", err
+	}
+
+	exists, err := service.userStorage.EmailExists(email)
+	if err != nil {
+		return "", fmt.Errorf("failed to check email availability: %w", err)
+	}
+
+	if exists {
+		return "", fmt.Errorf("email %s already registered", email)
+	}
+
+	passwordHash, err := service.HashPassword(password)
+	if err != nil {
+		return "", err
+	}
+
+	userID, err := service.userStorage.CreateUser(email, passwordHash)
+	if err != nil {
+		return "", fmt.Errorf("failed to create user: %w", err)
+	}
+
+	token, err = service.jwtService.GenerateToken(userID)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	return token, nil
 }

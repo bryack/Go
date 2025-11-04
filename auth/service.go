@@ -24,7 +24,7 @@ func NewService(userStorage storage.UserStorage, jwtService *JWTService) *Servic
 }
 
 // ValidatePassword checks if a password meets minimum security requirements.
-func (service *Service) ValidatePassword(password string) error {
+func ValidatePassword(password string) error {
 	if len(password) < 8 {
 		return fmt.Errorf("password must be at least 8 characters")
 	}
@@ -36,7 +36,7 @@ func (service *Service) ValidatePassword(password string) error {
 }
 
 // HashPassword creates a bcrypt hash of the provided password for secure storage.
-func (service *Service) HashPassword(password string) (string, error) {
+func HashPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword(
 		[]byte(password),
 		bcrypt.DefaultCost,
@@ -49,7 +49,7 @@ func (service *Service) HashPassword(password string) (string, error) {
 }
 
 // ComparePassword verifies if the provided password matches the stored hash.
-func (service *Service) ComparePassword(hash, password string) error {
+func ComparePassword(hash, password string) error {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	if err != nil {
 		return fmt.Errorf("invalid credentials")
@@ -64,7 +64,7 @@ func (service *Service) Register(email, password string) (token string, err erro
 		return "", fmt.Errorf("invalid email format")
 	}
 
-	if err = service.ValidatePassword(password); err != nil {
+	if err = ValidatePassword(password); err != nil {
 		return "", err
 	}
 
@@ -77,7 +77,7 @@ func (service *Service) Register(email, password string) (token string, err erro
 		return "", fmt.Errorf("email %s already registered", email)
 	}
 
-	passwordHash, err := service.HashPassword(password)
+	passwordHash, err := HashPassword(password)
 	if err != nil {
 		return "", err
 	}
@@ -105,7 +105,7 @@ func (service *Service) Login(email, password string) (token string, err error) 
 		return "", err
 	}
 
-	if err = service.ComparePassword(user.PasswordHash, password); err != nil {
+	if err = ComparePassword(user.PasswordHash, password); err != nil {
 		return "", fmt.Errorf("invalid credentials")
 	}
 

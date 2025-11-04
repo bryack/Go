@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"myproject/auth"
 	"myproject/internal/handlers"
 	"myproject/storage"
 	"myproject/validation"
@@ -29,6 +31,21 @@ type CreateTaskRequest struct {
 type UpdateTaskRequest struct {
 	Description *string `json:"description,omitempty"`
 	Done        *bool   `json:"done,omitempty"`
+}
+
+type RegisterRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type AuthResponse struct {
+	Token string `json:"token"`
+	Email string `json:"email"`
 }
 
 // rootHandler serves the API information and available endpoints.
@@ -182,6 +199,78 @@ func taskHandler(s storage.Storage) http.HandlerFunc {
 			handlers.HandleMethodNotAllowed(w, []string{"GET", "PUT", "DELETE"})
 			return
 		}
+	}
+}
+
+// RegisterHandler creates a new user account with email and password.
+// Returns JWT token on success or appropriate error for validation failures.
+func RegisterHandler(service auth.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			handlers.HandleMethodNotAllowed(w, []string{"POST"})
+			return
+		}
+
+		var registerRequest RegisterRequest
+		if err := handlers.ParseJSONRequest(w, r, &registerRequest); err != nil {
+			return
+		}
+
+		if registerRequest.Email == "" || registerRequest.Password == "" {
+			handlers.JSONError(w, http.StatusBadRequest, "Fields must be provided for register")
+			return
+		}
+
+		token, err := service.Register(registerRequest.Email, registerRequest.Password)
+		if err != nil {
+			switch {
+			case errors.Is(err, auth.ErrInvalidEmail), errors.Is(err, auth.ErrPasswordTooLong), errors.Is(err, auth.ErrPasswordTooShort):
+				handlers.JSONError(w, http.StatusBadRequest, err.Error())
+			case errors.Is(err, auth.ErrEmailAlreadyExists):
+				handlers.JSONError(w, http.StatusConflict, err.Error())
+			default:
+				handlers.JSONError(w, http.StatusInternalServerError, "registration failed")
+			}
+			return
+		}
+
+		var authResp AuthResponse
+		authResp.Email = registerRequest.Email
+		authResp.Token = token
+
+		handlers.JSONResponse(w, http.StatusCreated, authResp)
+	}
+}
+
+// LoginHandler authenticates user credentials and returns a JWT token.
+// Returns generic error message on failure to prevent user enumeration.
+func LoginHandler(service auth.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			handlers.HandleMethodNotAllowed(w, []string{"POST"})
+			return
+		}
+
+		var loginRequest LoginRequest
+		if err := handlers.ParseJSONRequest(w, r, &loginRequest); err != nil {
+			return
+		}
+
+		if loginRequest.Email == "" || loginRequest.Password == "" {
+			handlers.JSONError(w, http.StatusBadRequest, "Fields must be provided for login")
+			return
+		}
+
+		token, err := service.Login(loginRequest.Email, loginRequest.Password)
+		if err != nil {
+			handlers.JSONError(w, http.StatusUnauthorized, "invalid credentials")
+			return
+		}
+
+		var authResp AuthResponse
+		authResp.Email = loginRequest.Email
+		authResp.Token = token
+		handlers.JSONSuccess(w, authResp)
 	}
 }
 

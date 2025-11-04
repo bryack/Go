@@ -2,7 +2,6 @@ package auth
 
 import (
 	"errors"
-	"fmt"
 	"myproject/storage"
 	"regexp"
 
@@ -26,11 +25,11 @@ func NewService(userStorage storage.UserStorage, jwtService *JWTService) *Servic
 // ValidatePassword checks if a password meets minimum security requirements.
 func ValidatePassword(password string) error {
 	if len(password) < 8 {
-		return fmt.Errorf("password must be at least 8 characters")
+		return ErrPasswordTooShort
 	}
 
 	if len(password) > 72 {
-		return fmt.Errorf("password must be max 72 bytes")
+		return ErrPasswordTooLong
 	}
 	return nil
 }
@@ -42,7 +41,7 @@ func HashPassword(password string) (string, error) {
 		bcrypt.DefaultCost,
 	)
 	if err != nil {
-		return "", fmt.Errorf("hashing password failed: %w", err)
+		return "", ErrHashingFailed
 	}
 
 	return string(hashedPassword), nil
@@ -52,7 +51,7 @@ func HashPassword(password string) (string, error) {
 func ComparePassword(hash, password string) error {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	if err != nil {
-		return fmt.Errorf("invalid credentials")
+		return ErrInvalidCredentials
 	}
 	return nil
 }
@@ -61,35 +60,35 @@ func ComparePassword(hash, password string) error {
 func (service *Service) Register(email, password string) (token string, err error) {
 	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 	if !emailRegex.MatchString(email) {
-		return "", fmt.Errorf("invalid email format")
+		return "", ErrInvalidEmail
 	}
 
 	if err = ValidatePassword(password); err != nil {
-		return "", err
+		return "", ErrInvalidCredentials
 	}
 
 	exists, err := service.userStorage.EmailExists(email)
 	if err != nil {
-		return "", fmt.Errorf("failed to check email availability: %w", err)
+		return "", ErrStorageFailure
 	}
 
 	if exists {
-		return "", fmt.Errorf("email %s already registered", email)
+		return "", ErrEmailAlreadyExists
 	}
 
 	passwordHash, err := HashPassword(password)
 	if err != nil {
-		return "", err
+		return "", ErrHashingFailed
 	}
 
 	userID, err := service.userStorage.CreateUser(email, passwordHash)
 	if err != nil {
-		return "", fmt.Errorf("failed to create user: %w", err)
+		return "", ErrStorageFailure
 	}
 
 	token, err = service.jwtService.GenerateToken(userID)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate token: %w", err)
+		return "", ErrTokenGenerationFailed
 	}
 
 	return token, nil
@@ -100,18 +99,18 @@ func (service *Service) Login(email, password string) (token string, err error) 
 	user, err := service.userStorage.GetUserByEmail(email)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
-			return "", fmt.Errorf("invalid credentials")
+			return "", ErrInvalidCredentials
 		}
-		return "", err
+		return "", ErrStorageFailure
 	}
 
 	if err = ComparePassword(user.PasswordHash, password); err != nil {
-		return "", fmt.Errorf("invalid credentials")
+		return "", ErrInvalidCredentials
 	}
 
 	token, err = service.jwtService.GenerateToken(user.ID)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate token: %w", err)
+		return "", ErrTokenGenerationFailed
 	}
 
 	return token, nil

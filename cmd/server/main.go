@@ -9,6 +9,7 @@ import (
 	"myproject/storage"
 	"myproject/validation"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -92,9 +93,14 @@ func logRequest(handler http.HandlerFunc) http.HandlerFunc {
 func tasksHandler(s storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
+		userID, err := auth.GetUserIDFromContext(r.Context())
+		if err != nil {
+			handlers.JSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		switch r.Method {
 		case http.MethodGet:
-			response, err := s.LoadTasks()
+			response, err := s.LoadTasks(userID)
 			if err != nil {
 				handlers.JSONError(w, http.StatusInternalServerError, "Failed to load tasks")
 				return
@@ -114,7 +120,7 @@ func tasksHandler(s storage.Storage) http.HandlerFunc {
 			}
 
 			newTask := storage.Task{Description: desc, Done: false}
-			id, err := s.CreateTask(newTask)
+			id, err := s.CreateTask(newTask, userID)
 			if err != nil {
 				log.Printf("Failed to create task in database: %v", err)
 				handlers.JSONError(w, http.StatusInternalServerError, "Failed to create task")
@@ -142,9 +148,16 @@ func taskHandler(s storage.Storage) http.HandlerFunc {
 			handlers.JSONError(w, http.StatusBadRequest, "Invalid ID format")
 			return
 		}
+
+		userID, err := auth.GetUserIDFromContext(r.Context())
+		if err != nil {
+			handlers.JSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
 		switch r.Method {
 		case http.MethodGet:
-			response, err = s.GetTaskByID(id)
+			response, err = s.GetTaskByID(id, userID)
 			if err != nil {
 				handlers.JSONError(w, http.StatusNotFound, "Task not found")
 				return
@@ -161,7 +174,7 @@ func taskHandler(s storage.Storage) http.HandlerFunc {
 				return
 			}
 
-			response, err := s.GetTaskByID(id)
+			response, err := s.GetTaskByID(id, userID)
 			if err != nil {
 				handlers.JSONError(w, http.StatusNotFound, "Task not found")
 			}
@@ -180,7 +193,7 @@ func taskHandler(s storage.Storage) http.HandlerFunc {
 				response.Done = *taskRequest.Done
 			}
 
-			if err := s.UpdateTask(response); err != nil {
+			if err := s.UpdateTask(response, userID); err != nil {
 				handlers.JSONError(w, http.StatusNotFound, "Task not found")
 				return
 			}
@@ -188,7 +201,7 @@ func taskHandler(s storage.Storage) http.HandlerFunc {
 			handlers.JSONSuccess(w, response)
 
 		case http.MethodDelete:
-			if err := s.DeleteTask(id); err != nil {
+			if err := s.DeleteTask(id, userID); err != nil {
 				handlers.JSONError(w, http.StatusNotFound, "Task not found")
 				return
 			}
@@ -275,23 +288,31 @@ func LoginHandler(service auth.Service) http.HandlerFunc {
 }
 
 func main() {
+
 	dbPath := storage.GetDatabasePath()
 	s, err := storage.NewDatabaseStorage(dbPath)
 	if err != nil {
 		log.Fatal("Failed to initialize database storage:", err)
 	}
 
-	// Load existing tasks from database into TaskManager
-	loadedTasks, err := s.LoadTasks()
-	if err == nil && len(loadedTasks) > 0 {
-		fmt.Printf("📦 Loaded %d tasks from database\n", len(loadedTasks))
+	const jwtExpiration = time.Hour * 24
+	jwtSecret := os.Getenv("JWT_SECRET_KEY")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET_KEY environment variable is required")
 	}
 
-	fmt.Println("🚀 Database storage initialized")
+	jwtService := auth.NewJWTService(jwtSecret, jwtExpiration)
+	authService := auth.NewService(s, jwtService)
+	authMiddleware := auth.NewAuthMiddleware(jwtService)
 
+	fmt.Println("🚀 Database storage initialized")
+	fmt.Println("🔐 Authentication system initialized")
+
+	http.HandleFunc("/register", logRequest(RegisterHandler(*authService)))
+	http.HandleFunc("/login", logRequest(LoginHandler(*authService)))
 	http.HandleFunc("/health", logRequest(healthHandler))
-	http.HandleFunc("/tasks/", logRequest(taskHandler(s)))
-	http.HandleFunc("/tasks", logRequest(tasksHandler(s)))
+	http.HandleFunc("/tasks/", logRequest(authMiddleware.Authenticate(taskHandler(s))))
+	http.HandleFunc("/tasks", logRequest(authMiddleware.Authenticate(tasksHandler(s))))
 	http.HandleFunc("/", logRequest(rootHandler))
 
 	fmt.Println("🚀 HTTP Server starting on http://localhost:8080")
@@ -303,6 +324,8 @@ func main() {
 	fmt.Println("  GET http://localhost:8080/tasks/{id}")
 	fmt.Println("  PUT http://localhost:8080/tasks/{id}")
 	fmt.Println("  DELETE http://localhost:8080/tasks/{id}")
+	fmt.Println("  POST http://localhost:8080/register")
+	fmt.Println("  POST http://localhost:8080/login")
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

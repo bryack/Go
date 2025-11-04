@@ -21,12 +21,11 @@ type Task struct {
 
 // Storage defines the interface for task persistence operations.
 type Storage interface {
-	LoadTasks() ([]Task, error)
-	GetTaskByID(id int) (task Task, err error)
-	CreateTask(task Task) (int, error)
-	UpdateTask(task Task) error
-	DeleteTask(id int) error
-	SaveTasks(tasks []Task) error
+	LoadTasks(userID int) ([]Task, error)
+	GetTaskByID(id int, userID int) (task Task, err error)
+	CreateTask(task Task, userID int) (int, error)
+	UpdateTask(task Task, userID int) error
+	DeleteTask(id int, userID int) error
 }
 
 // DatabaseStorage provides SQLite-based task persistence with automatic schema management.
@@ -76,10 +75,10 @@ func NewDatabaseStorage(dbPath string) (*DatabaseStorage, error) {
 // CreateTask inserts a new task into the database and returns the generated ID.
 // The database AUTOINCREMENT feature assigns the ID automatically.
 // Timestamps (created_at, updated_at) are set to current time on creation.
-func (ds *DatabaseStorage) CreateTask(task Task) (int, error) {
+func (ds *DatabaseStorage) CreateTask(task Task, userID int) (int, error) {
 	result, err := ds.db.Exec(
-		"INSERT INTO tasks (description, done, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-		task.Description, task.Done,
+		"INSERT INTO tasks (description, done, user_id, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+		task.Description, task.Done, userID,
 	)
 	if err != nil {
 		return 0, mapSQLiteError(err)
@@ -92,10 +91,10 @@ func (ds *DatabaseStorage) CreateTask(task Task) (int, error) {
 	return int(id), nil
 }
 
-func (ds *DatabaseStorage) UpdateTask(task Task) error {
+func (ds *DatabaseStorage) UpdateTask(task Task, userID int) error {
 	result, err := ds.db.Exec(
-		"UPDATE tasks SET description = ?, done = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-		task.Description, task.Done, task.ID,
+		"UPDATE tasks SET description = ?, done = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
+		task.Description, task.Done, task.ID, userID,
 	)
 	if err != nil {
 		return mapSQLiteError(err)
@@ -113,10 +112,10 @@ func (ds *DatabaseStorage) UpdateTask(task Task) error {
 	return nil
 }
 
-func (ds *DatabaseStorage) DeleteTask(id int) error {
+func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
 	result, err := ds.db.Exec(
-		"DELETE FROM tasks WHERE id = ?",
-		id,
+		"DELETE FROM tasks WHERE id = ? AND user_id = ?",
+		id, userID,
 	)
 	if err != nil {
 		return mapSQLiteError(err)
@@ -134,10 +133,10 @@ func (ds *DatabaseStorage) DeleteTask(id int) error {
 	return nil
 }
 
-func (ds *DatabaseStorage) GetTaskByID(id int) (task Task, err error) {
+func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task Task, err error) {
 	err = ds.db.QueryRow(
-		"SELECT id, description, done FROM tasks WHERE id = ?",
-		id,
+		"SELECT id, description, done FROM tasks WHERE id = ? AND user_id = ?",
+		id, userID,
 	).Scan(&task.ID, &task.Description, &task.Done)
 
 	if err != nil {
@@ -152,9 +151,9 @@ func (ds *DatabaseStorage) GetTaskByID(id int) (task Task, err error) {
 
 // LoadTasks retrieves all tasks from the database ordered by ID.
 // Returns an empty slice if no tasks exist, never returns nil.
-func (ds *DatabaseStorage) LoadTasks() ([]Task, error) {
-	query := "SELECT id, description, done FROM tasks ORDER BY id"
-	rows, err := ds.db.Query(query)
+func (ds *DatabaseStorage) LoadTasks(userID int) ([]Task, error) {
+	query := "SELECT id, description, done FROM tasks WHERE user_id = ? ORDER BY id"
+	rows, err := ds.db.Query(query, userID)
 	if err != nil {
 		return nil, mapSQLiteError(err)
 	}
@@ -174,41 +173,4 @@ func (ds *DatabaseStorage) LoadTasks() ([]Task, error) {
 	}
 
 	return tasks, nil
-}
-
-// SaveTasks replaces all tasks in the database with the provided task slice.
-// Uses a transaction to ensure atomic replacement of all task data.
-func (ds *DatabaseStorage) SaveTasks(tasks []Task) error {
-	tx, err := ds.db.Begin()
-	if err != nil {
-		return mapSQLiteError(err)
-	}
-
-	if _, err = tx.Exec("DELETE FROM tasks"); err != nil {
-		tx.Rollback()
-		return mapSQLiteError(err)
-	}
-
-	if len(tasks) == 0 {
-		return nil
-	}
-
-	query := "INSERT INTO tasks (id, description, done) VALUES "
-	values := make([]interface{}, 0, len(tasks)*3)
-
-	for i, task := range tasks {
-		if i > 0 {
-			query += ","
-		}
-		query += "(?, ?, ?)"
-
-		values = append(values, task.ID, task.Description, task.Done)
-	}
-
-	if _, err := tx.Exec(query, values...); err != nil {
-		tx.Rollback()
-		return mapSQLiteError(err)
-	}
-
-	return tx.Commit()
 }

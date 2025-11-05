@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  task-manager:
+    # Build from the Dockerfile in the current directory
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    # Container name for easier reference
+    container_name: task-manager-app
+    
+    # Map port 8080 from container to host
+    # Access the API at http://localhost:8080
+    ports:
+      - "8080:8080"
+    
+    # Environment variables configuration
+    environment:
+      # ⚠️  SECURITY WARNING: Change this to a secure random secret in production!
+      # Generate a secure secret with: openssl rand -base64 32
+      JWT_SECRET_KEY: "development-secret-change-in-production"
+      
+      # Path to SQLite database file inside the container
+      # This path is mounted to ./data on the host for persistence
+      TASK_DB_PATH: "/data/tasks.db"
+      
+      # HTTP server port (currently hardcoded in Go code, for future use)
+      PORT: "8080"
+    
+    # Volume mounts for persistent data storage
+    volumes:
+      # Mount ./data directory on host to /data in container
+      # This ensures the SQLite database persists across container restarts
+      - ./data:/data
+    
+    # Restart policy: restart container unless explicitly stopped
+    restart: unless-stopped
+    
+    # Health check to monitor container status
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Define named volumes (optional, using bind mount above instead)
+# volumes:
+#   task-data:

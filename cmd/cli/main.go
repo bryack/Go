@@ -1,9 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"myproject/storage"
-	"myproject/task"
+	"myproject/cmd/cli/auth"
+	"myproject/cmd/cli/client"
 	"os"
 	"strings"
 )
@@ -13,20 +14,23 @@ import (
 type Command string
 
 const (
-	maxInputSize           = 10
-	CommandAdd     Command = "add"     // Add a new task
-	CommandStatus  Command = "status"  // Change task status
-	CommandList    Command = "list"    // Show all tasks
-	CommandProcess Command = "process" // Process all tasks in parallel
-	CommandClear   Command = "clear"   // Clear task description
-	CommandHelp    Command = "help"    // Show available commands
-	CommandExit    Command = "exit"    // Save and exit program
-	CommandUpdate  Command = "update"  // Update task description
-	CommandDelete  Command = "delete"
+	maxInputSize            = 10
+	CommandAdd      Command = "add"      // Add a new task
+	CommandStatus   Command = "status"   // Change task status
+	CommandList     Command = "list"     // Show all tasks
+	CommandProcess  Command = "process"  // Process all tasks in parallel
+	CommandClear    Command = "clear"    // Clear task description
+	CommandHelp     Command = "help"     // Show available commands
+	CommandExit     Command = "exit"     // Save and exit program
+	CommandUpdate   Command = "update"   // Update task description
+	CommandDelete   Command = "delete"   // Delete task
+	CommandLogin    Command = "login"    // Login with existing account
+	CommandRegister Command = "register" // Register new account
+	CommandLogout   Command = "logout"   // Logout and clear token
 )
 
 var (
-	validCommands = []Command{CommandAdd, CommandStatus, CommandList, CommandProcess, CommandClear, CommandHelp, CommandExit, CommandUpdate, CommandDelete}
+	validCommands = []Command{CommandAdd, CommandStatus, CommandList, CommandProcess, CommandClear, CommandHelp, CommandExit, CommandUpdate, CommandDelete, CommandLogin, CommandRegister, CommandLogout}
 )
 
 // isValid checks if the command is in the list of supported commands.
@@ -65,17 +69,46 @@ func suggestCommand(input string) Command {
 }
 
 func main() {
-	dbPath := storage.GetDatabasePath()
-	s, err := storage.NewDatabaseStorage(dbPath)
+	// Load configuration
+	cfg, err := LoadConfig()
 	if err != nil {
-		log.Fatal("Failed to initialize database storage:", err)
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
+	// Display startup banner and server URL
+	fmt.Println("🚀 Task Manager CLI (Client Mode)")
+	fmt.Printf("📡 Server: %s\n", cfg.ServerURL)
+
+	// Create HTTP client with configured server URL
+	httpClient := client.NewHTTPClient(cfg.ServerURL)
+
+	// Create input reader
+	inputReader := NewConsoleInputReader(os.Stdin)
+
+	// Create auth manager
+	authManager := auth.NewFileAuthManager(httpClient, inputReader, os.Stdout)
+
+	// Perform initial authentication
+	// This will show authentication prompt if no token exists
+	// and provide options: 1) Login 2) Register 3) Exit
+	token, err := authManager.RequireAuth()
+	if err != nil {
+		// User chose to exit or authentication failed
+		fmt.Fprintf(os.Stdout, "❌ Authentication failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Set token in HTTP client
+	httpClient.SetToken(token)
+
+	// Create and run CLI with client and auth manager
+	// Proceed to command loop after successful authentication
 	cli := NewCLI(
-		NewConsoleInputReader(os.Stdin),
+		inputReader,
 		os.Stdout,
-		task.NewTaskManager(s, os.Stdout),
-		s,
+		cfg,
+		httpClient,
+		authManager,
 	)
 
 	cli.RunLoop()

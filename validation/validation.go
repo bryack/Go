@@ -2,12 +2,16 @@ package validation
 
 import (
 	"errors"
+	"regexp"
 	"strconv"
 	"strings"
 )
 
 var (
-	ErrInvalidTaskID = errors.New("invalid task ID")
+	ErrInvalidTaskID    = errors.New("invalid task ID")
+	ErrInvalidEmail     = errors.New("invalid email format")
+	ErrPasswordTooShort = errors.New("password must be at least 8 characters")
+	ErrPasswordTooLong  = errors.New("password must be max 72 characters")
 )
 
 // ValidateTaskID converts a string input to a valid task ID.
@@ -56,4 +60,35 @@ func ExtractTaskIDFromPath(path string) (int, error) {
 	}
 
 	return id, nil
+}
+
+// ValidateEmail checks if an email address has a valid format.
+// Returns the email if valid, or an error if the format is invalid.
+func ValidateEmail(email string) error {
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return ErrInvalidEmail
+	}
+
+	// Use the same regex pattern as the server-side validation
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	if !emailRegex.MatchString(email) {
+		return ErrInvalidEmail
+	}
+
+	return nil
+}
+
+// ValidatePassword checks if a password meets minimum security requirements.
+// Password must be between 8 and 72 characters (bcrypt limitation).
+func ValidatePassword(password string) error {
+	if len(password) < 8 {
+		return ErrPasswordTooShort
+	}
+
+	if len(password) > 72 {
+		return ErrPasswordTooLong
+	}
+
+	return nil
 }

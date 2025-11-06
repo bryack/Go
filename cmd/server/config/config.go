@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -94,4 +95,33 @@ func LoadConfig() (*Config, error) {
 	// }
 
 	return &config, nil
+}
+
+func (config *Config) Validate() error {
+	var errs []error
+	if config.ServerConfig.Port < 1 || config.ServerConfig.Port > 65535 {
+		errs = append(errs, fmt.Errorf("server.port must be between 1 and 65535, got %d", config.ServerConfig.Port))
+	}
+
+	if len(config.DatabaseConfig.Path) == 0 {
+		errs = append(errs, fmt.Errorf("database path required"))
+	}
+
+	// err := validateDatabasePath(config.DatabaseConfig.Path)
+	// if err != nil {
+	// 	err = fmt.Errorf("validate database path '%s' failed: %w", config.DatabaseConfig.Path, err)
+	// 	errs = append(errs, err)
+	// }
+
+	if len(config.JWTConfig.Secret) == 0 {
+		errs = append(errs, fmt.Errorf("jwt secret required"))
+	} else if len(config.JWTConfig.Secret) < 32 {
+		errs = append(errs, fmt.Errorf("secret must be at least 32 symbols, got %d", len(config.JWTConfig.Secret)))
+	}
+
+	if config.JWTConfig.Expiration <= 0 {
+		errs = append(errs, fmt.Errorf("expiration must be positive, got %v", config.JWTConfig.Expiration))
+	}
+
+	return errors.Join(errs...)
 }

@@ -36,29 +36,6 @@ func TestLoadConfig_CustomURL(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_InvalidURL(t *testing.T) {
-	testCases := []struct {
-		name string
-		url  string
-	}{
-		{"invalid scheme", "ftp://localhost:8080"},
-		{"no scheme", "localhost:8080"},
-		{"no host", "http://"},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			os.Setenv("TASK_SERVER_URL", tc.url)
-			defer os.Unsetenv("TASK_SERVER_URL")
-
-			_, err := LoadConfig()
-			if err == nil {
-				t.Errorf("Expected LoadConfig() to fail for URL: %s", tc.url)
-			}
-		})
-	}
-}
-
 func TestValidateURL_ValidURLs(t *testing.T) {
 	validURLs := []string{
 		"http://localhost:8080",

@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"myproject/cmd/cli/client"
@@ -295,13 +294,12 @@ func (m *FileAuthManager) readPassword(prompt string) (string, error) {
 	// Check if stdin is a terminal
 	fd := int(syscall.Stdin)
 	if !term.IsTerminal(fd) {
-		// Not a terminal, fall back to regular input reading
-		reader := bufio.NewReader(os.Stdin)
-		password, err := reader.ReadString('\n')
+		// Not a terminal, use the InputReader (supports testing)
+		password, err := m.input.ReadInput(100)
 		if err != nil {
 			return "", err
 		}
-		return strings.TrimSpace(password), nil
+		return password, nil
 	}
 
 	// Read password with masking

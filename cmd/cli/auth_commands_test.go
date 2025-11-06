@@ -57,27 +57,36 @@ func (m *MockAuthManager) HandleAuthError() (string, error) {
 
 // MockTaskClient is a mock implementation of TaskClient for testing
 type MockTaskClient struct {
-	token string
+	token            string
+	createTaskResult *client.Task
+	createTaskErr    error
+	getTaskResult    *client.Task
+	getTaskErr       error
+	updateTaskResult *client.Task
+	updateTaskErr    error
+	deleteTaskErr    error
+	getTasksResult   []client.Task
+	getTasksErr      error
 }
 
 func (m *MockTaskClient) GetTasks() ([]client.Task, error) {
-	return nil, nil
+	return m.getTasksResult, m.getTasksErr
 }
 
 func (m *MockTaskClient) GetTask(id int) (*client.Task, error) {
-	return nil, nil
+	return m.getTaskResult, m.getTaskErr
 }
 
 func (m *MockTaskClient) CreateTask(description string) (*client.Task, error) {
-	return nil, nil
+	return m.createTaskResult, m.createTaskErr
 }
 
 func (m *MockTaskClient) UpdateTask(id int, description *string, done *bool) (*client.Task, error) {
-	return nil, nil
+	return m.updateTaskResult, m.updateTaskErr
 }
 
 func (m *MockTaskClient) DeleteTask(id int) error {
-	return nil
+	return m.deleteTaskErr
 }
 
 func (m *MockTaskClient) Login(email, password string) (string, error) {

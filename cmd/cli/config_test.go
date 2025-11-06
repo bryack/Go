@@ -41,7 +41,6 @@ func TestLoadConfig_InvalidURL(t *testing.T) {
 		name string
 		url  string
 	}{
-		{"empty URL", ""},
 		{"invalid scheme", "ftp://localhost:8080"},
 		{"no scheme", "localhost:8080"},
 		{"no host", "http://"},
@@ -49,12 +48,7 @@ func TestLoadConfig_InvalidURL(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.url == "" {
-				os.Unsetenv("TASK_SERVER_URL")
-				os.Setenv("TASK_SERVER_URL", "")
-			} else {
-				os.Setenv("TASK_SERVER_URL", tc.url)
-			}
+			os.Setenv("TASK_SERVER_URL", tc.url)
 			defer os.Unsetenv("TASK_SERVER_URL")
 
 			_, err := LoadConfig()

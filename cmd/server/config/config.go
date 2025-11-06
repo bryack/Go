@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -89,10 +91,9 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
 	}
 
-	// Validate configuration (will be implemented in task 3.1)
-	// if err := config.Validate(); err != nil {
-	// 	return nil, fmt.Errorf("config validation failed: %w", err)
-	// }
+	if err := config.Validate(); err != nil {
+		return nil, fmt.Errorf("config validation failed: %w", err)
+	}
 
 	return &config, nil
 }
@@ -107,11 +108,11 @@ func (config *Config) Validate() error {
 		errs = append(errs, fmt.Errorf("database path required"))
 	}
 
-	// err := validateDatabasePath(config.DatabaseConfig.Path)
-	// if err != nil {
-	// 	err = fmt.Errorf("validate database path '%s' failed: %w", config.DatabaseConfig.Path, err)
-	// 	errs = append(errs, err)
-	// }
+	err := validateDatabasePath(config.DatabaseConfig.Path)
+	if err != nil {
+		err = fmt.Errorf("validate database path '%s' failed: %w", config.DatabaseConfig.Path, err)
+		errs = append(errs, err)
+	}
 
 	if len(config.JWTConfig.Secret) == 0 {
 		errs = append(errs, fmt.Errorf("jwt secret required"))
@@ -124,4 +125,28 @@ func (config *Config) Validate() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func validateDatabasePath(path string) error {
+	dir := filepath.Dir(path)
+
+	if _, err := os.Stat(dir); err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return fmt.Errorf("creating directory %s failed: %w", dir, err)
+			}
+		}
+	}
+
+	file, err := os.CreateTemp(dir, "test*.txt")
+	if err != nil {
+		return fmt.Errorf("creating temp file in directory %s failed: %w", dir, err)
+	}
+	defer file.Close()
+	defer os.Remove(file.Name())
+
+	if _, err := file.WriteString("test data"); err != nil {
+		return fmt.Errorf("writing to test file in directory %s failed: %w", dir, err)
+	}
+	return nil
 }

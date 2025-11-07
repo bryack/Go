@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"log"
 	"myproject/auth"
+	"myproject/cmd/server/config"
 	"myproject/internal/handlers"
 	"myproject/storage"
 	"myproject/validation"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/spf13/pflag"
 )
 
 // HealthResponse represents the JSON response structure for health check endpoints.
@@ -288,20 +291,29 @@ func LoginHandler(service auth.Service) http.HandlerFunc {
 }
 
 func main() {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatal("Failed to load config: ", err)
+	}
 
-	dbPath := storage.GetDatabasePath()
-	s, err := storage.NewDatabaseStorage(dbPath)
+	// Check if --show-config flag was set
+	if pflag.Lookup("show-config").Changed && pflag.Lookup("show-config").Value.String() == "true" {
+		// Display config and exit (will be implemented in task 5.3)
+		// For now, just print the config struct
+		fmt.Printf("Current Configuration:\n")
+		fmt.Printf("Server: %s:%d\n", cfg.ServerConfig.Host, cfg.ServerConfig.Port)
+		fmt.Printf("Database: %s\n", cfg.DatabaseConfig.Path)
+		// fmt.Printf("JWT Secret: %s (masked)\n", maskSecret(cfg.JWTConfig.Secret))
+		fmt.Printf("JWT Expiration: %v\n", cfg.JWTConfig.Expiration)
+		os.Exit(0)
+	}
+
+	s, err := storage.NewDatabaseStorage(cfg.DatabaseConfig.Path)
 	if err != nil {
 		log.Fatal("Failed to initialize database storage:", err)
 	}
 
-	const jwtExpiration = time.Hour * 24
-	jwtSecret := os.Getenv("JWT_SECRET_KEY")
-	if jwtSecret == "" {
-		log.Fatal("JWT_SECRET_KEY environment variable is required")
-	}
-
-	jwtService := auth.NewJWTService(jwtSecret, jwtExpiration)
+	jwtService := auth.NewJWTService(cfg.JWTConfig.Secret, cfg.JWTConfig.Expiration)
 	authService := auth.NewService(s, jwtService)
 	authMiddleware := auth.NewAuthMiddleware(jwtService)
 
@@ -315,17 +327,18 @@ func main() {
 	http.HandleFunc("/tasks", logRequest(authMiddleware.Authenticate(tasksHandler(s))))
 	http.HandleFunc("/", logRequest(rootHandler))
 
-	fmt.Println("🚀 HTTP Server starting on http://localhost:8080")
+	fmt.Printf("🚀 HTTP Server starting on http://%s:%d\n", cfg.ServerConfig.Host, cfg.ServerConfig.Port)
 	fmt.Println("Endpoints:")
-	fmt.Println("  GET http://localhost:8080/")
-	fmt.Println("  GET http://localhost:8080/health")
-	fmt.Println("  GET http://localhost:8080/tasks")
-	fmt.Println("  POST http://localhost:8080/tasks")
-	fmt.Println("  GET http://localhost:8080/tasks/{id}")
-	fmt.Println("  PUT http://localhost:8080/tasks/{id}")
-	fmt.Println("  DELETE http://localhost:8080/tasks/{id}")
-	fmt.Println("  POST http://localhost:8080/register")
-	fmt.Println("  POST http://localhost:8080/login")
+	fmt.Println("  GET /")
+	fmt.Println("  GET /health")
+	fmt.Println("  GET /tasks")
+	fmt.Println("  POST /tasks")
+	fmt.Println("  GET /tasks/{id}")
+	fmt.Println("  PUT /tasks/{id}")
+	fmt.Println("  DELETE /tasks/{id}")
+	fmt.Println("  POST /register")
+	fmt.Println("  POST /login")
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	address := fmt.Sprintf("%s:%d", cfg.ServerConfig.Host, cfg.ServerConfig.Port)
+	log.Fatal(http.ListenAndServe(address, nil))
 }

@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const MinJWTSecretLength = 32
+
 type Config struct {
 	ServerConfig   ServerConfig   `mapstructure:"server"`
 	DatabaseConfig DatabaseConfig `mapstructure:"database"`
@@ -32,7 +34,7 @@ type JWTConfig struct {
 	Expiration time.Duration `mapstructure:"expiration"`
 }
 
-func LoadConfig() (*Config, error) {
+func LoadConfig() (*Config, *viper.Viper, error) {
 	v := viper.New()
 
 	// Set default values
@@ -68,7 +70,7 @@ func LoadConfig() (*Config, error) {
 	// Read config file
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, fmt.Errorf("failed to read config: %w", err)
+			return nil, nil, fmt.Errorf("failed to read config: %w", err)
 		}
 		// Config file not found is OK, continue with defaults and env vars
 	}
@@ -88,14 +90,14 @@ func LoadConfig() (*Config, error) {
 	// Unmarshal config into struct
 	var config Config
 	if err := v.Unmarshal(&config); err != nil {
-		return nil, fmt.Errorf("unmarshal config: %w", err)
+		return nil, nil, fmt.Errorf("unmarshal config: %w", err)
 	}
 
 	if err := config.Validate(); err != nil {
-		return nil, fmt.Errorf("config validation failed: %w", err)
+		return nil, nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
-	return &config, nil
+	return &config, v, nil
 }
 
 func (config *Config) Validate() error {
@@ -116,7 +118,7 @@ func (config *Config) Validate() error {
 
 	if len(config.JWTConfig.Secret) == 0 {
 		errs = append(errs, fmt.Errorf("jwt secret required"))
-	} else if len(config.JWTConfig.Secret) < 32 {
+	} else if len(config.JWTConfig.Secret) < MinJWTSecretLength {
 		errs = append(errs, fmt.Errorf("secret must be at least 32 symbols, got %d", len(config.JWTConfig.Secret)))
 	}
 
@@ -149,4 +151,52 @@ func validateDatabasePath(path string) error {
 		return fmt.Errorf("writing to test file in directory %s failed: %w", dir, err)
 	}
 	return nil
+}
+
+func maskSensitive(scrt string) string {
+	if len(scrt) <= 4 {
+		return "****"
+	}
+
+	return scrt[0:2] + "****" + scrt[len(scrt)-2:]
+}
+
+func getSource(v *viper.Viper, key string) string {
+	flagMap := map[string]string{
+		"server.port":    "port",
+		"server.host":    "host",
+		"database.path":  "db-path",
+		"jwt.secret":     "jwt-secret",
+		"jwt.expiration": "jwt-expiration",
+	}
+
+	if flagName, exists := flagMap[key]; exists {
+		if flag := pflag.Lookup(flagName); flag != nil && flag.Changed {
+			return "flag"
+		}
+	}
+
+	envKey := "TASKMANAGER_" + strings.ToUpper(strings.ReplaceAll(key, ".", "_"))
+	if os.Getenv(envKey) != "" {
+		return "env"
+	}
+
+	if v.ConfigFileUsed() != "" && v.InConfig(key) {
+		return "config file"
+	}
+
+	return "default"
+}
+
+func ShowConfig(cfg *Config, v *viper.Viper) {
+	fmt.Println("Current Configuration:")
+	fmt.Println("=====================")
+	fmt.Println()
+	fmt.Printf("server.host: %s (%s)\n", cfg.ServerConfig.Host, getSource(v, "server.host"))
+	fmt.Printf("server.port: %d (%s)\n", cfg.ServerConfig.Port, getSource(v, "server.port"))
+	fmt.Printf("database.path: %s (%s)\n", cfg.DatabaseConfig.Path, getSource(v, "database.path"))
+	fmt.Printf("jwt.secret: %s (%s)\n", maskSensitive(cfg.JWTConfig.Secret), getSource(v, "jwt.secret"))
+	fmt.Printf("jwt.expiration: %s (%s)\n", cfg.JWTConfig.Expiration, getSource(v, "jwt.expiration"))
+	fmt.Println()
+	fmt.Println("Configuration Precedence: flags > env > config file > defaults")
 }

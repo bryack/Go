@@ -291,20 +291,14 @@ func LoginHandler(service auth.Service) http.HandlerFunc {
 }
 
 func main() {
-	cfg, err := config.LoadConfig()
+	cfg, v, err := config.LoadConfig()
 	if err != nil {
 		log.Fatal("Failed to load config: ", err)
 	}
 
 	// Check if --show-config flag was set
 	if pflag.Lookup("show-config").Changed && pflag.Lookup("show-config").Value.String() == "true" {
-		// Display config and exit (will be implemented in task 5.3)
-		// For now, just print the config struct
-		fmt.Printf("Current Configuration:\n")
-		fmt.Printf("Server: %s:%d\n", cfg.ServerConfig.Host, cfg.ServerConfig.Port)
-		fmt.Printf("Database: %s\n", cfg.DatabaseConfig.Path)
-		// fmt.Printf("JWT Secret: %s (masked)\n", maskSecret(cfg.JWTConfig.Secret))
-		fmt.Printf("JWT Expiration: %v\n", cfg.JWTConfig.Expiration)
+		config.ShowConfig(cfg, v)
 		os.Exit(0)
 	}
 

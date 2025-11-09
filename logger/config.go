@@ -1,11 +1,15 @@
 package logger
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 )
 
+// Config holds logger configuration including level, format, output destination,
+// service name, and environment for structured logging.
 type Config struct {
 	Level       string `mapstructure:"level"`        // log level: "debug", "info", "warn", or "error"
 	Format      string `mapstructure:"format"`       // output format: "json" or "text"
@@ -15,6 +19,31 @@ type Config struct {
 	Environment string `mapstructure:"environment"`  // deployment environment: "development", "production", "staging"
 }
 
+func (cfg *Config) Validate() error {
+	var errs []error
+	validLevels := []string{"debug", "info", "warn", "error"}
+	if !slices.Contains(validLevels, strings.ToLower(cfg.Level)) {
+		errs = append(errs, fmt.Errorf("invalid level '%s', should be 'debug', 'info', 'warn', 'error'", cfg.Level))
+	}
+
+	format := strings.ToLower(cfg.Format)
+	if format != "json" && format != "text" {
+		errs = append(errs, fmt.Errorf("invalid format: %s, should be 'json' or 'text'", format))
+	}
+
+	if len(cfg.Output) == 0 {
+		errs = append(errs, fmt.Errorf("output required"))
+	}
+
+	if len(cfg.ServiceName) == 0 {
+		errs = append(errs, fmt.Errorf("service name required"))
+	}
+
+	return errors.Join(errs...)
+}
+
+// parseLevel converts a string log level to slog.Level.
+// Returns INFO level for invalid input.
 func parseLevel(levelStr string) (level slog.Level) {
 	levelStrToLow := strings.ToLower(levelStr)
 

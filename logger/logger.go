@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+// getWriter returns an io.Writer based on the output destination string.
+// Supports "stdout", "stderr", or a file path with automatic directory creation.
 func getWriter(output string) (io.Writer, error) {
 	if len(output) == 0 {
 		return nil, fmt.Errorf("output destination cannot be empty")
@@ -65,6 +67,10 @@ func createHandler(cfg *Config, writer io.Writer) slog.Handler {
 // (service name and environment) that appear in all log entries.
 // Returns an error if the configuration is invalid or output destination cannot be created.
 func NewLogger(cfg *Config) (*slog.Logger, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("failed to validate config: %w", err)
+	}
+
 	writer, err := getWriter(cfg.Output)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get writer: %w", err)
@@ -78,4 +84,18 @@ func NewLogger(cfg *Config) (*slog.Logger, error) {
 	)
 
 	return logger, nil
+}
+
+// NewDefault creates a logger with sensible defaults for development.
+// Uses text format, info level, and stdout output.
+func NewDefault() *slog.Logger {
+	logger, _ := NewLogger(&Config{
+		Level:       "info",
+		Format:      "text",
+		Output:      "stdout",
+		AddSource:   false,
+		ServiceName: "app",
+		Environment: "development",
+	})
+	return logger
 }

@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"myproject/logger"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +19,7 @@ type Config struct {
 	ServerConfig   ServerConfig   `mapstructure:"server"`
 	DatabaseConfig DatabaseConfig `mapstructure:"database"`
 	JWTConfig      JWTConfig      `mapstructure:"jwt"`
+	LogConfig      logger.Config  `mapstructure:"logging"`
 }
 
 type ServerConfig struct {
@@ -42,6 +44,12 @@ func LoadConfig() (*Config, *viper.Viper, error) {
 	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("database.path", "./data/tasks.db")
 	v.SetDefault("jwt.expiration", "24h")
+	v.SetDefault("logging.level", "info")
+	v.SetDefault("logging.format", "json")
+	v.SetDefault("logging.output", "stdout")
+	v.SetDefault("logging.add_source", false)
+	v.SetDefault("logging.service_name", "task-manager-api")
+	v.SetDefault("logging.environment", "production")
 
 	// Define and parse flags first (before reading config file)
 	pflag.String("config", "", "Path to config file")
@@ -51,6 +59,12 @@ func LoadConfig() (*Config, *viper.Viper, error) {
 	pflag.String("db-path", "./data/tasks.db", "Database path")
 	pflag.String("jwt-expiration", "24h", "JWT expiration")
 	pflag.String("jwt-secret", "", "JWT Secret")
+	pflag.String("log-level", "info", "Log level (debug, info, warn, error)")
+	pflag.String("log-format", "json", "Log format (json, text)")
+	pflag.String("log-output", "stdout", "Log output (stdout, stderr, or file path)")
+	pflag.Bool("log-add-source", false, "Include source file and line in logs")
+	pflag.String("log-service-name", "task-manager-api", "Service name for logs")
+	pflag.String("log-environment", "production", "Environment name (development, staging, production)")
 	pflag.Parse()
 
 	// Check if custom config file was specified
@@ -86,6 +100,12 @@ func LoadConfig() (*Config, *viper.Viper, error) {
 	v.BindPFlag("database.path", pflag.Lookup("db-path"))
 	v.BindPFlag("jwt.expiration", pflag.Lookup("jwt-expiration"))
 	v.BindPFlag("jwt.secret", pflag.Lookup("jwt-secret"))
+	v.BindPFlag("logging.level", pflag.Lookup("log-level"))
+	v.BindPFlag("logging.format", pflag.Lookup("log-format"))
+	v.BindPFlag("logging.output", pflag.Lookup("log-output"))
+	v.BindPFlag("logging.add_source", pflag.Lookup("log-add-source"))
+	v.BindPFlag("logging.service_name", pflag.Lookup("log-service-name"))
+	v.BindPFlag("logging.environment", pflag.Lookup("log-environment"))
 
 	// Unmarshal config into struct
 	var config Config
@@ -126,6 +146,10 @@ func (config *Config) Validate() error {
 		errs = append(errs, fmt.Errorf("expiration must be positive, got %v", config.JWTConfig.Expiration))
 	}
 
+	if err := config.LogConfig.Validate(); err != nil {
+		errs = append(errs, fmt.Errorf("validate log config failed: %w", err))
+	}
+
 	return errors.Join(errs...)
 }
 
@@ -163,11 +187,17 @@ func maskSensitive(scrt string) string {
 
 func getSource(v *viper.Viper, key string) string {
 	flagMap := map[string]string{
-		"server.port":    "port",
-		"server.host":    "host",
-		"database.path":  "db-path",
-		"jwt.secret":     "jwt-secret",
-		"jwt.expiration": "jwt-expiration",
+		"server.port":          "port",
+		"server.host":          "host",
+		"database.path":        "db-path",
+		"jwt.secret":           "jwt-secret",
+		"jwt.expiration":       "jwt-expiration",
+		"logging.level":        "log-level",
+		"logging.format":       "log-format",
+		"logging.output":       "log-output",
+		"logging.add_source":   "log-add-source",
+		"logging.service_name": "log-service-name",
+		"logging.environment":  "log-environment",
 	}
 
 	if flagName, exists := flagMap[key]; exists {
@@ -197,6 +227,12 @@ func ShowConfig(cfg *Config, v *viper.Viper) {
 	fmt.Printf("database.path: %s (%s)\n", cfg.DatabaseConfig.Path, getSource(v, "database.path"))
 	fmt.Printf("jwt.secret: %s (%s)\n", maskSensitive(cfg.JWTConfig.Secret), getSource(v, "jwt.secret"))
 	fmt.Printf("jwt.expiration: %s (%s)\n", cfg.JWTConfig.Expiration, getSource(v, "jwt.expiration"))
+	fmt.Printf("logging.level: %s (%s)\n", cfg.LogConfig.Level, getSource(v, "logging.level"))
+	fmt.Printf("logging.format: %s (%s)\n", cfg.LogConfig.Format, getSource(v, "logging.format"))
+	fmt.Printf("logging.output: %s (%s)\n", cfg.LogConfig.Output, getSource(v, "logging.output"))
+	fmt.Printf("logging.add_source: %v (%s)\n", cfg.LogConfig.AddSource, getSource(v, "logging.add_source"))
+	fmt.Printf("logging.service_name: %s (%s)\n", cfg.LogConfig.ServiceName, getSource(v, "logging.service_name"))
+	fmt.Printf("logging.environment: %s (%s)\n", cfg.LogConfig.Environment, getSource(v, "logging.environment"))
 	fmt.Println()
 	fmt.Println("Configuration Precedence: flags > env > config file > defaults")
 }

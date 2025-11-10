@@ -7,6 +7,7 @@ import (
 	"myproject/auth"
 	"myproject/cmd/server/config"
 	"myproject/internal/handlers"
+	"myproject/logger"
 	"myproject/storage"
 	"myproject/validation"
 	"net/http"
@@ -78,18 +79,6 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 		Service:   "task-manager-api",
 	}
 	handlers.JSONSuccess(w, response)
-}
-
-// logRequest is a simple logging middleware
-func logRequest(handler http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		handler(w, r)
-
-		duration := time.Since(start)
-		log.Printf("%s %s - %v", r.Method, r.URL.Path, duration)
-	}
 }
 
 // tasksHandler returns a handler function that has access to TaskManager
@@ -302,6 +291,11 @@ func main() {
 		os.Exit(0)
 	}
 
+	l, err := logger.NewLogger(&cfg.LogConfig)
+	if err != nil {
+		log.Fatal("Failed to create logger: ", err)
+	}
+
 	s, err := storage.NewDatabaseStorage(cfg.DatabaseConfig.Path)
 	if err != nil {
 		log.Fatal("Failed to initialize database storage:", err)
@@ -314,12 +308,12 @@ func main() {
 	fmt.Println("🚀 Database storage initialized")
 	fmt.Println("🔐 Authentication system initialized")
 
-	http.HandleFunc("/register", logRequest(RegisterHandler(*authService)))
-	http.HandleFunc("/login", logRequest(LoginHandler(*authService)))
-	http.HandleFunc("/health", logRequest(healthHandler))
-	http.HandleFunc("/tasks/", logRequest(authMiddleware.Authenticate(taskHandler(s))))
-	http.HandleFunc("/tasks", logRequest(authMiddleware.Authenticate(tasksHandler(s))))
-	http.HandleFunc("/", logRequest(rootHandler))
+	http.Handle("/register", logger.LoggingMiddleware(l)(RegisterHandler(*authService)))
+	http.Handle("/login", logger.LoggingMiddleware(l)(LoginHandler(*authService)))
+	http.Handle("/health", logger.LoggingMiddleware(l)(http.HandlerFunc(healthHandler)))
+	http.Handle("/tasks/", logger.LoggingMiddleware(l)(authMiddleware.Authenticate(taskHandler(s))))
+	http.Handle("/tasks", logger.LoggingMiddleware(l)(authMiddleware.Authenticate(tasksHandler(s))))
+	http.Handle("/", logger.LoggingMiddleware(l)(http.HandlerFunc(rootHandler)))
 
 	fmt.Printf("🚀 HTTP Server starting on http://%s:%d\n", cfg.ServerConfig.Host, cfg.ServerConfig.Port)
 	fmt.Println("Endpoints:")

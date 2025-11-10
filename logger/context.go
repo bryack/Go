@@ -20,8 +20,8 @@ const (
 	loggerKey
 )
 
-// generateRequestID creates a unique request ID combining timestamp and random data.
-func generateRequestID() string {
+// GenerateRequestID creates a unique request ID combining timestamp and random data.
+func GenerateRequestID() string {
 	timeNow := time.Now().UnixMilli()
 	randomBytes := make([]byte, 8)
 
@@ -75,4 +75,9 @@ func FromContext(ctx context.Context) *slog.Logger {
 	}
 
 	return log
+}
+
+// WithRequestFields creates a logger with request ID attached as a field.
+func WithRequestFields(logger *slog.Logger, requestID string) *slog.Logger {
+	return logger.With(slog.String(FieldRequestID, requestID))
 }

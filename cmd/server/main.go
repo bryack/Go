@@ -304,7 +304,7 @@ func main() {
 		slog.String("service_name", cfg.LogConfig.ServiceName),
 	)
 
-	s, err := storage.NewDatabaseStorage(cfg.DatabaseConfig.Path)
+	s, err := storage.NewDatabaseStorage(cfg.DatabaseConfig.Path, l)
 	if err != nil {
 		l.Error("Failed to initialize database",
 			slog.String("operation", "database_init"),

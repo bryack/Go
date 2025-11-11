@@ -151,6 +151,13 @@ func (ds *DatabaseStorage) UpdateTask(task Task, userID int) error {
 		)
 		return mapSQLiteError(err)
 	}
+	ds.logger.Debug("Database operation completed: affected rows",
+		slog.String(logger.FieldOperation, "update_task"),
+		slog.Int(logger.FieldTaskID, task.ID),
+		slog.Int(logger.FieldUserID, userID),
+		slog.Bool("done", task.Done),
+		slog.Int64("rows_affected", rowsAffected),
+	)
 
 	if rowsAffected == 0 {
 		return ErrTaskNotFound
@@ -189,6 +196,12 @@ func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
 		)
 		return mapSQLiteError(err)
 	}
+	ds.logger.Debug("Database operation completed: affected rows",
+		slog.String(logger.FieldOperation, "delete_task"),
+		slog.Int(logger.FieldTaskID, id),
+		slog.Int(logger.FieldUserID, userID),
+		slog.Int64("rows_affected", rowsAffected),
+	)
 
 	if rowsAffected == 0 {
 		return ErrTaskNotFound
@@ -212,7 +225,7 @@ func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task Task, err error
 		if err == sql.ErrNoRows {
 			return task, ErrTaskNotFound
 		}
-		ds.logger.Error("Failed to query database select",
+		ds.logger.Error("Failed to query database select from tasks",
 			slog.String(logger.FieldOperation, "get_task_by_id"),
 			slog.Int(logger.FieldTaskID, id),
 			slog.Int(logger.FieldUserID, userID),

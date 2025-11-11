@@ -3,6 +3,8 @@ package storage
 import (
 	"database/sql"
 	"errors"
+	"log/slog"
+	"myproject/logger"
 	"os"
 	"time"
 )
@@ -33,6 +35,7 @@ type Storage interface {
 type DatabaseStorage struct {
 	db       *sql.DB
 	migrator *Migrator
+	logger   *slog.Logger
 }
 
 // GetDatabasePath returns the database file path from environment or default location.
@@ -46,7 +49,7 @@ func GetDatabasePath() string {
 
 // NewDatabaseStorage creates a new database storage instance with automatic setup.
 // It handles connection pooling, schema migrations, and JSON data migration.
-func NewDatabaseStorage(dbPath string) (*DatabaseStorage, error) {
+func NewDatabaseStorage(dbPath string, logger *slog.Logger) (*DatabaseStorage, error) {
 	config := ConnectionConfig{
 		MaxOpenConns:    25,
 		MaxIdleConns:    5,
@@ -58,16 +61,23 @@ func NewDatabaseStorage(dbPath string) (*DatabaseStorage, error) {
 		return nil, mapSQLiteError(err)
 	}
 
+	logger.Info("Database connection established",
+		slog.String("db_path", dbPath),
+	)
+
 	migrator := NewMigratorWithDefaults(db)
 
+	logger.Info("Applying database migrations")
 	if err := migrator.ApplyMigrations(); err != nil {
 		return nil, err
 	}
+	logger.Info("Database migrations completed")
 
 	// Create storage instance
 	storage := &DatabaseStorage{
 		db:       db,
 		migrator: migrator,
+		logger:   logger,
 	}
 	return storage, nil
 }
@@ -76,6 +86,15 @@ func NewDatabaseStorage(dbPath string) (*DatabaseStorage, error) {
 // The database AUTOINCREMENT feature assigns the ID automatically.
 // Timestamps (created_at, updated_at) are set to current time on creation.
 func (ds *DatabaseStorage) CreateTask(task Task, userID int) (int, error) {
+	desc := task.Description
+	if len(task.Description) > 50 {
+		desc = desc[:50]
+	}
+	ds.logger.Debug("Creating task",
+		slog.String(logger.FieldOperation, "create_task"),
+		slog.Int(logger.FieldUserID, userID),
+		slog.String("description", desc),
+	)
 	result, err := ds.db.Exec(
 		"INSERT INTO tasks (description, done, user_id, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
 		task.Description, task.Done, userID,
@@ -92,6 +111,12 @@ func (ds *DatabaseStorage) CreateTask(task Task, userID int) (int, error) {
 }
 
 func (ds *DatabaseStorage) UpdateTask(task Task, userID int) error {
+	ds.logger.Debug("Updating task",
+		slog.String(logger.FieldOperation, "update_task"),
+		slog.Int(logger.FieldTaskID, task.ID),
+		slog.Int(logger.FieldUserID, userID),
+		slog.Bool("done", task.Done),
+	)
 	result, err := ds.db.Exec(
 		"UPDATE tasks SET description = ?, done = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
 		task.Description, task.Done, task.ID, userID,
@@ -113,6 +138,11 @@ func (ds *DatabaseStorage) UpdateTask(task Task, userID int) error {
 }
 
 func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
+	ds.logger.Debug("Deleting task",
+		slog.String(logger.FieldOperation, "delete_task"),
+		slog.Int(logger.FieldTaskID, id),
+		slog.Int(logger.FieldUserID, userID),
+	)
 	result, err := ds.db.Exec(
 		"DELETE FROM tasks WHERE id = ? AND user_id = ?",
 		id, userID,
@@ -134,6 +164,11 @@ func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
 }
 
 func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task Task, err error) {
+	ds.logger.Debug("Fetching task",
+		slog.String(logger.FieldOperation, "get_task_by_id"),
+		slog.Int(logger.FieldTaskID, id),
+		slog.Int(logger.FieldUserID, userID),
+	)
 	err = ds.db.QueryRow(
 		"SELECT id, description, done FROM tasks WHERE id = ? AND user_id = ?",
 		id, userID,
@@ -152,6 +187,10 @@ func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task Task, err error
 // LoadTasks retrieves all tasks from the database ordered by ID.
 // Returns an empty slice if no tasks exist, never returns nil.
 func (ds *DatabaseStorage) LoadTasks(userID int) ([]Task, error) {
+	ds.logger.Debug("Loading tasks",
+		slog.String(logger.FieldOperation, "load_task"),
+		slog.Int(logger.FieldUserID, userID),
+	)
 	query := "SELECT id, description, done FROM tasks WHERE user_id = ? ORDER BY id"
 	rows, err := ds.db.Query(query, userID)
 	if err != nil {

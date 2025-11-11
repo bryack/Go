@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+// recoverPanic recovers from panics in HTTP handlers, logs the error with stack trace,
+// and returns a 500 Internal Server Error response to the client.
 func recoverPanic(logger *slog.Logger, w http.ResponseWriter, r *http.Request) {
 	if rec := recover(); rec != nil {
 		stackTrace := string(debug.Stack())
@@ -23,6 +25,8 @@ func recoverPanic(logger *slog.Logger, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// LoggingMiddleware returns HTTP middleware that logs request start/completion with structured fields.
+// Generates unique request IDs for correlation and includes method, path, duration, and user_agent in logs.
 func LoggingMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

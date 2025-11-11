@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"myproject/auth"
 	"myproject/cmd/server/config"
 	"myproject/internal/handlers"
@@ -296,8 +297,20 @@ func main() {
 		log.Fatal("Failed to create logger: ", err)
 	}
 
+	l.Info("Logger initialized successfully",
+		slog.String("level", cfg.LogConfig.Level),
+		slog.String("format", cfg.LogConfig.Format),
+		slog.String("output", cfg.LogConfig.Output),
+		slog.String("service_name", cfg.LogConfig.ServiceName),
+	)
+
 	s, err := storage.NewDatabaseStorage(cfg.DatabaseConfig.Path)
 	if err != nil {
+		l.Error("Failed to initialize database",
+			slog.String("operation", "database_init"),
+			slog.String("path", cfg.DatabaseConfig.Path),
+			slog.String("error", err.Error()),
+		)
 		log.Fatal("Failed to initialize database storage:", err)
 	}
 
@@ -305,8 +318,13 @@ func main() {
 	authService := auth.NewService(s, jwtService)
 	authMiddleware := auth.NewAuthMiddleware(jwtService)
 
-	fmt.Println("🚀 Database storage initialized")
-	fmt.Println("🔐 Authentication system initialized")
+	l.Info("Database storage initialized",
+		slog.String("path", cfg.DatabaseConfig.Path),
+	)
+
+	l.Info("Authentication system initialized",
+		slog.Duration("expiration", cfg.JWTConfig.Expiration),
+	)
 
 	http.Handle("/register", logger.LoggingMiddleware(l)(RegisterHandler(*authService)))
 	http.Handle("/login", logger.LoggingMiddleware(l)(LoginHandler(*authService)))
@@ -315,17 +333,21 @@ func main() {
 	http.Handle("/tasks", logger.LoggingMiddleware(l)(authMiddleware.Authenticate(tasksHandler(s))))
 	http.Handle("/", logger.LoggingMiddleware(l)(http.HandlerFunc(rootHandler)))
 
-	fmt.Printf("🚀 HTTP Server starting on http://%s:%d\n", cfg.ServerConfig.Host, cfg.ServerConfig.Port)
-	fmt.Println("Endpoints:")
-	fmt.Println("  GET /")
-	fmt.Println("  GET /health")
-	fmt.Println("  GET /tasks")
-	fmt.Println("  POST /tasks")
-	fmt.Println("  GET /tasks/{id}")
-	fmt.Println("  PUT /tasks/{id}")
-	fmt.Println("  DELETE /tasks/{id}")
-	fmt.Println("  POST /register")
-	fmt.Println("  POST /login")
+	endpointsList := []string{
+		"GET /",
+		"GET /health",
+		"GET /tasks",
+		"POST /tasks",
+		"GET /tasks/{id}",
+		"PUT /tasks/{id}",
+		"DELETE /tasks/{id}",
+		"POST /register",
+		"POST /login",
+	}
+	l.Info("HTTP Server initialized",
+		slog.String("server_address", fmt.Sprintf("http://%s:%d", cfg.ServerConfig.Host, cfg.ServerConfig.Port)),
+		slog.Any("endpoints", endpointsList),
+	)
 
 	address := fmt.Sprintf("%s:%d", cfg.ServerConfig.Host, cfg.ServerConfig.Port)
 	log.Fatal(http.ListenAndServe(address, nil))

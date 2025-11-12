@@ -315,7 +315,7 @@ func main() {
 	}
 
 	jwtService := auth.NewJWTService(cfg.JWTConfig.Secret, cfg.JWTConfig.Expiration)
-	authService := auth.NewService(s, jwtService)
+	authService := auth.NewService(s, jwtService, l)
 	authMiddleware := auth.NewAuthMiddleware(jwtService)
 
 	l.Info("Database storage initialized",

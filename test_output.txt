@@ -1,0 +1,14 @@
+=== RUN   TestDefaultValues
+=== RUN   TestDefaultValues/All_default_values_with_valid_JWT_secret
+    config_test.go:89: Expected no validation error but got: validate log config failed: invalid level '', should be 'debug', 'info', 'warn', 'error'
+        invalid format: , should be 'json' or 'text'
+        output required
+        service name required
+        environment required
+=== RUN   TestDefaultValues/Missing_JWT_secret_should_fail_validation
+--- FAIL: TestDefaultValues (0.00s)
+    --- FAIL: TestDefaultValues/All_default_values_with_valid_JWT_secret (0.00s)
+    --- PASS: TestDefaultValues/Missing_JWT_secret_should_fail_validation (0.00s)
+FAIL
+FAIL	myproject/cmd/server/config	0.002s
+FAIL

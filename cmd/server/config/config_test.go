@@ -1,6 +1,7 @@
 package config
 
 import (
+	"myproject/logger"
 	"os"
 	"strings"
 	"testing"
@@ -19,6 +20,12 @@ func TestDefaultValues(t *testing.T) {
 		expectedDBPath      string
 		expectedExpiration  time.Duration
 		jwtSecret           string
+		expectedLogLevel    string
+		expectedLogFormat   string
+		expectedLogOutput   string
+		expectedAddSource   bool
+		expectedServiceName string
+		expectedEnvironment string
 		expectValidationErr bool
 	}{
 		{
@@ -28,6 +35,12 @@ func TestDefaultValues(t *testing.T) {
 			expectedDBPath:      "/tmp/data/tasks.db",
 			expectedExpiration:  24 * time.Hour,
 			jwtSecret:           "this-is-a-test-secret-key-with-32-chars-minimum",
+			expectedLogLevel:    "info",
+			expectedLogFormat:   "json",
+			expectedLogOutput:   "stdout",
+			expectedAddSource:   false,
+			expectedServiceName: "task-manager-api",
+			expectedEnvironment: "production",
 			expectValidationErr: false,
 		},
 		{
@@ -37,6 +50,12 @@ func TestDefaultValues(t *testing.T) {
 			expectedDBPath:      "/tmp/data/tasks.db",
 			expectedExpiration:  24 * time.Hour,
 			jwtSecret:           "",
+			expectedLogLevel:    "info",
+			expectedLogFormat:   "json",
+			expectedLogOutput:   "stdout",
+			expectedAddSource:   false,
+			expectedServiceName: "task-manager-api",
+			expectedEnvironment: "production",
 			expectValidationErr: true,
 		},
 	}
@@ -61,6 +80,12 @@ func TestDefaultValues(t *testing.T) {
 			v.SetDefault("server.host", "0.0.0.0")
 			v.SetDefault("database.path", "/tmp/data/tasks.db")
 			v.SetDefault("jwt.expiration", "24h")
+			v.SetDefault("logging.level", "info")
+			v.SetDefault("logging.format", "json")
+			v.SetDefault("logging.output", "stdout")
+			v.SetDefault("logging.add_source", false)
+			v.SetDefault("logging.service_name", "task-manager-api")
+			v.SetDefault("logging.environment", "production")
 
 			// Set JWT secret if provided
 			if tc.jwtSecret != "" {
@@ -108,6 +133,30 @@ func TestDefaultValues(t *testing.T) {
 
 			if config.JWTConfig.Secret != tc.jwtSecret {
 				t.Errorf("Expected jwt.secret %q, got %q", tc.jwtSecret, config.JWTConfig.Secret)
+			}
+
+			if config.LogConfig.Level != tc.expectedLogLevel {
+				t.Errorf("Expected logging.level %q, got %q", tc.expectedLogLevel, config.LogConfig.Level)
+			}
+
+			if config.LogConfig.Format != tc.expectedLogFormat {
+				t.Errorf("Expected logging.format %q, got %q", tc.expectedLogFormat, config.LogConfig.Format)
+			}
+
+			if config.LogConfig.Output != tc.expectedLogOutput {
+				t.Errorf("Expected logging.output %q, got %q", tc.expectedLogOutput, config.LogConfig.Output)
+			}
+
+			if config.LogConfig.AddSource != tc.expectedAddSource {
+				t.Errorf("Expected logging.add_source %v, got %v", tc.expectedAddSource, config.LogConfig.AddSource)
+			}
+
+			if config.LogConfig.ServiceName != tc.expectedServiceName {
+				t.Errorf("Expected logging.service_name %q, got %q", tc.expectedServiceName, config.LogConfig.ServiceName)
+			}
+
+			if config.LogConfig.Environment != tc.expectedEnvironment {
+				t.Errorf("Expected logging.environment %q, got %q", tc.expectedEnvironment, config.LogConfig.Environment)
 			}
 		})
 	}
@@ -390,6 +439,12 @@ func TestEnvironmentVariableMapping(t *testing.T) {
 			v.SetDefault("server.host", "0.0.0.0")
 			v.SetDefault("database.path", "/tmp/data/tasks.db")
 			v.SetDefault("jwt.expiration", "24h")
+			v.SetDefault("logging.level", "info")
+			v.SetDefault("logging.format", "json")
+			v.SetDefault("logging.output", "stdout")
+			v.SetDefault("logging.add_source", false)
+			v.SetDefault("logging.service_name", "task-manager-api")
+			v.SetDefault("logging.environment", "production")
 
 			// Configure environment variable support (same as LoadConfig)
 			v.AutomaticEnv()
@@ -467,6 +522,14 @@ func TestValidation(t *testing.T) {
 					Secret:     "this-is-a-valid-secret-key-with-32-characters",
 					Expiration: 24 * time.Hour,
 				},
+				LogConfig: logger.Config{
+					Level:       "info",
+					Format:      "json",
+					Output:      "stdout",
+					AddSource:   false,
+					ServiceName: "task-manager-api",
+					Environment: "production",
+				},
 			},
 			expectedErr: false,
 			errContains: "",
@@ -484,6 +547,13 @@ func TestValidation(t *testing.T) {
 				JWTConfig: JWTConfig{
 					Secret:     "this-is-a-valid-secret-key-with-32-characters",
 					Expiration: 24 * time.Hour,
+				},
+				LogConfig: logger.Config{
+					Level:       "info",
+					Format:      "json",
+					Output:      "stdout",
+					ServiceName: "task-manager-api",
+					Environment: "production",
 				},
 			},
 			expectedErr: true,
@@ -503,6 +573,13 @@ func TestValidation(t *testing.T) {
 					Secret:     "this-is-a-valid-secret-key-with-32-characters",
 					Expiration: 24 * time.Hour,
 				},
+				LogConfig: logger.Config{
+					Level:       "info",
+					Format:      "json",
+					Output:      "stdout",
+					ServiceName: "task-manager-api",
+					Environment: "production",
+				},
 			},
 			expectedErr: true,
 			errContains: "database path required",
@@ -520,6 +597,13 @@ func TestValidation(t *testing.T) {
 				JWTConfig: JWTConfig{
 					Secret:     "this-is-a-valid-secret-key-with-32-characters",
 					Expiration: 24 * time.Hour,
+				},
+				LogConfig: logger.Config{
+					Level:       "info",
+					Format:      "json",
+					Output:      "stdout",
+					ServiceName: "task-manager-api",
+					Environment: "production",
 				},
 			},
 			expectedErr: true,
@@ -539,6 +623,13 @@ func TestValidation(t *testing.T) {
 					Secret:     "",
 					Expiration: 24 * time.Hour,
 				},
+				LogConfig: logger.Config{
+					Level:       "info",
+					Format:      "json",
+					Output:      "stdout",
+					ServiceName: "task-manager-api",
+					Environment: "production",
+				},
 			},
 			expectedErr: true,
 			errContains: "jwt secret required",
@@ -556,6 +647,13 @@ func TestValidation(t *testing.T) {
 				JWTConfig: JWTConfig{
 					Secret:     "short",
 					Expiration: 24 * time.Hour,
+				},
+				LogConfig: logger.Config{
+					Level:       "info",
+					Format:      "json",
+					Output:      "stdout",
+					ServiceName: "task-manager-api",
+					Environment: "production",
 				},
 			},
 			expectedErr: true,
@@ -575,6 +673,13 @@ func TestValidation(t *testing.T) {
 					Secret:     "12345678901234567890123456789012",
 					Expiration: 24 * time.Hour,
 				},
+				LogConfig: logger.Config{
+					Level:       "info",
+					Format:      "json",
+					Output:      "stdout",
+					ServiceName: "task-manager-api",
+					Environment: "production",
+				},
 			},
 			expectedErr: false,
 			errContains: "",
@@ -593,6 +698,13 @@ func TestValidation(t *testing.T) {
 					Secret:     "this-is-a-valid-secret-key-with-32-characters",
 					Expiration: 0,
 				},
+				LogConfig: logger.Config{
+					Level:       "info",
+					Format:      "json",
+					Output:      "stdout",
+					ServiceName: "task-manager-api",
+					Environment: "production",
+				},
 			},
 			expectedErr: true,
 			errContains: "expiration must be positive",
@@ -610,6 +722,13 @@ func TestValidation(t *testing.T) {
 				JWTConfig: JWTConfig{
 					Secret:     "short",
 					Expiration: -1 * time.Hour,
+				},
+				LogConfig: logger.Config{
+					Level:       "info",
+					Format:      "json",
+					Output:      "stdout",
+					ServiceName: "task-manager-api",
+					Environment: "production",
 				},
 			},
 			expectedErr: true,

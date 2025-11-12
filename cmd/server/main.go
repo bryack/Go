@@ -316,7 +316,7 @@ func main() {
 
 	jwtService := auth.NewJWTService(cfg.JWTConfig.Secret, cfg.JWTConfig.Expiration)
 	authService := auth.NewService(s, jwtService, l)
-	authMiddleware := auth.NewAuthMiddleware(jwtService)
+	authMiddleware := auth.NewAuthMiddleware(jwtService, l)
 
 	l.Info("Database storage initialized",
 		slog.String("path", cfg.DatabaseConfig.Path),

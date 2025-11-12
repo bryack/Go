@@ -447,6 +447,427 @@ docker run \
   task-manager:latest
 ```
 
+## Logging Configuration
+
+The application uses structured logging with support for JSON and text formats, multiple log levels, and integration with industry-standard log analysis tools.
+
+### Configuration Options
+
+Logging can be configured through:
+1. Configuration file (`config.yaml`)
+2. Environment variables (prefixed with `TASKMANAGER_`)
+3. Command-line flags
+
+**Configuration precedence**: flags > environment variables > config file > defaults
+
+### Log Levels
+
+- `debug` - Detailed information for debugging (includes all database queries)
+- `info` - General informational messages (default)
+- `warn` - Warning messages (authentication failures, validation errors)
+- `error` - Error messages requiring attention
+
+### Log Formats
+
+- `json` - Structured JSON format for production and log aggregation tools
+- `text` - Human-readable format for development
+
+### Output Destinations
+
+- `stdout` - Standard output (default)
+- `stderr` - Standard error
+- File path - Write to a file (e.g., `/var/log/taskmanager/app.log`)
+
+### Configuration File Example
+
+Add logging configuration to your `config.yaml`:
+
+```yaml
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+database:
+  path: "./data/tasks.db"
+
+jwt:
+  secret: "your-secret-key-here-min-32-chars"
+  expiration: "24h"
+
+logging:
+  level: "info"                    # debug, info, warn, error
+  format: "json"                   # json, text
+  output: "stdout"                 # stdout, stderr, or file path
+  add_source: true                 # Include file:line for error logs
+  service_name: "task-manager-api" # Service identifier
+  environment: "production"        # development, staging, production
+  
+  # File rotation (only used when output is a file path)
+  enable_rotation: true
+  max_size: 100                    # Maximum size in MB before rotation
+  max_age: 30                      # Maximum days to retain old logs
+  max_backups: 5                   # Maximum number of old log files to keep
+```
+
+### Environment Variables
+
+```bash
+# Log level
+export TASKMANAGER_LOGGING_LEVEL=debug
+
+# Log format
+export TASKMANAGER_LOGGING_FORMAT=json
+
+# Output destination
+export TASKMANAGER_LOGGING_OUTPUT=/var/log/taskmanager/app.log
+
+# Service identification
+export TASKMANAGER_LOGGING_SERVICE_NAME=task-manager-api
+export TASKMANAGER_LOGGING_ENVIRONMENT=production
+
+# Include source file and line in logs
+export TASKMANAGER_LOGGING_ADD_SOURCE=true
+
+# File rotation settings
+export TASKMANAGER_LOGGING_ENABLE_ROTATION=true
+export TASKMANAGER_LOGGING_MAX_SIZE=100
+export TASKMANAGER_LOGGING_MAX_AGE=30
+export TASKMANAGER_LOGGING_MAX_BACKUPS=5
+```
+
+### Command-Line Flags
+
+```bash
+# Start server with custom logging configuration
+go run cmd/server/main.go \
+  --log-level=debug \
+  --log-format=text \
+  --log-output=stdout \
+  --log-add-source=true \
+  --log-service-name=task-manager-api \
+  --log-environment=development
+
+# View current configuration
+go run cmd/server/main.go --show-config
+```
+
+### Log Output Examples
+
+#### JSON Format (Production)
+
+```json
+{
+  "time": "2024-11-12T10:30:45.123Z",
+  "level": "INFO",
+  "msg": "HTTP request completed",
+  "service": "task-manager-api",
+  "environment": "production",
+  "request_id": "req_1699785045123_a1b2c3d4e5f6g7h8",
+  "user_id": 42,
+  "method": "POST",
+  "path": "/tasks",
+  "status_code": 201,
+  "duration_ms": 45
+}
+```
+
+#### Text Format (Development)
+
+```
+time=2024-11-12T10:30:45.123Z level=INFO msg="HTTP request completed" service=task-manager-api environment=development request_id=req_1699785045123_a1b2c3d4e5f6g7h8 user_id=42 method=POST path=/tasks status_code=201 duration_ms=45
+```
+
+### Standard Log Fields
+
+All log entries include these standard fields:
+
+- `time` - ISO8601 timestamp
+- `level` - Log level (DEBUG, INFO, WARN, ERROR)
+- `msg` - Log message
+- `service` - Service name from configuration
+- `environment` - Environment from configuration
+
+HTTP request logs include:
+
+- `request_id` - Unique identifier for request correlation
+- `user_id` - Authenticated user ID (when available)
+- `method` - HTTP method (GET, POST, PUT, DELETE)
+- `path` - Request path
+- `status_code` - HTTP response status code
+- `duration_ms` - Request duration in milliseconds
+
+Database operation logs include:
+
+- `operation` - Database operation type (SELECT, INSERT, UPDATE, DELETE)
+- `task_id` - Task identifier (when applicable)
+- `user_id` - User identifier
+
+Authentication logs include:
+
+- `email` - Masked email address (e.g., `u***r@example.com`)
+- `operation` - Auth operation (register, login, validate)
+
+### Integration with Log Analysis Tools
+
+#### ELK Stack (Elasticsearch, Logstash, Kibana)
+
+**Logstash Configuration** (`/etc/logstash/conf.d/taskmanager.conf`):
+
+```ruby
+input {
+  file {
+    path => "/var/log/taskmanager/app.log"
+    codec => "json"
+    type => "taskmanager"
+  }
+}
+
+filter {
+  # Parse JSON logs
+  json {
+    source => "message"
+  }
+  
+  # Rename timestamp field for Elasticsearch
+  mutate {
+    rename => { "time" => "@timestamp" }
+  }
+  
+  # Add tags for filtering
+  mutate {
+    add_tag => ["taskmanager", "%{environment}"]
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["localhost:9200"]
+    index => "taskmanager-%{+YYYY.MM.dd}"
+  }
+}
+```
+
+**Kibana Queries**:
+
+```
+# Find all errors
+level:ERROR
+
+# Find requests by user
+user_id:42
+
+# Find slow requests (>1000ms)
+duration_ms:>1000
+
+# Trace a specific request
+request_id:"req_1699785045123_a1b2c3d4e5f6g7h8"
+```
+
+#### Grafana Loki
+
+**Promtail Configuration** (`/etc/promtail/config.yml`):
+
+```yaml
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: taskmanager
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: taskmanager
+          __path__: /var/log/taskmanager/*.log
+    
+    pipeline_stages:
+      # Parse JSON logs
+      - json:
+          expressions:
+            level: level
+            service: service
+            environment: environment
+            request_id: request_id
+            user_id: user_id
+      
+      # Extract labels for filtering
+      - labels:
+          level:
+          service:
+          environment:
+```
+
+**Loki Queries** (LogQL):
+
+```
+# All logs from the service
+{service="task-manager-api"}
+
+# Filter by log level
+{service="task-manager-api", level="ERROR"}
+
+# Search for specific text
+{service="task-manager-api"} |= "database"
+
+# Trace a specific request
+{service="task-manager-api"} | json | request_id="req_1699785045123_a1b2c3d4e5f6g7h8"
+
+# Count errors per minute
+sum(rate({service="task-manager-api", level="ERROR"}[1m]))
+```
+
+#### Datadog
+
+**Datadog Agent Configuration** (`/etc/datadog-agent/conf.d/taskmanager.d/conf.yaml`):
+
+```yaml
+logs:
+  - type: file
+    path: /var/log/taskmanager/app.log
+    service: task-manager-api
+    source: go
+    sourcecategory: sourcecode
+    tags:
+      - env:production
+      - team:backend
+```
+
+**Features**:
+- Automatic JSON parsing
+- APM integration with trace IDs
+- Log-based metrics and alerting
+- Correlation with infrastructure metrics
+
+### Docker Logging
+
+When running in Docker, configure logging output:
+
+```bash
+# Log to stdout (captured by Docker)
+docker run -e TASKMANAGER_LOGGING_OUTPUT=stdout task-manager:latest
+
+# Log to a file with volume mount
+docker run \
+  -e TASKMANAGER_LOGGING_OUTPUT=/var/log/app.log \
+  -v $(pwd)/logs:/var/log \
+  task-manager:latest
+```
+
+**Docker Compose with Logging**:
+
+```yaml
+version: '3.8'
+
+services:
+  task-manager:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      JWT_SECRET_KEY: "your-secure-secret-key-here"
+      TASKMANAGER_LOGGING_LEVEL: "info"
+      TASKMANAGER_LOGGING_FORMAT: "json"
+      TASKMANAGER_LOGGING_OUTPUT: "stdout"
+      TASKMANAGER_LOGGING_ENVIRONMENT: "production"
+    volumes:
+      - ./data:/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+### Troubleshooting Logging Issues
+
+#### No Logs Appearing
+
+**Problem**: Server starts but no logs are visible.
+
+**Solutions**:
+1. Check log level - DEBUG logs won't appear if level is INFO
+2. Verify output destination is correct
+3. Check file permissions if logging to a file
+4. Ensure log directory exists and is writable
+
+```bash
+# Test with debug level and stdout
+go run cmd/server/main.go --log-level=debug --log-output=stdout
+```
+
+#### Log File Not Created
+
+**Problem**: Application fails to create log file.
+
+**Solutions**:
+1. Verify directory exists or can be created
+2. Check write permissions on the directory
+3. Ensure sufficient disk space
+
+```bash
+# Create log directory manually
+mkdir -p /var/log/taskmanager
+chmod 755 /var/log/taskmanager
+
+# Test file creation
+touch /var/log/taskmanager/test.log
+```
+
+#### Logs Missing Request IDs
+
+**Problem**: Request correlation is not working.
+
+**Solution**: Ensure the logging middleware is properly configured in `main.go`. Request IDs are automatically generated by the middleware.
+
+#### Sensitive Data in Logs
+
+**Problem**: Passwords or tokens appearing in logs.
+
+**Solution**: The application automatically masks sensitive data:
+- Emails are masked: `user@example.com` → `u***r@example.com`
+- Tokens are masked: `eyJhbGc...` → `eyJh****...`
+- Passwords are never logged
+
+If you find sensitive data in logs, please report it as a security issue.
+
+#### High Log Volume
+
+**Problem**: Too many logs in production.
+
+**Solutions**:
+1. Increase log level to `warn` or `error`
+2. Enable log rotation to manage disk space
+3. Use log sampling for high-traffic endpoints
+
+```yaml
+logging:
+  level: "warn"  # Only warnings and errors
+  enable_rotation: true
+  max_size: 100
+  max_age: 7  # Keep logs for 7 days
+```
+
+#### JSON Parsing Errors in Log Tools
+
+**Problem**: Log aggregation tool can't parse JSON logs.
+
+**Solutions**:
+1. Verify `format: "json"` is set in configuration
+2. Check for multi-line log entries (stack traces)
+3. Ensure proper character encoding (UTF-8)
+
+```bash
+# Validate JSON format
+tail -f /var/log/taskmanager/app.log | jq .
+```
+
 ## Development
 
 ### Running Tests
@@ -472,6 +893,12 @@ go test ./task
 │   └── server/       # HTTP server application
 ├── internal/
 │   └── handlers/     # HTTP request handlers and helpers
+├── logger/           # Structured logging package
+│   ├── logger.go     # Logger factory and configuration
+│   ├── config.go     # Configuration types and validation
+│   ├── middleware.go # HTTP logging middleware
+│   ├── context.go    # Context helpers for request correlation
+│   └── fields.go     # Standard field names and masking
 ├── storage/          # Database storage layer
 ├── task/             # Task business logic
 ├── validation/       # Input validation utilities

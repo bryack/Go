@@ -1,0 +1,29 @@
+# Production Configuration
+# Use this configuration for production deployments
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+database:
+  path: "/data/tasks.db"
+
+jwt:
+  # IMPORTANT: Override this with environment variable in production!
+  # export TASKMANAGER_JWT_SECRET="your-secure-random-secret-here"
+  secret: "CHANGE_ME_IN_PRODUCTION_MIN_32_CHARS"
+  expiration: "24h"
+
+logging:
+  level: "info"               # Standard production logging
+  format: "json"              # Structured format for log aggregation
+  output: "/var/log/taskmanager/app.log"  # Log to file
+  add_source: true            # Include source for error tracking
+  service_name: "task-manager-api"
+  environment: "production"
+  
+  # Enable log rotation for production
+  enable_rotation: true
+  max_size: 100               # Rotate after 100MB
+  max_age: 30                 # Keep logs for 30 days
+  max_backups: 10             # Keep up to 10 old log files

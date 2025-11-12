@@ -7,16 +7,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // getWriter returns an io.Writer based on the output destination string.
 // Supports "stdout", "stderr", or a file path with automatic directory creation.
-func getWriter(output string) (io.Writer, error) {
-	if len(output) == 0 {
+func getWriter(cfg *Config) (io.Writer, error) {
+	if len(cfg.Output) == 0 {
 		return nil, fmt.Errorf("output destination cannot be empty")
 	}
 
-	outputToLower := strings.ToLower(output)
+	outputToLower := strings.ToLower(cfg.Output)
 
 	if outputToLower == "stdout" {
 		return os.Stdout, nil
@@ -26,15 +28,27 @@ func getWriter(output string) (io.Writer, error) {
 		return os.Stderr, nil
 	}
 
-	dir := filepath.Dir(output)
+	dir := filepath.Dir(cfg.Output)
 
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create log directory %s: %w", dir, err)
 	}
 
-	file, err := os.OpenFile(output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if cfg.EnableRotation == true {
+		lumber := &lumberjack.Logger{
+			Filename:   cfg.Output,
+			MaxSize:    cfg.MaxSize,
+			MaxBackups: cfg.MaxBackups,
+			MaxAge:     cfg.MaxAge,
+			Compress:   true,
+			LocalTime:  true,
+		}
+		return lumber, nil
+	}
+
+	file, err := os.OpenFile(cfg.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create log file %s: %w", output, err)
+		return nil, fmt.Errorf("failed to create log file %s: %w", cfg.Output, err)
 	}
 
 	return file, nil
@@ -71,7 +85,7 @@ func NewLogger(cfg *Config) (*slog.Logger, error) {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	writer, err := getWriter(cfg.Output)
+	writer, err := getWriter(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get writer: %w", err)
 	}

@@ -1,3 +1,5 @@
 .kiro/
 .vscode/
 testgen
+docs
+examples

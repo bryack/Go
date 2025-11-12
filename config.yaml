@@ -1,2 +1,49 @@
+# Task Manager API Configuration
+# This file demonstrates all available configuration options
+
 server:
+  host: "0.0.0.0"
   port: 8080
+
+database:
+  path: "./data/tasks.db"
+
+jwt:
+  # IMPORTANT: Change this to a secure secret in production!
+  # Minimum 32 characters required
+  secret: "CHANGE_ME_IN_PRODUCTION_MIN_32_CHARS"
+  expiration: "24h"
+
+logging:
+  # Log level: debug, info, warn, error
+  # - debug: Detailed information including database queries
+  # - info: General informational messages (default)
+  # - warn: Warning messages (auth failures, validation errors)
+  # - error: Error messages requiring attention
+  level: "info"
+  
+  # Log format: json, text
+  # - json: Structured format for production and log aggregation
+  # - text: Human-readable format for development
+  format: "json"
+  
+  # Output destination: stdout, stderr, or file path
+  # - stdout: Standard output (default, works with Docker)
+  # - stderr: Standard error
+  # - /path/to/file.log: Write to a file
+  output: "stdout"
+  
+  # Include source file and line number in error logs
+  add_source: true
+  
+  # Service identifier for log aggregation and filtering
+  service_name: "task-manager-api"
+  
+  # Environment: development, staging, production
+  environment: "production"
+  
+  # File rotation settings (only used when output is a file path)
+  enable_rotation: false
+  max_size: 100      # Maximum size in MB before rotation
+  max_age: 30        # Maximum days to retain old logs
+  max_backups: 5     # Maximum number of old log files to keep

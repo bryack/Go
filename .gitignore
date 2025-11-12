@@ -3,3 +3,10 @@
 testgen
 docs
 examples
+
+# Build artifacts
+myproject
+*.exe
+*.dll
+*.so
+*.dylib

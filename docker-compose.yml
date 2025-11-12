@@ -19,11 +19,11 @@ services:
     environment:
       # ⚠️  SECURITY WARNING: Change this to a secure random secret in production!
       # Generate a secure secret with: openssl rand -base64 32
-      JWT_SECRET_KEY: "development-secret-change-in-production"
+      TASKMANAGER_JWT_SECRET: "development-secret-change-in-production"
       
       # Path to SQLite database file inside the container
       # This path is mounted to ./data on the host for persistence
-      TASK_DB_PATH: "/data/tasks.db"
+      TASKMANAGER_DATABASE_PATH: "/data/tasks.db"
       
       # HTTP server port (currently hardcoded in Go code, for future use)
       PORT: "8080"

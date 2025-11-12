@@ -83,7 +83,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // tasksHandler returns a handler function that has access to TaskManager
-func tasksHandler(s storage.Storage) http.HandlerFunc {
+func tasksHandler(s storage.Storage, l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		userID, err := auth.GetUserIDFromContext(r.Context())
@@ -108,6 +108,13 @@ func tasksHandler(s storage.Storage) http.HandlerFunc {
 
 			desc, err := validation.ValidateTaskDescription(string(taskRequest.Description))
 			if err != nil {
+				l.Warn("Failed to validate description",
+					slog.String(logger.FieldOperation, "tasks_handler"),
+					slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
+					slog.Int(logger.FieldUserID, userID),
+					slog.String("task_description", string(taskRequest.Description)),
+					slog.String(logger.FieldError, err.Error()),
+				)
 				handlers.JSONError(w, http.StatusBadRequest, err.Error())
 				return
 			}
@@ -115,7 +122,12 @@ func tasksHandler(s storage.Storage) http.HandlerFunc {
 			newTask := storage.Task{Description: desc, Done: false}
 			id, err := s.CreateTask(newTask, userID)
 			if err != nil {
-				log.Printf("Failed to create task in database: %v", err)
+				l.Error("Failed to create task in database",
+					slog.String(logger.FieldOperation, "tasks_handler"),
+					slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
+					slog.Int(logger.FieldUserID, userID),
+					slog.String(logger.FieldError, err.Error()),
+				)
 				handlers.JSONError(w, http.StatusInternalServerError, "Failed to create task")
 				return
 			}
@@ -131,7 +143,7 @@ func tasksHandler(s storage.Storage) http.HandlerFunc {
 
 // taskHandler returns an HTTP handler for individual task operations by ID.
 // Supports GET, PUT, and DELETE methods with automatic storage persistence.
-func taskHandler(s storage.Storage) http.HandlerFunc {
+func taskHandler(s storage.Storage, l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		response := storage.Task{}
@@ -152,6 +164,13 @@ func taskHandler(s storage.Storage) http.HandlerFunc {
 		case http.MethodGet:
 			response, err = s.GetTaskByID(id, userID)
 			if err != nil {
+				l.Warn("Failed to get task by ID from database",
+					slog.String(logger.FieldOperation, "task_handler"),
+					slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
+					slog.Int(logger.FieldUserID, userID),
+					slog.Int(logger.FieldTaskID, id),
+					slog.String(logger.FieldError, err.Error()),
+				)
 				handlers.JSONError(w, http.StatusNotFound, "Task not found")
 				return
 			}
@@ -169,13 +188,28 @@ func taskHandler(s storage.Storage) http.HandlerFunc {
 
 			response, err := s.GetTaskByID(id, userID)
 			if err != nil {
+				l.Warn("Failed to get task by ID from database to update",
+					slog.String(logger.FieldOperation, "task_handler"),
+					slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
+					slog.Int(logger.FieldUserID, userID),
+					slog.Int(logger.FieldTaskID, id),
+					slog.String(logger.FieldError, err.Error()),
+				)
 				handlers.JSONError(w, http.StatusNotFound, "Task not found")
+				return
 			}
 
 			if taskRequest.Description != nil {
 				desc := string(*taskRequest.Description)
 				desc, err = validation.ValidateTaskDescription(desc)
 				if err != nil {
+					l.Warn("Failed to validate description",
+						slog.String(logger.FieldOperation, "task_handler"),
+						slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
+						slog.Int(logger.FieldUserID, userID),
+						slog.String("task_description", string(*taskRequest.Description)),
+						slog.String(logger.FieldError, err.Error()),
+					)
 					handlers.JSONError(w, http.StatusBadRequest, err.Error())
 					return
 				}
@@ -195,6 +229,13 @@ func taskHandler(s storage.Storage) http.HandlerFunc {
 
 		case http.MethodDelete:
 			if err := s.DeleteTask(id, userID); err != nil {
+				l.Warn("Failed to get task by ID from database to delete",
+					slog.String(logger.FieldOperation, "task_handler"),
+					slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
+					slog.Int(logger.FieldUserID, userID),
+					slog.Int(logger.FieldTaskID, id),
+					slog.String(logger.FieldError, err.Error()),
+				)
 				handlers.JSONError(w, http.StatusNotFound, "Task not found")
 				return
 			}
@@ -329,8 +370,8 @@ func main() {
 	http.Handle("/register", logger.LoggingMiddleware(l)(RegisterHandler(*authService)))
 	http.Handle("/login", logger.LoggingMiddleware(l)(LoginHandler(*authService)))
 	http.Handle("/health", logger.LoggingMiddleware(l)(http.HandlerFunc(healthHandler)))
-	http.Handle("/tasks/", logger.LoggingMiddleware(l)(authMiddleware.Authenticate(taskHandler(s))))
-	http.Handle("/tasks", logger.LoggingMiddleware(l)(authMiddleware.Authenticate(tasksHandler(s))))
+	http.Handle("/tasks/", logger.LoggingMiddleware(l)(authMiddleware.Authenticate(taskHandler(s, l))))
+	http.Handle("/tasks", logger.LoggingMiddleware(l)(authMiddleware.Authenticate(tasksHandler(s, l))))
 	http.Handle("/", logger.LoggingMiddleware(l)(http.HandlerFunc(rootHandler)))
 
 	endpointsList := []string{

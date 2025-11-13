@@ -415,10 +415,29 @@ func main() {
 		l.Info("Shutdown signal received",
 			slog.String("signal", sig.String()),
 		)
-
+		shutdownStart := time.Now()
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.ServerConfig.ShutdownTimeout)
 		defer cancel()
-		server.Shutdown(ctx)
+		if err := server.Shutdown(ctx); err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				l.Warn("Graceful shutdown timed out",
+					slog.Duration("shutdown_timeout", cfg.ServerConfig.ShutdownTimeout),
+					slog.Duration(logger.FieldDuration, time.Since(shutdownStart)),
+					slog.String(logger.FieldError, context.DeadlineExceeded.Error()),
+				)
+			} else {
+				l.Error("Server shutdown failed",
+					slog.Duration(logger.FieldDuration, time.Since(shutdownStart)),
+					slog.String(logger.FieldError, err.Error()),
+				)
+			}
+		} else {
+			l.Info("Server shutdown completed successfully",
+				slog.Duration(logger.FieldDuration, time.Since(shutdownStart)),
+				slog.String("status", "success"),
+			)
+		}
+		os.Exit(0)
 	}()
 
 	go func() {
@@ -427,5 +446,11 @@ func main() {
 		os.Exit(1)
 	}()
 
-	log.Fatal(server.ListenAndServe())
+	err = server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		l.Error("Fatal server error",
+			slog.String(logger.FieldError, err.Error()),
+		)
+		os.Exit(1)
+	}
 }

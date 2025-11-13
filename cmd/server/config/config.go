@@ -23,8 +23,9 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port int    `mapstructure:"port"`
-	Host string `mapstructure:"host"`
+	Port            int           `mapstructure:"port"`
+	Host            string        `mapstructure:"host"`
+	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 }
 
 type DatabaseConfig struct {
@@ -42,6 +43,7 @@ func LoadConfig() (*Config, *viper.Viper, error) {
 	// Set default values
 	v.SetDefault("server.port", 8080)
 	v.SetDefault("server.host", "0.0.0.0")
+	v.SetDefault("server.shutdown_timeout", "30s")
 	v.SetDefault("database.path", "./data/tasks.db")
 	v.SetDefault("jwt.expiration", "24h")
 	v.SetDefault("logging.level", "info")
@@ -56,6 +58,7 @@ func LoadConfig() (*Config, *viper.Viper, error) {
 	pflag.Bool("show-config", false, "Display current configuration and exit")
 	pflag.Int("port", 8080, "Server port")
 	pflag.String("host", "0.0.0.0", "Server host")
+	pflag.String("shutdown-timeout", "30s", "Graceful shutdown timeout")
 	pflag.String("db-path", "./data/tasks.db", "Database path")
 	pflag.String("jwt-expiration", "24h", "JWT expiration")
 	pflag.String("jwt-secret", "", "JWT Secret")
@@ -97,6 +100,7 @@ func LoadConfig() (*Config, *viper.Viper, error) {
 	// Bind flags to config keys (except --config and --show-config which are handled separately)
 	v.BindPFlag("server.port", pflag.Lookup("port"))
 	v.BindPFlag("server.host", pflag.Lookup("host"))
+	v.BindPFlag("server.shutdown_timeout", pflag.Lookup("shutdown-timeout"))
 	v.BindPFlag("database.path", pflag.Lookup("db-path"))
 	v.BindPFlag("jwt.expiration", pflag.Lookup("jwt-expiration"))
 	v.BindPFlag("jwt.secret", pflag.Lookup("jwt-secret"))
@@ -124,6 +128,10 @@ func (config *Config) Validate() error {
 	var errs []error
 	if config.ServerConfig.Port < 1 || config.ServerConfig.Port > 65535 {
 		errs = append(errs, fmt.Errorf("server.port must be between 1 and 65535, got %d", config.ServerConfig.Port))
+	}
+
+	if config.ServerConfig.ShutdownTimeout <= 0 {
+		errs = append(errs, fmt.Errorf("server.shutdown_timeout must be positive, got %v", config.ServerConfig.ShutdownTimeout))
 	}
 
 	if len(config.DatabaseConfig.Path) == 0 {
@@ -187,17 +195,18 @@ func maskSensitive(scrt string) string {
 
 func getSource(v *viper.Viper, key string) string {
 	flagMap := map[string]string{
-		"server.port":          "port",
-		"server.host":          "host",
-		"database.path":        "db-path",
-		"jwt.secret":           "jwt-secret",
-		"jwt.expiration":       "jwt-expiration",
-		"logging.level":        "log-level",
-		"logging.format":       "log-format",
-		"logging.output":       "log-output",
-		"logging.add_source":   "log-add-source",
-		"logging.service_name": "log-service-name",
-		"logging.environment":  "log-environment",
+		"server.port":             "port",
+		"server.host":             "host",
+		"server.shutdown_timeout": "shutdown-timeout",
+		"database.path":           "db-path",
+		"jwt.secret":              "jwt-secret",
+		"jwt.expiration":          "jwt-expiration",
+		"logging.level":           "log-level",
+		"logging.format":          "log-format",
+		"logging.output":          "log-output",
+		"logging.add_source":      "log-add-source",
+		"logging.service_name":    "log-service-name",
+		"logging.environment":     "log-environment",
 	}
 
 	if flagName, exists := flagMap[key]; exists {
@@ -224,6 +233,7 @@ func ShowConfig(cfg *Config, v *viper.Viper) {
 	fmt.Println()
 	fmt.Printf("server.host: %s (%s)\n", cfg.ServerConfig.Host, getSource(v, "server.host"))
 	fmt.Printf("server.port: %d (%s)\n", cfg.ServerConfig.Port, getSource(v, "server.port"))
+	fmt.Printf("server.shutdown_timeout: %s (%s)\n", cfg.ServerConfig.ShutdownTimeout, getSource(v, "server.shutdown_timeout"))
 	fmt.Printf("database.path: %s (%s)\n", cfg.DatabaseConfig.Path, getSource(v, "database.path"))
 	fmt.Printf("jwt.secret: %s (%s)\n", maskSensitive(cfg.JWTConfig.Secret), getSource(v, "jwt.secret"))
 	fmt.Printf("jwt.expiration: %s (%s)\n", cfg.JWTConfig.Expiration, getSource(v, "jwt.expiration"))

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -13,6 +14,8 @@ import (
 	"myproject/validation"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -61,6 +64,13 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 		"message": "Task Manager API",
 		"enpoints": []string{
 			"Get /health - Health check",
+			"GET /tasks - Get tasks",
+			"POST /tasks - Add task",
+			"GET /tasks/{id} - Get task",
+			"PUT /tasks/{id} - Update task",
+			"DELETE /tasks/{id} - Delete task",
+			"POST /register - Register user",
+			"POST /login - Login user",
 			"Get / - This message",
 		},
 	}
@@ -388,8 +398,34 @@ func main() {
 	l.Info("HTTP Server initialized",
 		slog.String("server_address", fmt.Sprintf("http://%s:%d", cfg.ServerConfig.Host, cfg.ServerConfig.Port)),
 		slog.Any("endpoints", endpointsList),
+		slog.Duration("shutdown_timeout", cfg.ServerConfig.ShutdownTimeout),
 	)
 
 	address := fmt.Sprintf("%s:%d", cfg.ServerConfig.Host, cfg.ServerConfig.Port)
-	log.Fatal(http.ListenAndServe(address, nil))
+	server := &http.Server{
+		Addr:    address,
+		Handler: nil,
+	}
+
+	shutdownChan := make(chan os.Signal, 1)
+	signal.Notify(shutdownChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-shutdownChan
+		l.Info("Shutdown signal received",
+			slog.String("signal", sig.String()),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.ServerConfig.ShutdownTimeout)
+		defer cancel()
+		server.Shutdown(ctx)
+	}()
+
+	go func() {
+		<-shutdownChan
+		l.Warn("Force shutdown signal received, exiting immediately")
+		os.Exit(1)
+	}()
+
+	log.Fatal(server.ListenAndServe())
 }

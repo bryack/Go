@@ -120,13 +120,22 @@ volumes:
 # 5. Generate some logs:
 #    curl http://localhost:8080/health
 #
-# 6. Open Grafana and explore logs:
+# 6. Configure Loki data source in Grafana (one-time setup):
 #    - Open http://localhost:3000 in your browser
-#    - Click "Explore" (compass icon) in the left sidebar
-#    - Select "Loki" from the data source dropdown (you'll need to add it manually first)
-#    - Try query: {container_name="task-manager-loki"}
+#    - Click "Connections" in the left sidebar
+#    - Click "Data sources"
+#    - Click "Add data source"
+#    - Select "Loki"
+#    - Set URL to: http://loki:3100
+#    - Click "Save & test" (should show "Data source connected")
 #
-# 7. Stop the stack:
+# 7. Explore logs:
+#    - Click "Explore" (compass icon) in the left sidebar
+#    - Loki should be selected as the data source
+#    - Try query: {container_name="task-manager-loki"}
+#    - Try query: {service="task-manager-api"} | json | level="INFO"
+#
+# 8. Stop the stack:
 #    docker compose -f docker-compose.loki.yml down
 #
 # Troubleshooting:
@@ -138,7 +147,7 @@ volumes:
 #   Check time range (top right) - set to "Last 15 minutes"
 #   Verify logs are flowing: curl http://localhost:3100/loki/api/v1/label
 #
-# - If Grafana shows "Data source error":
-#   Manually add Loki data source in Grafana:
-#   Settings → Data Sources → Add data source → Loki
+# - If Grafana shows "Data source not found":
+#   You need to add Loki as a data source (see step 6 above)
+#   Connections → Data sources → Add data source → Loki
 #   URL: http://loki:3100

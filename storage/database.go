@@ -85,8 +85,7 @@ func NewDatabaseStorage(dbPath string, logger *slog.Logger) (*DatabaseStorage, e
 }
 
 // CreateTask inserts a new task into the database and returns the generated ID.
-// The database AUTOINCREMENT feature assigns the ID automatically.
-// Timestamps (created_at, updated_at) are set to current time on creation.
+// Timestamps are set automatically on creation.
 func (ds *DatabaseStorage) CreateTask(task Task, userID int) (int, error) {
 	desc := task.Description
 	if len(task.Description) > 50 {
@@ -122,6 +121,8 @@ func (ds *DatabaseStorage) CreateTask(task Task, userID int) (int, error) {
 	return int(id), nil
 }
 
+// UpdateTask modifies an existing task's description and completion status.
+// Returns ErrTaskNotFound if the task doesn't exist or belongs to a different user.
 func (ds *DatabaseStorage) UpdateTask(task Task, userID int) error {
 	ds.logger.Debug("Updating task",
 		slog.String(logger.FieldOperation, "update_task"),
@@ -168,6 +169,8 @@ func (ds *DatabaseStorage) UpdateTask(task Task, userID int) error {
 	return nil
 }
 
+// DeleteTask removes a task from the database by ID for the specified user.
+// Returns ErrTaskNotFound if the task doesn't exist or belongs to a different user.
 func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
 	ds.logger.Debug("Deleting task",
 		slog.String(logger.FieldOperation, "delete_task"),
@@ -212,6 +215,8 @@ func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
 	return nil
 }
 
+// GetTaskByID retrieves a single task by its ID for the specified user.
+// Returns ErrTaskNotFound if the task doesn't exist or belongs to a different user.
 func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task Task, err error) {
 	ds.logger.Debug("Fetching task",
 		slog.String(logger.FieldOperation, "get_task_by_id"),
@@ -284,6 +289,8 @@ func (ds *DatabaseStorage) LoadTasks(userID int) ([]Task, error) {
 	return tasks, nil
 }
 
+// Close closes the database connection and releases associated resources.
+// Should be called during application shutdown to ensure clean termination.
 func (ds *DatabaseStorage) Close() error {
 	ds.logger.Debug("Close database connection",
 		slog.String(logger.FieldOperation, "close"),

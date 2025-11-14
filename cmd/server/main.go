@@ -418,7 +418,9 @@ func main() {
 		shutdownStart := time.Now()
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.ServerConfig.ShutdownTimeout)
 		defer cancel()
+		exitCode := 0
 		if err := server.Shutdown(ctx); err != nil {
+			exitCode = 1
 			if errors.Is(err, context.DeadlineExceeded) {
 				l.Warn("Graceful shutdown timed out",
 					slog.Duration("shutdown_timeout", cfg.ServerConfig.ShutdownTimeout),
@@ -437,7 +439,10 @@ func main() {
 				slog.String("status", "success"),
 			)
 		}
-		os.Exit(0)
+		if err := s.Close(); err != nil {
+			exitCode = 1
+		}
+		os.Exit(exitCode)
 	}()
 
 	go func() {

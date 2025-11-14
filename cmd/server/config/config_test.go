@@ -14,49 +14,52 @@ import (
 func TestDefaultValues(t *testing.T) {
 	// ====Arrange====
 	testCases := []struct {
-		name                string
-		expectedPort        int
-		expectedHost        string
-		expectedDBPath      string
-		expectedExpiration  time.Duration
-		jwtSecret           string
-		expectedLogLevel    string
-		expectedLogFormat   string
-		expectedLogOutput   string
-		expectedAddSource   bool
-		expectedServiceName string
-		expectedEnvironment string
-		expectValidationErr bool
+		name                    string
+		expectedPort            int
+		expectedHost            string
+		expectedShutdownTimeout time.Duration
+		expectedDBPath          string
+		expectedExpiration      time.Duration
+		jwtSecret               string
+		expectedLogLevel        string
+		expectedLogFormat       string
+		expectedLogOutput       string
+		expectedAddSource       bool
+		expectedServiceName     string
+		expectedEnvironment     string
+		expectValidationErr     bool
 	}{
 		{
-			name:                "All default values with valid JWT secret",
-			expectedPort:        8080,
-			expectedHost:        "0.0.0.0",
-			expectedDBPath:      "/tmp/data/tasks.db",
-			expectedExpiration:  24 * time.Hour,
-			jwtSecret:           "this-is-a-test-secret-key-with-32-chars-minimum",
-			expectedLogLevel:    "info",
-			expectedLogFormat:   "json",
-			expectedLogOutput:   "stdout",
-			expectedAddSource:   false,
-			expectedServiceName: "task-manager-api",
-			expectedEnvironment: "production",
-			expectValidationErr: false,
+			name:                    "All default values with valid JWT secret",
+			expectedPort:            8080,
+			expectedHost:            "0.0.0.0",
+			expectedShutdownTimeout: 30 * time.Second,
+			expectedDBPath:          "/tmp/data/tasks.db",
+			expectedExpiration:      24 * time.Hour,
+			jwtSecret:               "this-is-a-test-secret-key-with-32-chars-minimum",
+			expectedLogLevel:        "info",
+			expectedLogFormat:       "json",
+			expectedLogOutput:       "stderr",
+			expectedAddSource:       false,
+			expectedServiceName:     "task-manager-api",
+			expectedEnvironment:     "production",
+			expectValidationErr:     false,
 		},
 		{
-			name:                "Missing JWT secret should fail validation",
-			expectedPort:        8080,
-			expectedHost:        "0.0.0.0",
-			expectedDBPath:      "/tmp/data/tasks.db",
-			expectedExpiration:  24 * time.Hour,
-			jwtSecret:           "",
-			expectedLogLevel:    "info",
-			expectedLogFormat:   "json",
-			expectedLogOutput:   "stdout",
-			expectedAddSource:   false,
-			expectedServiceName: "task-manager-api",
-			expectedEnvironment: "production",
-			expectValidationErr: true,
+			name:                    "Missing JWT secret should fail validation",
+			expectedPort:            8080,
+			expectedHost:            "0.0.0.0",
+			expectedShutdownTimeout: 30 * time.Second,
+			expectedDBPath:          "/tmp/data/tasks.db",
+			expectedExpiration:      24 * time.Hour,
+			jwtSecret:               "",
+			expectedLogLevel:        "info",
+			expectedLogFormat:       "json",
+			expectedLogOutput:       "stderr",
+			expectedAddSource:       false,
+			expectedServiceName:     "task-manager-api",
+			expectedEnvironment:     "production",
+			expectValidationErr:     true,
 		},
 	}
 
@@ -78,11 +81,12 @@ func TestDefaultValues(t *testing.T) {
 			// Set default values (same as LoadConfig)
 			v.SetDefault("server.port", 8080)
 			v.SetDefault("server.host", "0.0.0.0")
+			v.SetDefault("server.shutdown_timeout", "30s")
 			v.SetDefault("database.path", "/tmp/data/tasks.db")
 			v.SetDefault("jwt.expiration", "24h")
 			v.SetDefault("logging.level", "info")
 			v.SetDefault("logging.format", "json")
-			v.SetDefault("logging.output", "stdout")
+			v.SetDefault("logging.output", "stderr")
 			v.SetDefault("logging.add_source", false)
 			v.SetDefault("logging.service_name", "task-manager-api")
 			v.SetDefault("logging.environment", "production")
@@ -121,6 +125,10 @@ func TestDefaultValues(t *testing.T) {
 
 			if config.ServerConfig.Host != tc.expectedHost {
 				t.Errorf("Expected server.host %q, got %q", tc.expectedHost, config.ServerConfig.Host)
+			}
+
+			if config.ServerConfig.ShutdownTimeout != tc.expectedShutdownTimeout {
+				t.Errorf("Expected server.shutdown_timeout %v, got %v", tc.expectedShutdownTimeout, config.ServerConfig.ShutdownTimeout)
 			}
 
 			if config.DatabaseConfig.Path != tc.expectedDBPath {
@@ -437,11 +445,12 @@ func TestEnvironmentVariableMapping(t *testing.T) {
 			// Set defaults
 			v.SetDefault("server.port", 8080)
 			v.SetDefault("server.host", "0.0.0.0")
+			v.SetDefault("server.shutdown_timeout", "30s")
 			v.SetDefault("database.path", "/tmp/data/tasks.db")
 			v.SetDefault("jwt.expiration", "24h")
 			v.SetDefault("logging.level", "info")
 			v.SetDefault("logging.format", "json")
-			v.SetDefault("logging.output", "stdout")
+			v.SetDefault("logging.output", "stderr")
 			v.SetDefault("logging.add_source", false)
 			v.SetDefault("logging.service_name", "task-manager-api")
 			v.SetDefault("logging.environment", "production")
@@ -512,8 +521,9 @@ func TestValidation(t *testing.T) {
 			name: "Valid configuration",
 			config: Config{
 				ServerConfig: ServerConfig{
-					Port: 8080,
-					Host: "0.0.0.0",
+					Port:            8080,
+					Host:            "0.0.0.0",
+					ShutdownTimeout: 30 * time.Second,
 				},
 				DatabaseConfig: DatabaseConfig{
 					Path: "/tmp/test-valid/tasks.db",
@@ -525,7 +535,7 @@ func TestValidation(t *testing.T) {
 				LogConfig: logger.Config{
 					Level:       "info",
 					Format:      "json",
-					Output:      "stdout",
+					Output:      "stderr",
 					AddSource:   false,
 					ServiceName: "task-manager-api",
 					Environment: "production",
@@ -538,8 +548,9 @@ func TestValidation(t *testing.T) {
 			name: "Invalid port",
 			config: Config{
 				ServerConfig: ServerConfig{
-					Port: 99999,
-					Host: "0.0.0.0",
+					Port:            99999,
+					Host:            "0.0.0.0",
+					ShutdownTimeout: 30 * time.Second,
 				},
 				DatabaseConfig: DatabaseConfig{
 					Path: "/tmp/test-port/tasks.db",
@@ -563,8 +574,9 @@ func TestValidation(t *testing.T) {
 			name: "Empty database path",
 			config: Config{
 				ServerConfig: ServerConfig{
-					Port: 8080,
-					Host: "0.0.0.0",
+					Port:            8080,
+					Host:            "0.0.0.0",
+					ShutdownTimeout: 30 * time.Second,
 				},
 				DatabaseConfig: DatabaseConfig{
 					Path: "",
@@ -588,8 +600,9 @@ func TestValidation(t *testing.T) {
 			name: "Non-writable database directory",
 			config: Config{
 				ServerConfig: ServerConfig{
-					Port: 8080,
-					Host: "0.0.0.0",
+					Port:            8080,
+					Host:            "0.0.0.0",
+					ShutdownTimeout: 30 * time.Second,
 				},
 				DatabaseConfig: DatabaseConfig{
 					Path: "/root/restricted/tasks.db",
@@ -613,8 +626,9 @@ func TestValidation(t *testing.T) {
 			name: "Empty JWT secret",
 			config: Config{
 				ServerConfig: ServerConfig{
-					Port: 8080,
-					Host: "0.0.0.0",
+					Port:            8080,
+					Host:            "0.0.0.0",
+					ShutdownTimeout: 30 * time.Second,
 				},
 				DatabaseConfig: DatabaseConfig{
 					Path: "/tmp/test-empty-secret/tasks.db",
@@ -638,8 +652,9 @@ func TestValidation(t *testing.T) {
 			name: "JWT secret too short",
 			config: Config{
 				ServerConfig: ServerConfig{
-					Port: 8080,
-					Host: "0.0.0.0",
+					Port:            8080,
+					Host:            "0.0.0.0",
+					ShutdownTimeout: 30 * time.Second,
 				},
 				DatabaseConfig: DatabaseConfig{
 					Path: "/tmp/test-short-secret/tasks.db",
@@ -663,8 +678,9 @@ func TestValidation(t *testing.T) {
 			name: "JWT secret exactly 32 chars - valid",
 			config: Config{
 				ServerConfig: ServerConfig{
-					Port: 8080,
-					Host: "0.0.0.0",
+					Port:            8080,
+					Host:            "0.0.0.0",
+					ShutdownTimeout: 30 * time.Second,
 				},
 				DatabaseConfig: DatabaseConfig{
 					Path: "/tmp/test-32-chars/tasks.db",
@@ -688,8 +704,9 @@ func TestValidation(t *testing.T) {
 			name: "Invalid JWT expiration",
 			config: Config{
 				ServerConfig: ServerConfig{
-					Port: 8080,
-					Host: "0.0.0.0",
+					Port:            8080,
+					Host:            "0.0.0.0",
+					ShutdownTimeout: 30 * time.Second,
 				},
 				DatabaseConfig: DatabaseConfig{
 					Path: "/tmp/test-expiration/tasks.db",
@@ -713,8 +730,9 @@ func TestValidation(t *testing.T) {
 			name: "Multiple validation errors",
 			config: Config{
 				ServerConfig: ServerConfig{
-					Port: 0,
-					Host: "0.0.0.0",
+					Port:            0,
+					Host:            "0.0.0.0",
+					ShutdownTimeout: -1 * time.Second,
 				},
 				DatabaseConfig: DatabaseConfig{
 					Path: "",

@@ -3,6 +3,7 @@ package storage
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
 	"myproject/logger"
 	"os"
@@ -28,6 +29,7 @@ type Storage interface {
 	CreateTask(task Task, userID int) (int, error)
 	UpdateTask(task Task, userID int) error
 	DeleteTask(id int, userID int) error
+	Close() error
 }
 
 // DatabaseStorage provides SQLite-based task persistence with automatic schema management.
@@ -280,4 +282,23 @@ func (ds *DatabaseStorage) LoadTasks(userID int) ([]Task, error) {
 	}
 
 	return tasks, nil
+}
+
+func (ds *DatabaseStorage) Close() error {
+	ds.logger.Debug("Close database connection",
+		slog.String(logger.FieldOperation, "close"),
+	)
+	err := ds.db.Close()
+	if err != nil {
+		ds.logger.Error("Failed to close database connection",
+			slog.String(logger.FieldOperation, "close"),
+			slog.String(logger.FieldError, err.Error()),
+		)
+		return fmt.Errorf("failed to close database connection: %w", err)
+	}
+	ds.logger.Info("Database connection closed successfully",
+		slog.String(logger.FieldOperation, "close"),
+		slog.String("status", "success"),
+	)
+	return nil
 }

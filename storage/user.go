@@ -8,8 +8,10 @@ import (
 	"time"
 )
 
+// ErrUserNotFound is returned when a user lookup fails.
 var ErrUserNotFound = errors.New("user not found")
 
+// User represents a user account with authentication credentials.
 type User struct {
 	ID           int       `json:"id"`
 	Email        string    `json:"email"`
@@ -17,6 +19,7 @@ type User struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+// UserStorage defines the interface for user persistence operations.
 type UserStorage interface {
 	CreateUser(email string, passwordHash string) (int, error)
 	GetUserByEmail(email string) (*User, error)
@@ -24,6 +27,7 @@ type UserStorage interface {
 	EmailExists(email string) (bool, error)
 }
 
+// CreateUser inserts a new user and returns the generated ID.
 func (ds *DatabaseStorage) CreateUser(email, passwordHash string) (int, error) {
 	ds.logger.Debug("Creating user",
 		slog.String(logger.FieldOperation, "create_user"),
@@ -54,6 +58,7 @@ func (ds *DatabaseStorage) CreateUser(email, passwordHash string) (int, error) {
 	return int(id), nil
 }
 
+// GetUserByEmail retrieves a user by email, returns ErrUserNotFound if not exists.
 func (ds *DatabaseStorage) GetUserByEmail(email string) (*User, error) {
 	ds.logger.Debug("Fetching user by email",
 		slog.String(logger.FieldOperation, "get_user_by_email"),
@@ -80,6 +85,7 @@ func (ds *DatabaseStorage) GetUserByEmail(email string) (*User, error) {
 	return &user, nil
 }
 
+// GetUserByID retrieves a user by ID, returns ErrUserNotFound if not exists.
 func (ds *DatabaseStorage) GetUserByID(id int) (*User, error) {
 	ds.logger.Debug("Fetching user by id",
 		slog.String(logger.FieldOperation, "get_user_by_id"),
@@ -106,6 +112,7 @@ func (ds *DatabaseStorage) GetUserByID(id int) (*User, error) {
 	return &user, nil
 }
 
+// EmailExists checks if an email is already registered in the database.
 func (ds *DatabaseStorage) EmailExists(email string) (exists bool, err error) {
 	ds.logger.Debug("Checking email existence",
 		slog.String(logger.FieldOperation, "email_exists"),

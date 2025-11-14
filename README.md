@@ -39,6 +39,33 @@ go run cmd/server/main.go
 
 The server will start on `http://localhost:8080`
 
+### Graceful Shutdown
+
+The server supports graceful shutdown to ensure in-flight requests complete before termination:
+
+```bash
+# Send SIGINT (Ctrl+C) or SIGTERM to initiate graceful shutdown
+kill -SIGTERM <pid>
+
+# Or press Ctrl+C in the terminal
+```
+
+**Shutdown Behavior**:
+- Server stops accepting new connections immediately
+- Existing requests are allowed to complete (default 30s timeout)
+- Database connections are closed cleanly
+- Press Ctrl+C again to force immediate shutdown
+
+**Configuration**:
+```yaml
+server:
+  shutdown_timeout: "30s"  # Maximum time to wait for requests to complete
+```
+
+**Exit Codes**:
+- `0` - Clean shutdown (all requests completed)
+- `1` - Error during shutdown or forced termination
+
 ## Deployment
 
 ### Docker Deployment
@@ -474,9 +501,11 @@ Logging can be configured through:
 
 ### Output Destinations
 
-- `stdout` - Standard output (default)
-- `stderr` - Standard error
+- `stderr` - Standard error (default, recommended for production)
+- `stdout` - Standard output (use only for program output/data)
 - File path - Write to a file (e.g., `/var/log/taskmanager/app.log`)
+
+**Best Practice**: Use `stderr` for all application logs following Unix philosophy. This prevents log buffering issues, is container-friendly, and separates diagnostic messages from program output.
 
 ### Configuration File Example
 
@@ -497,7 +526,7 @@ jwt:
 logging:
   level: "info"                    # debug, info, warn, error
   format: "json"                   # json, text
-  output: "stdout"                 # stdout, stderr, or file path
+  output: "stderr"                 # stderr (recommended), stdout, or file path
   add_source: true                 # Include file:line for error logs
   service_name: "task-manager-api" # Service identifier
   environment: "production"        # development, staging, production
@@ -750,7 +779,10 @@ logs:
 When running in Docker, configure logging output:
 
 ```bash
-# Log to stdout (captured by Docker)
+# Log to stderr (recommended - captured by Docker)
+docker run -e TASKMANAGER_LOGGING_OUTPUT=stderr task-manager:latest
+
+# Log to stdout (alternative)
 docker run -e TASKMANAGER_LOGGING_OUTPUT=stdout task-manager:latest
 
 # Log to a file with volume mount
@@ -774,7 +806,7 @@ services:
       JWT_SECRET_KEY: "your-secure-secret-key-here"
       TASKMANAGER_LOGGING_LEVEL: "info"
       TASKMANAGER_LOGGING_FORMAT: "json"
-      TASKMANAGER_LOGGING_OUTPUT: "stdout"
+      TASKMANAGER_LOGGING_OUTPUT: "stderr"
       TASKMANAGER_LOGGING_ENVIRONMENT: "production"
     volumes:
       - ./data:/data

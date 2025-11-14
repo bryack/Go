@@ -8,8 +8,7 @@ import (
 	"strings"
 )
 
-// Config holds logger configuration including level, format, output destination,
-// service name, and environment for structured logging.
+// Config holds logger configuration for structured logging.
 type Config struct {
 	Level          string `mapstructure:"level"`        // log level: "debug", "info", "warn", or "error"
 	Format         string `mapstructure:"format"`       // output format: "json" or "text"
@@ -23,6 +22,8 @@ type Config struct {
 	MaxBackups     int    `mapstructure:"max_backups"`
 }
 
+// Validate checks all configuration values for correctness.
+// Returns a combined error if any validation fails.
 func (cfg *Config) Validate() error {
 	var errs []error
 	validLevels := []string{"debug", "info", "warn", "error"}
@@ -64,8 +65,7 @@ func (cfg *Config) Validate() error {
 	return errors.Join(errs...)
 }
 
-// parseLevel converts a string log level to slog.Level.
-// Returns INFO level for invalid input.
+// parseLevel converts a string log level to slog.Level, defaulting to INFO for invalid input.
 func parseLevel(levelStr string) (level slog.Level) {
 	levelStrToLow := strings.ToLower(levelStr)
 

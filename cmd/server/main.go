@@ -21,8 +21,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// HealthResponse represents the JSON response structure for health check endpoints.
-// Contains service status, timestamp, and service identification.
+// HealthResponse represents the JSON response for health check endpoints.
 type HealthResponse struct {
 	Status    string    `json:"status"`
 	Timestamp time.Time `json:"timestamp"`
@@ -30,35 +29,38 @@ type HealthResponse struct {
 }
 
 // CreateTaskRequest represents the JSON payload for creating new tasks.
-// Contains the required task description field.
 type CreateTaskRequest struct {
 	Description string `json:"description"`
 }
 
-// UpdateTaskRequest represents the JSON payload for updating existing tasks.
-// All fields are optional pointers to support partial updates.
+// UpdateTaskRequest represents the JSON payload for updating tasks with optional fields.
 type UpdateTaskRequest struct {
 	Description *string `json:"description,omitempty"`
 	Done        *bool   `json:"done,omitempty"`
 }
 
+// RegisterRequest represents the JSON payload for user registration.
+// Contains email and password fields for creating a new account.
 type RegisterRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
+// LoginRequest represents the JSON payload for user authentication.
+// Contains email and password credentials for login.
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
+// AuthResponse represents the JSON response for successful authentication.
+// Contains the JWT token and associated email address.
 type AuthResponse struct {
 	Token string `json:"token"`
 	Email string `json:"email"`
 }
 
 // rootHandler serves the API information and available endpoints.
-// Returns a JSON response with service description and endpoint list.
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"message": "Task Manager API",
@@ -78,7 +80,6 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // healthHandler provides service health status information.
-// Only accepts GET requests and returns current service status with timestamp.
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		handlers.HandleMethodNotAllowed(w, []string{"GET"})
@@ -92,7 +93,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	handlers.JSONSuccess(w, response)
 }
 
-// tasksHandler returns a handler function that has access to TaskManager
+// tasksHandler handles GET (list all tasks) and POST (create task) requests.
 func tasksHandler(s storage.Storage, l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -151,8 +152,7 @@ func tasksHandler(s storage.Storage, l *slog.Logger) http.HandlerFunc {
 	}
 }
 
-// taskHandler returns an HTTP handler for individual task operations by ID.
-// Supports GET, PUT, and DELETE methods with automatic storage persistence.
+// taskHandler handles GET, PUT, and DELETE operations for individual tasks by ID.
 func taskHandler(s storage.Storage, l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
@@ -259,8 +259,7 @@ func taskHandler(s storage.Storage, l *slog.Logger) http.HandlerFunc {
 	}
 }
 
-// RegisterHandler creates a new user account with email and password.
-// Returns JWT token on success or appropriate error for validation failures.
+// RegisterHandler creates a new user account and returns a JWT token.
 func RegisterHandler(service auth.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -300,7 +299,6 @@ func RegisterHandler(service auth.Service) http.HandlerFunc {
 }
 
 // LoginHandler authenticates user credentials and returns a JWT token.
-// Returns generic error message on failure to prevent user enumeration.
 func LoginHandler(service auth.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

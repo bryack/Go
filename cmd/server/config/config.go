@@ -1,3 +1,5 @@
+// Package config provides configuration management for the task manager server.
+// It supports loading configuration from files, environment variables, and command-line flags.
 package config
 
 import (
@@ -13,8 +15,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+// MinJWTSecretLength is the minimum required length for JWT secret keys.
 const MinJWTSecretLength = 32
 
+// Config holds all application configuration settings.
 type Config struct {
 	ServerConfig   ServerConfig   `mapstructure:"server"`
 	DatabaseConfig DatabaseConfig `mapstructure:"database"`
@@ -22,21 +26,26 @@ type Config struct {
 	LogConfig      logger.Config  `mapstructure:"logging"`
 }
 
+// ServerConfig contains HTTP server configuration.
 type ServerConfig struct {
 	Port            int           `mapstructure:"port"`
 	Host            string        `mapstructure:"host"`
 	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 }
 
+// DatabaseConfig contains database connection settings.
 type DatabaseConfig struct {
 	Path string `mapstructure:"path"`
 }
 
+// JWTConfig contains JWT authentication settings.
 type JWTConfig struct {
 	Secret     string        `mapstructure:"secret"`
 	Expiration time.Duration `mapstructure:"expiration"`
 }
 
+// LoadConfig loads configuration from files, environment variables, and flags.
+// Returns the parsed config, viper instance, and any error encountered.
 func LoadConfig() (*Config, *viper.Viper, error) {
 	v := viper.New()
 
@@ -124,6 +133,8 @@ func LoadConfig() (*Config, *viper.Viper, error) {
 	return &config, v, nil
 }
 
+// Validate checks all configuration values for correctness.
+// Returns a combined error if any validation fails.
 func (config *Config) Validate() error {
 	var errs []error
 	if config.ServerConfig.Port < 1 || config.ServerConfig.Port > 65535 {
@@ -161,6 +172,7 @@ func (config *Config) Validate() error {
 	return errors.Join(errs...)
 }
 
+// validateDatabasePath ensures the database directory exists and is writable.
 func validateDatabasePath(path string) error {
 	dir := filepath.Dir(path)
 
@@ -185,6 +197,7 @@ func validateDatabasePath(path string) error {
 	return nil
 }
 
+// maskSensitive obscures sensitive values for display purposes.
 func maskSensitive(scrt string) string {
 	if len(scrt) <= 4 {
 		return "****"
@@ -193,6 +206,7 @@ func maskSensitive(scrt string) string {
 	return scrt[0:2] + "****" + scrt[len(scrt)-2:]
 }
 
+// getSource determines where a configuration value came from (flag, env, config file, or default).
 func getSource(v *viper.Viper, key string) string {
 	flagMap := map[string]string{
 		"server.port":             "port",
@@ -227,6 +241,7 @@ func getSource(v *viper.Viper, key string) string {
 	return "default"
 }
 
+// ShowConfig displays the current configuration with source information for each value.
 func ShowConfig(cfg *Config, v *viper.Viper) {
 	fmt.Println("Current Configuration:")
 	fmt.Println("=====================")

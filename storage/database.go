@@ -14,8 +14,7 @@ var (
 	ErrTaskNotFound = errors.New("task not found")
 )
 
-// Task represents a single task with unique ID, description, and completion status.
-// All fields are JSON-serializable for API responses.
+// Task represents a single task with ID, description, and completion status.
 type Task struct {
 	ID          int    `json:"id"`
 	Description string `json:"description"`
@@ -32,16 +31,14 @@ type Storage interface {
 	Close() error
 }
 
-// DatabaseStorage provides SQLite-based task persistence with automatic schema management.
-// It implements the Storage interface and handles database connections and migrations.
+// DatabaseStorage provides SQLite-based task persistence with automatic migrations.
 type DatabaseStorage struct {
 	db       *sql.DB
 	migrator *Migrator
 	logger   *slog.Logger
 }
 
-// GetDatabasePath returns the database file path from environment or default location.
-// Checks TASK_DB_PATH environment variable, falls back to "./tasks.db".
+// GetDatabasePath returns the database file path from TASK_DB_PATH env or "./tasks.db".
 func GetDatabasePath() string {
 	if dbPath := os.Getenv("TASK_DB_PATH"); dbPath != "" {
 		return dbPath
@@ -49,8 +46,7 @@ func GetDatabasePath() string {
 	return "./tasks.db"
 }
 
-// NewDatabaseStorage creates a new database storage instance with automatic setup.
-// It handles connection pooling, schema migrations, and JSON data migration.
+// NewDatabaseStorage creates a new database storage with connection pooling and migrations.
 func NewDatabaseStorage(dbPath string, logger *slog.Logger) (*DatabaseStorage, error) {
 	config := ConnectionConfig{
 		MaxOpenConns:    25,
@@ -84,8 +80,7 @@ func NewDatabaseStorage(dbPath string, logger *slog.Logger) (*DatabaseStorage, e
 	return storage, nil
 }
 
-// CreateTask inserts a new task into the database and returns the generated ID.
-// Timestamps are set automatically on creation.
+// CreateTask inserts a new task and returns the generated ID.
 func (ds *DatabaseStorage) CreateTask(task Task, userID int) (int, error) {
 	desc := task.Description
 	if len(task.Description) > 50 {
@@ -121,8 +116,7 @@ func (ds *DatabaseStorage) CreateTask(task Task, userID int) (int, error) {
 	return int(id), nil
 }
 
-// UpdateTask modifies an existing task's description and completion status.
-// Returns ErrTaskNotFound if the task doesn't exist or belongs to a different user.
+// UpdateTask modifies a task's description and status, returns ErrTaskNotFound if not owned by user.
 func (ds *DatabaseStorage) UpdateTask(task Task, userID int) error {
 	ds.logger.Debug("Updating task",
 		slog.String(logger.FieldOperation, "update_task"),
@@ -169,8 +163,7 @@ func (ds *DatabaseStorage) UpdateTask(task Task, userID int) error {
 	return nil
 }
 
-// DeleteTask removes a task from the database by ID for the specified user.
-// Returns ErrTaskNotFound if the task doesn't exist or belongs to a different user.
+// DeleteTask removes a task by ID, returns ErrTaskNotFound if not owned by user.
 func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
 	ds.logger.Debug("Deleting task",
 		slog.String(logger.FieldOperation, "delete_task"),
@@ -215,8 +208,7 @@ func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
 	return nil
 }
 
-// GetTaskByID retrieves a single task by its ID for the specified user.
-// Returns ErrTaskNotFound if the task doesn't exist or belongs to a different user.
+// GetTaskByID retrieves a task by ID, returns ErrTaskNotFound if not owned by user.
 func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task Task, err error) {
 	ds.logger.Debug("Fetching task",
 		slog.String(logger.FieldOperation, "get_task_by_id"),
@@ -244,8 +236,7 @@ func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task Task, err error
 	return task, nil
 }
 
-// LoadTasks retrieves all tasks from the database ordered by ID.
-// Returns an empty slice if no tasks exist, never returns nil.
+// LoadTasks retrieves all tasks for a user ordered by ID.
 func (ds *DatabaseStorage) LoadTasks(userID int) ([]Task, error) {
 	ds.logger.Debug("Loading tasks",
 		slog.String(logger.FieldOperation, "load_task"),
@@ -289,8 +280,7 @@ func (ds *DatabaseStorage) LoadTasks(userID int) ([]Task, error) {
 	return tasks, nil
 }
 
-// Close closes the database connection and releases associated resources.
-// Should be called during application shutdown to ensure clean termination.
+// Close closes the database connection and releases resources.
 func (ds *DatabaseStorage) Close() error {
 	ds.logger.Debug("Close database connection",
 		slog.String(logger.FieldOperation, "close"),

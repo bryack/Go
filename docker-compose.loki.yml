@@ -35,7 +35,7 @@ services:
       # JSON format enables structured log parsing in Loki
       TASKMANAGER_LOGGING_FORMAT: "json"
       # stdout allows Docker logging driver to capture logs
-      TASKMANAGER_LOGGING_OUTPUT: "stdout"
+      TASKMANAGER_LOGGING_OUTPUT: "stderr"
       TASKMANAGER_LOGGING_LEVEL: "info"
       TASKMANAGER_LOGGING_SERVICE_NAME: "task-manager-api"
       TASKMANAGER_LOGGING_ENVIRONMENT: "local"

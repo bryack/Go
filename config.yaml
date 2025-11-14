@@ -32,7 +32,7 @@ logging:
   # - stdout: Standard output (default, works with Docker)
   # - stderr: Standard error
   # - /path/to/file.log: Write to a file
-  output: "stdout"
+  output: "stderr"
   
   # Include source file and line number in error logs
   add_source: true

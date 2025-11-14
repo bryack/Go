@@ -403,8 +403,11 @@ func main() {
 
 	address := fmt.Sprintf("%s:%d", cfg.ServerConfig.Host, cfg.ServerConfig.Port)
 	server := &http.Server{
-		Addr:    address,
-		Handler: nil,
+		Addr:         address,
+		Handler:      nil,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  2 * time.Second,
 	}
 
 	shutdownChan := make(chan os.Signal, 1)
@@ -415,9 +418,18 @@ func main() {
 		l.Info("Shutdown signal received",
 			slog.String("signal", sig.String()),
 		)
+
+		go func() {
+			<-shutdownChan
+			l.Warn("Force shutdown signal received, exiting immediately")
+			s.Close()
+			os.Exit(1)
+		}()
+
 		shutdownStart := time.Now()
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.ServerConfig.ShutdownTimeout)
 		defer cancel()
+
 		exitCode := 0
 		if err := server.Shutdown(ctx); err != nil {
 			exitCode = 1
@@ -439,16 +451,11 @@ func main() {
 				slog.String("status", "success"),
 			)
 		}
+
 		if err := s.Close(); err != nil {
 			exitCode = 1
 		}
 		os.Exit(exitCode)
-	}()
-
-	go func() {
-		<-shutdownChan
-		l.Warn("Force shutdown signal received, exiting immediately")
-		os.Exit(1)
 	}()
 
 	err = server.ListenAndServe()

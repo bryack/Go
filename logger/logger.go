@@ -106,7 +106,7 @@ func NewDefault() *slog.Logger {
 	logger, _ := NewLogger(&Config{
 		Level:       "info",
 		Format:      "text",
-		Output:      "stdout",
+		Output:      "stderr",
 		AddSource:   false,
 		ServiceName: "app",
 		Environment: "development",

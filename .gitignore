@@ -1,6 +1,10 @@
+.kiro
+.vscode
+.serena
 testgen
-docs
 examples
+AGENTS.md
+docs
 
 # Build artifacts
 myproject

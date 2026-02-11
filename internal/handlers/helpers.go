@@ -7,9 +7,11 @@ import (
 	"net/http"
 )
 
+const jsonContentType = "application/json"
+
 // JSONResponse sends a JSON response with the given status code
 func JSONResponse(w http.ResponseWriter, statusCode int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", jsonContentType)
 	w.WriteHeader(statusCode)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -47,7 +49,7 @@ func joinMethods(methods []string) string {
 }
 
 func ParseJSONRequest(w http.ResponseWriter, r *http.Request, target interface{}) error {
-	if r.Header.Get("Content-Type") != "application/json" {
+	if r.Header.Get("Content-Type") != jsonContentType {
 		JSONError(w, http.StatusUnsupportedMediaType, "Content-Type must be application/json")
 		return errors.New("Invalid content type")
 	}

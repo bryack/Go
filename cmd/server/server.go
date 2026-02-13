@@ -35,6 +35,7 @@ func NewTasksServer(store storage.Storage, authMiddleware Authenticator, logger 
 	router.Handle("POST /tasks", ts.authMiddleware.Authenticate(ts.tasksHandler))
 	router.Handle("GET /tasks/{id}", ts.authMiddleware.Authenticate(ts.taskHandler))
 	router.Handle("PUT /tasks/{id}", ts.authMiddleware.Authenticate(ts.taskHandler))
+	router.Handle("DELETE /tasks/{id}", ts.authMiddleware.Authenticate(ts.taskHandler))
 
 	ts.Handler = router
 	return ts
@@ -137,6 +138,8 @@ func (ts *TasksServer) taskHandler(w http.ResponseWriter, r *http.Request) {
 		ts.processGetTaskByID(w, r, id, userID)
 	case http.MethodPut:
 		ts.processUpdateTask(w, r, id, userID)
+	case http.MethodDelete:
+		ts.processDeleteTask(w, r, id, userID)
 	}
 }
 
@@ -208,6 +211,23 @@ func (ts *TasksServer) processUpdateTask(w http.ResponseWriter, r *http.Request,
 	}
 
 	handlers.JSONSuccess(w, response)
+}
+
+func (ts *TasksServer) processDeleteTask(w http.ResponseWriter, r *http.Request, taskID int, userID int) {
+	if err := ts.store.DeleteTask(taskID, userID); err != nil {
+		ts.logger.Warn("Failed to get task by ID from database to delete",
+			slog.String(logger.FieldOperation, "task_handler"),
+			slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
+			slog.Int(logger.FieldUserID, userID),
+			slog.Int(logger.FieldTaskID, taskID),
+			slog.String(logger.FieldError, err.Error()),
+		)
+		handlers.JSONError(w, http.StatusNotFound, "Task not found")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+
 }
 
 // healthHandler provides service health status information.

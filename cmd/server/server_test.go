@@ -50,6 +50,7 @@ func (s *StubTaskStore) UpdateTask(task storage.Task, userID int) error {
 }
 
 func (s *StubTaskStore) DeleteTask(id int, userID int) error {
+	delete(s.tasks, id)
 	return nil
 }
 
@@ -268,6 +269,37 @@ func updateTaskRequest(t *testing.T) *http.Request {
 
 	request, err := http.NewRequest(http.MethodPut, "/tasks/1", bytes.NewReader(jsonTask))
 	request.Header.Set("Content-Type", "application/json")
+	assert.NoError(t, err)
+	return request
+}
+
+func TestDeleteTask(t *testing.T) {
+	store := &StubTaskStore{
+		tasks: map[int]string{
+			1: "task 1",
+			2: "task 2",
+		},
+	}
+	t.Run("update task 1", func(t *testing.T) {
+		auth := &StubAuth{authCalled: 0}
+		svr := NewTasksServer(store, auth, dummyLogger)
+
+		request := deleteTaskRequest(t)
+		response := httptest.NewRecorder()
+
+		svr.ServeHTTP(response, request)
+
+		_, ok := store.tasks[1]
+		assert.True(t, !ok)
+
+		assert.Equal(t, 1, auth.authCalled)
+	})
+}
+
+func deleteTaskRequest(t *testing.T) *http.Request {
+	t.Helper()
+
+	request, err := http.NewRequest(http.MethodDelete, "/tasks/1", nil)
 	assert.NoError(t, err)
 	return request
 }

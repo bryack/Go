@@ -1,14 +1,22 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
+	"myproject/auth"
 	"myproject/storage"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+)
+
+var (
+	dummyAuthMiddleware = &auth.AuthMiddleware{}
+	dummyLogger         = &slog.Logger{}
 )
 
 type StubTaskStore struct {
@@ -43,10 +51,23 @@ func (s *StubTaskStore) Close() error {
 	return nil
 }
 
+type StubAuth struct {
+	authCalled int
+}
+
+func (sa *StubAuth) Authenticate(handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sa.authCalled++
+		ctx := context.WithValue(r.Context(), auth.UserIDKey, 1)
+		r = r.WithContext(ctx)
+		handler(w, r)
+	}
+}
+
 func TestHealth(t *testing.T) {
 	t.Run("returns status healthy", func(t *testing.T) {
 		store := &StubTaskStore{}
-		svr := NewTasksServer(store)
+		svr := NewTasksServer(store, dummyAuthMiddleware, dummyLogger)
 		request, err := http.NewRequest(http.MethodGet, "/health", nil)
 		assert.NoError(t, err)
 		response := httptest.NewRecorder()
@@ -66,7 +87,7 @@ func TestRoot(t *testing.T) {
 
 	t.Run("returns 200 on /", func(t *testing.T) {
 		store := &StubTaskStore{}
-		svr := NewTasksServer(store)
+		svr := NewTasksServer(store, dummyAuthMiddleware, dummyLogger)
 		request, err := http.NewRequest(http.MethodGet, "/", nil)
 		assert.NoError(t, err)
 		response := httptest.NewRecorder()
@@ -84,8 +105,10 @@ func TestGetTaskByID(t *testing.T) {
 			2: "task 2",
 		},
 	}
-	svr := NewTasksServer(store)
+
 	t.Run("returns task by ID 1", func(t *testing.T) {
+		auth := &StubAuth{}
+		svr := NewTasksServer(store, auth, dummyLogger)
 		request := getTaskByIDRequest(t, "/tasks/1")
 		response := httptest.NewRecorder()
 
@@ -98,8 +121,11 @@ func TestGetTaskByID(t *testing.T) {
 		assert.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, "task 1", task.Description)
 		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
+		assert.Equal(t, 1, auth.authCalled)
 	})
 	t.Run("returns task by ID 2", func(t *testing.T) {
+		auth := &StubAuth{}
+		svr := NewTasksServer(store, auth, dummyLogger)
 		request := getTaskByIDRequest(t, "/tasks/2")
 		response := httptest.NewRecorder()
 
@@ -112,14 +138,18 @@ func TestGetTaskByID(t *testing.T) {
 		assert.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, "task 2", task.Description)
 		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
+		assert.Equal(t, 1, auth.authCalled)
 	})
 	t.Run("returns 404", func(t *testing.T) {
+		auth := &StubAuth{}
+		svr := NewTasksServer(store, auth, dummyLogger)
 		request := getTaskByIDRequest(t, "/tasks/404")
 		response := httptest.NewRecorder()
 
 		svr.ServeHTTP(response, request)
 
 		assert.Equal(t, http.StatusNotFound, response.Code)
+		assert.Equal(t, 1, auth.authCalled)
 	})
 }
 
@@ -132,7 +162,8 @@ func getTaskByIDRequest(t *testing.T, url string) *http.Request {
 
 func TestCreateTask(t *testing.T) {
 	store := &StubTaskStore{}
-	svr := NewTasksServer(store)
+	auth := &StubAuth{authCalled: 0}
+	svr := NewTasksServer(store, auth, dummyLogger)
 	t.Run("returns 201 on POST", func(t *testing.T) {
 		request := createTaskRequest(t)
 		response := httptest.NewRecorder()
@@ -145,6 +176,7 @@ func TestCreateTask(t *testing.T) {
 		assert.Equal(t, http.StatusCreated, response.Code)
 		assert.Equal(t, store.createCall[0], task.ID)
 		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
+		assert.Equal(t, 1, auth.authCalled)
 	})
 }
 
@@ -163,7 +195,8 @@ func TestLoadTasks(t *testing.T) {
 			{ID: 3, Description: "task 3"},
 		}
 		store := &StubTaskStore{nil, nil, expectedTasks}
-		svr := NewTasksServer(store)
+		auth := &StubAuth{authCalled: 0}
+		svr := NewTasksServer(store, auth, dummyLogger)
 		request := loadTasksRequest(t)
 		response := httptest.NewRecorder()
 
@@ -173,6 +206,7 @@ func TestLoadTasks(t *testing.T) {
 		assert.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, expectedTasks, got)
 		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
+		assert.Equal(t, 1, auth.authCalled)
 	})
 }
 

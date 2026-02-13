@@ -1,7 +1,8 @@
 package main
 
 import (
-	"log"
+	"log/slog"
+	"myproject/auth"
 	"myproject/internal/handlers"
 	"myproject/storage"
 	"net/http"
@@ -10,20 +11,28 @@ import (
 	"time"
 )
 
+type Authenticator interface {
+	Authenticate(handler http.HandlerFunc) http.HandlerFunc
+}
+
 type TasksServer struct {
-	store storage.Storage
+	store          storage.Storage
+	authMiddleware Authenticator
+	logger         *slog.Logger
 	http.Handler
 }
 
-func NewTasksServer(store storage.Storage) *TasksServer {
+func NewTasksServer(store storage.Storage, authMiddleware Authenticator, logger *slog.Logger) *TasksServer {
 	ts := &TasksServer{}
 	ts.store = store
+	ts.authMiddleware = authMiddleware
+	ts.logger = logger
 	router := http.NewServeMux()
 
 	router.Handle("/", http.HandlerFunc(ts.rootHandler))
 	router.Handle("/health", http.HandlerFunc(ts.healthHandler))
-	router.Handle("/tasks", http.HandlerFunc(ts.tasksHandler))
-	router.Handle("/tasks/", http.HandlerFunc(ts.taskHandler))
+	router.Handle("/tasks", ts.authMiddleware.Authenticate(ts.tasksHandler))
+	router.Handle("/tasks/", ts.authMiddleware.Authenticate(http.HandlerFunc(ts.taskHandler)))
 
 	ts.Handler = router
 	return ts
@@ -48,16 +57,21 @@ func (ts *TasksServer) rootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ts *TasksServer) tasksHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := auth.GetUserIDFromContext(r.Context())
+	if err != nil {
+		handlers.JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	switch r.Method {
 	case http.MethodGet:
-		ts.processLoadTasks(w)
+		ts.processLoadTasks(w, userID)
 	case http.MethodPost:
 		ts.processCreateTask(w)
 	}
 }
 
-func (ts *TasksServer) processLoadTasks(w http.ResponseWriter) {
-	response, err := ts.store.LoadTasks(1)
+func (ts *TasksServer) processLoadTasks(w http.ResponseWriter, userID int) {
+	response, err := ts.store.LoadTasks(userID)
 	if err != nil {
 		handlers.JSONError(w, http.StatusInternalServerError, "Failed to load tasks")
 		return
@@ -84,7 +98,8 @@ func (ts *TasksServer) processCreateTask(w http.ResponseWriter) {
 func (ts *TasksServer) processGetTaskByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(strings.TrimPrefix(r.URL.Path, "/tasks/"))
 	if err != nil {
-		log.Fatal(err)
+		handlers.JSONError(w, http.StatusBadRequest, "Task not found")
+		return
 	}
 	response, err := ts.store.GetTaskByID(id, 1)
 	if err != nil {

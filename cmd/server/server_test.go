@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"myproject/auth"
@@ -16,7 +18,7 @@ import (
 
 var (
 	dummyAuthMiddleware = &auth.AuthMiddleware{}
-	dummyLogger         = &slog.Logger{}
+	dummyLogger         = slog.New(slog.NewTextHandler(io.Discard, nil))
 )
 
 type StubTaskStore struct {
@@ -26,8 +28,11 @@ type StubTaskStore struct {
 }
 
 func (s *StubTaskStore) GetTaskByID(id int, userID int) (task storage.Task, err error) {
-	t := s.tasks[id]
-	return storage.Task{Description: t}, nil
+	t, ok := s.tasks[id]
+	if !ok {
+		return storage.Task{}, fmt.Errorf("Task not found")
+	}
+	return storage.Task{ID: id, Description: t}, nil
 }
 
 func (s *StubTaskStore) CreateTask(task storage.Task, userID int) (int, error) {
@@ -40,6 +45,7 @@ func (s *StubTaskStore) LoadTasks(userID int) ([]storage.Task, error) {
 }
 
 func (s *StubTaskStore) UpdateTask(task storage.Task, userID int) error {
+	s.tasks[task.ID] = task.Description
 	return nil
 }
 
@@ -182,7 +188,11 @@ func TestCreateTask(t *testing.T) {
 
 func createTaskRequest(t *testing.T) *http.Request {
 	t.Helper()
-	request, err := http.NewRequest(http.MethodPost, "/tasks", nil)
+	task := storage.Task{Description: "task 1"}
+	jsonTask, err := json.Marshal(task)
+
+	request, err := http.NewRequest(http.MethodPost, "/tasks", bytes.NewReader(jsonTask))
+	request.Header.Set("Content-Type", "application/json")
 	assert.NoError(t, err)
 	return request
 }
@@ -226,4 +236,38 @@ func loadTasksResponse(t testing.TB, body io.Reader) (tasks []storage.Task) {
 	}
 
 	return
+}
+
+func TestUpdateTask(t *testing.T) {
+	store := &StubTaskStore{
+		tasks: map[int]string{
+			1: "task 1",
+			2: "task 2",
+		},
+	}
+	t.Run("update task 1", func(t *testing.T) {
+		auth := &StubAuth{authCalled: 0}
+		svr := NewTasksServer(store, auth, dummyLogger)
+
+		request := updateTaskRequest(t)
+		response := httptest.NewRecorder()
+
+		svr.ServeHTTP(response, request)
+
+		assert.Equal(t, "new task 1", store.tasks[1])
+		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
+		assert.Equal(t, 1, auth.authCalled)
+	})
+}
+
+func updateTaskRequest(t *testing.T) *http.Request {
+	t.Helper()
+	task := storage.Task{ID: 1, Description: "new task 1"}
+	jsonTask, err := json.Marshal(task)
+	assert.NoError(t, err)
+
+	request, err := http.NewRequest(http.MethodPut, "/tasks/1", bytes.NewReader(jsonTask))
+	request.Header.Set("Content-Type", "application/json")
+	assert.NoError(t, err)
+	return request
 }

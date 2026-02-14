@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log/slog"
 	"myproject/auth"
 	"myproject/internal/handlers"
@@ -11,20 +12,27 @@ import (
 	"time"
 )
 
+type AuthService interface {
+	Register(email, password string) (token string, err error)
+	Login(email, password string) (token string, err error)
+}
+
 type Authenticator interface {
 	Authenticate(handler http.HandlerFunc) http.HandlerFunc
 }
 
 type TasksServer struct {
 	store          storage.Storage
+	authService    AuthService
 	authMiddleware Authenticator
 	logger         *slog.Logger
 	http.Handler
 }
 
-func NewTasksServer(store storage.Storage, authMiddleware Authenticator, logger *slog.Logger) *TasksServer {
+func NewTasksServer(store storage.Storage, authService AuthService, authMiddleware Authenticator, logger *slog.Logger) *TasksServer {
 	ts := &TasksServer{}
 	ts.store = store
+	ts.authService = authService
 	ts.authMiddleware = authMiddleware
 	ts.logger = logger
 	router := http.NewServeMux()
@@ -36,6 +44,8 @@ func NewTasksServer(store storage.Storage, authMiddleware Authenticator, logger 
 	router.Handle("GET /tasks/{id}", ts.authMiddleware.Authenticate(ts.taskHandler))
 	router.Handle("PUT /tasks/{id}", ts.authMiddleware.Authenticate(ts.taskHandler))
 	router.Handle("DELETE /tasks/{id}", ts.authMiddleware.Authenticate(ts.taskHandler))
+	router.Handle("POST /register", http.HandlerFunc(ts.registerHandler))
+	router.Handle("POST /login", http.HandlerFunc(ts.loginHandler))
 
 	ts.Handler = router
 	return ts
@@ -242,4 +252,57 @@ func (ts *TasksServer) healthHandler(w http.ResponseWriter, r *http.Request) {
 		Service:   "task-manager-api",
 	}
 	handlers.JSONSuccess(w, response)
+}
+
+func (ts *TasksServer) registerHandler(w http.ResponseWriter, r *http.Request) {
+	var registerRequest RegisterRequest
+	if err := handlers.ParseJSONRequest(w, r, &registerRequest); err != nil {
+		return
+	}
+	if registerRequest.Email == "" || registerRequest.Password == "" {
+		handlers.JSONError(w, http.StatusBadRequest, "Fields must be provided for register")
+		return
+	}
+
+	token, err := ts.authService.Register(registerRequest.Email, registerRequest.Password)
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrInvalidEmail), errors.Is(err, auth.ErrPasswordTooLong), errors.Is(err, auth.ErrPasswordTooShort):
+			handlers.JSONError(w, http.StatusBadRequest, err.Error())
+		case errors.Is(err, auth.ErrEmailAlreadyExists):
+			handlers.JSONError(w, http.StatusConflict, err.Error())
+		default:
+			handlers.JSONError(w, http.StatusInternalServerError, "registration failed")
+		}
+		return
+	}
+
+	var authResp AuthResponse
+	authResp.Email = registerRequest.Email
+	authResp.Token = token
+
+	handlers.JSONResponse(w, http.StatusCreated, authResp)
+}
+
+func (ts *TasksServer) loginHandler(w http.ResponseWriter, r *http.Request) {
+	var loginRequest LoginRequest
+	if err := handlers.ParseJSONRequest(w, r, &loginRequest); err != nil {
+		return
+	}
+
+	if loginRequest.Email == "" || loginRequest.Password == "" {
+		handlers.JSONError(w, http.StatusBadRequest, "Fields must be provided for login")
+		return
+	}
+
+	token, err := ts.authService.Login(loginRequest.Email, loginRequest.Password)
+	if err != nil {
+		handlers.JSONError(w, http.StatusUnauthorized, "invalid credentials")
+		return
+	}
+
+	var authResp AuthResponse
+	authResp.Email = loginRequest.Email
+	authResp.Token = token
+	handlers.JSONSuccess(w, authResp)
 }

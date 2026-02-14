@@ -71,10 +71,26 @@ func (sa *StubAuth) Authenticate(handler http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+type StubAuthService struct {
+	RegisterCalled []RegisterRequest
+	LoginCalled    []string
+}
+
+func (sas *StubAuthService) Register(email, password string) (token string, err error) {
+	sas.RegisterCalled = append(sas.RegisterCalled, RegisterRequest{email, password})
+	return "", nil
+}
+
+func (sas *StubAuthService) Login(email, password string) (token string, err error) {
+	sas.LoginCalled = append(sas.LoginCalled, email)
+	return "", nil
+}
+
 func TestHealth(t *testing.T) {
 	t.Run("returns status healthy", func(t *testing.T) {
 		store := &StubTaskStore{}
-		svr := NewTasksServer(store, dummyAuthMiddleware, dummyLogger)
+		authService := &StubAuthService{}
+		svr := NewTasksServer(store, authService, dummyAuthMiddleware, dummyLogger)
 		request, err := http.NewRequest(http.MethodGet, "/health", nil)
 		assert.NoError(t, err)
 		response := httptest.NewRecorder()
@@ -94,7 +110,8 @@ func TestRoot(t *testing.T) {
 
 	t.Run("returns 200 on /", func(t *testing.T) {
 		store := &StubTaskStore{}
-		svr := NewTasksServer(store, dummyAuthMiddleware, dummyLogger)
+		authService := &StubAuthService{}
+		svr := NewTasksServer(store, authService, dummyAuthMiddleware, dummyLogger)
 		request, err := http.NewRequest(http.MethodGet, "/", nil)
 		assert.NoError(t, err)
 		response := httptest.NewRecorder()
@@ -115,7 +132,8 @@ func TestGetTaskByID(t *testing.T) {
 
 	t.Run("returns task by ID 1", func(t *testing.T) {
 		auth := &StubAuth{}
-		svr := NewTasksServer(store, auth, dummyLogger)
+		authService := &StubAuthService{}
+		svr := NewTasksServer(store, authService, auth, dummyLogger)
 		request := getTaskByIDRequest(t, "/tasks/1")
 		response := httptest.NewRecorder()
 
@@ -132,7 +150,8 @@ func TestGetTaskByID(t *testing.T) {
 	})
 	t.Run("returns task by ID 2", func(t *testing.T) {
 		auth := &StubAuth{}
-		svr := NewTasksServer(store, auth, dummyLogger)
+		authService := &StubAuthService{}
+		svr := NewTasksServer(store, authService, auth, dummyLogger)
 		request := getTaskByIDRequest(t, "/tasks/2")
 		response := httptest.NewRecorder()
 
@@ -149,7 +168,8 @@ func TestGetTaskByID(t *testing.T) {
 	})
 	t.Run("returns 404", func(t *testing.T) {
 		auth := &StubAuth{}
-		svr := NewTasksServer(store, auth, dummyLogger)
+		authService := &StubAuthService{}
+		svr := NewTasksServer(store, authService, auth, dummyLogger)
 		request := getTaskByIDRequest(t, "/tasks/404")
 		response := httptest.NewRecorder()
 
@@ -170,7 +190,8 @@ func getTaskByIDRequest(t *testing.T, url string) *http.Request {
 func TestCreateTask(t *testing.T) {
 	store := &StubTaskStore{}
 	auth := &StubAuth{authCalled: 0}
-	svr := NewTasksServer(store, auth, dummyLogger)
+	authService := &StubAuthService{}
+	svr := NewTasksServer(store, authService, auth, dummyLogger)
 	t.Run("returns 201 on POST", func(t *testing.T) {
 		request := createTaskRequest(t)
 		response := httptest.NewRecorder()
@@ -207,7 +228,8 @@ func TestLoadTasks(t *testing.T) {
 		}
 		store := &StubTaskStore{nil, nil, expectedTasks}
 		auth := &StubAuth{authCalled: 0}
-		svr := NewTasksServer(store, auth, dummyLogger)
+		authService := &StubAuthService{}
+		svr := NewTasksServer(store, authService, auth, dummyLogger)
 		request := loadTasksRequest(t)
 		response := httptest.NewRecorder()
 
@@ -248,7 +270,8 @@ func TestUpdateTask(t *testing.T) {
 	}
 	t.Run("update task 1", func(t *testing.T) {
 		auth := &StubAuth{authCalled: 0}
-		svr := NewTasksServer(store, auth, dummyLogger)
+		authService := &StubAuthService{}
+		svr := NewTasksServer(store, authService, auth, dummyLogger)
 
 		request := updateTaskRequest(t)
 		response := httptest.NewRecorder()
@@ -280,9 +303,10 @@ func TestDeleteTask(t *testing.T) {
 			2: "task 2",
 		},
 	}
-	t.Run("update task 1", func(t *testing.T) {
+	t.Run("delete task 1", func(t *testing.T) {
 		auth := &StubAuth{authCalled: 0}
-		svr := NewTasksServer(store, auth, dummyLogger)
+		authService := &StubAuthService{}
+		svr := NewTasksServer(store, authService, auth, dummyLogger)
 
 		request := deleteTaskRequest(t)
 		response := httptest.NewRecorder()
@@ -291,7 +315,7 @@ func TestDeleteTask(t *testing.T) {
 
 		_, ok := store.tasks[1]
 		assert.True(t, !ok)
-
+		assert.Equal(t, http.StatusNoContent, response.Code)
 		assert.Equal(t, 1, auth.authCalled)
 	})
 }
@@ -300,6 +324,73 @@ func deleteTaskRequest(t *testing.T) *http.Request {
 	t.Helper()
 
 	request, err := http.NewRequest(http.MethodDelete, "/tasks/1", nil)
+	assert.NoError(t, err)
+	return request
+}
+
+func TestRegister(t *testing.T) {
+
+	t.Run("register test email", func(t *testing.T) {
+		store := &StubTaskStore{}
+		auth := &StubAuth{}
+		authService := &StubAuthService{}
+		svr := NewTasksServer(store, authService, auth, dummyLogger)
+
+		request := registerRequest(t)
+		response := httptest.NewRecorder()
+
+		svr.ServeHTTP(response, request)
+
+		assert.Equal(t, http.StatusCreated, response.Code)
+		assert.Equal(t, RegisterRequest{"test@email.com", "test_pass"}, authService.RegisterCalled[0])
+	})
+}
+
+func registerRequest(t *testing.T) *http.Request {
+	t.Helper()
+	reg := RegisterRequest{
+		Email:    "test@email.com",
+		Password: "test_pass",
+	}
+	jsonUser, err := json.Marshal(reg)
+	assert.NoError(t, err)
+
+	request, err := http.NewRequest(http.MethodPost, "/register", bytes.NewReader(jsonUser))
+	request.Header.Set("Content-Type", "application/json")
+	assert.NoError(t, err)
+	return request
+}
+
+func TestLogin(t *testing.T) {
+
+	t.Run("login test email", func(t *testing.T) {
+		store := &StubTaskStore{}
+		auth := &StubAuth{}
+		authService := &StubAuthService{}
+		authService.RegisterCalled = []RegisterRequest{{"test@email.com", "test_pass"}}
+		svr := NewTasksServer(store, authService, auth, dummyLogger)
+
+		request := loginRequest(t)
+		response := httptest.NewRecorder()
+
+		svr.ServeHTTP(response, request)
+
+		assert.Equal(t, http.StatusOK, response.Code)
+		assert.Equal(t, "test@email.com", authService.LoginCalled[0])
+	})
+}
+
+func loginRequest(t *testing.T) *http.Request {
+	t.Helper()
+	reg := RegisterRequest{
+		Email:    "test@email.com",
+		Password: "test_pass",
+	}
+	jsonUser, err := json.Marshal(reg)
+	assert.NoError(t, err)
+
+	request, err := http.NewRequest(http.MethodPost, "/login", bytes.NewReader(jsonUser))
+	request.Header.Set("Content-Type", "application/json")
 	assert.NoError(t, err)
 	return request
 }

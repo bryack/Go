@@ -29,12 +29,12 @@ type TasksServer struct {
 	http.Handler
 }
 
-func NewTasksServer(store storage.Storage, authService AuthService, authMiddleware Authenticator, logger *slog.Logger) *TasksServer {
+func NewTasksServer(store storage.Storage, authService AuthService, authMiddleware Authenticator, l *slog.Logger) *TasksServer {
 	ts := &TasksServer{}
 	ts.store = store
 	ts.authService = authService
 	ts.authMiddleware = authMiddleware
-	ts.logger = logger
+	ts.logger = l
 	router := http.NewServeMux()
 
 	router.Handle("/", http.HandlerFunc(ts.rootHandler))
@@ -47,7 +47,7 @@ func NewTasksServer(store storage.Storage, authService AuthService, authMiddlewa
 	router.Handle("POST /register", http.HandlerFunc(ts.registerHandler))
 	router.Handle("POST /login", http.HandlerFunc(ts.loginHandler))
 
-	ts.Handler = router
+	ts.Handler = logger.LoggingMiddleware(l)(router)
 	return ts
 }
 
@@ -216,7 +216,12 @@ func (ts *TasksServer) processUpdateTask(w http.ResponseWriter, r *http.Request,
 	}
 
 	if err := ts.store.UpdateTask(response, userID); err != nil {
-		handlers.JSONError(w, http.StatusNotFound, "Task not found")
+		ts.logger.Error("Failed to update task in database",
+			slog.String(logger.FieldOperation, "task_handler"),
+			slog.Int(logger.FieldTaskID, taskID),
+			slog.String(logger.FieldError, err.Error()),
+		)
+		handlers.JSONError(w, http.StatusNotFound, "Failed to update task")
 		return
 	}
 
@@ -225,7 +230,7 @@ func (ts *TasksServer) processUpdateTask(w http.ResponseWriter, r *http.Request,
 
 func (ts *TasksServer) processDeleteTask(w http.ResponseWriter, r *http.Request, taskID int, userID int) {
 	if err := ts.store.DeleteTask(taskID, userID); err != nil {
-		ts.logger.Warn("Failed to get task by ID from database to delete",
+		ts.logger.Warn("Failed to delete task from database",
 			slog.String(logger.FieldOperation, "task_handler"),
 			slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
 			slog.Int(logger.FieldUserID, userID),
@@ -237,7 +242,6 @@ func (ts *TasksServer) processDeleteTask(w http.ResponseWriter, r *http.Request,
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-
 }
 
 // healthHandler provides service health status information.
@@ -272,6 +276,10 @@ func (ts *TasksServer) registerHandler(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, auth.ErrEmailAlreadyExists):
 			handlers.JSONError(w, http.StatusConflict, err.Error())
 		default:
+			ts.logger.Error("Registration failed",
+				slog.String(logger.FieldOperation, "register_handler"),
+				slog.String(logger.FieldError, err.Error()),
+			)
 			handlers.JSONError(w, http.StatusInternalServerError, "registration failed")
 		}
 		return
@@ -297,6 +305,11 @@ func (ts *TasksServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	token, err := ts.authService.Login(loginRequest.Email, loginRequest.Password)
 	if err != nil {
+		ts.logger.Warn("Login failed",
+			slog.String(logger.FieldOperation, "login_handler"),
+			slog.String("email", loginRequest.Email),
+			slog.String(logger.FieldError, err.Error()),
+		)
 		handlers.JSONError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}

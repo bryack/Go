@@ -394,3 +394,22 @@ func loginRequest(t *testing.T) *http.Request {
 	assert.NoError(t, err)
 	return request
 }
+
+func TestLoggingMiddleware(t *testing.T) {
+	var logBuffer bytes.Buffer
+	testLogger := slog.New(slog.NewJSONHandler(&logBuffer, nil))
+	store := &StubTaskStore{}
+	authService := &StubAuthService{}
+	auth := &StubAuth{}
+
+	svr := NewTasksServer(store, authService, auth, testLogger)
+
+	request, err := http.NewRequest(http.MethodGet, "/health", nil)
+	assert.NoError(t, err)
+	response := httptest.NewRecorder()
+
+	svr.ServeHTTP(response, request)
+
+	assert.Contains(t, logBuffer.String(), "HTTP request started")
+	assert.Contains(t, logBuffer.String(), "HTTP request completed")
+}

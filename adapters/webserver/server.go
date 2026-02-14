@@ -3,6 +3,7 @@ package webserver
 import (
 	"errors"
 	"log/slog"
+	"myproject/application"
 	"myproject/auth"
 	"myproject/internal/domain"
 	"myproject/internal/handlers"
@@ -62,6 +63,7 @@ type Authenticator interface {
 
 type TasksServer struct {
 	store          domain.Storage
+	service        *application.Service
 	authService    AuthService
 	authMiddleware Authenticator
 	logger         *slog.Logger
@@ -73,6 +75,7 @@ func NewTasksServer(store domain.Storage, authService AuthService, authMiddlewar
 	ts.store = store
 	ts.authService = authService
 	ts.authMiddleware = authMiddleware
+	ts.service = application.NewService(store)
 	ts.logger = l
 	router := http.NewServeMux()
 
@@ -218,56 +221,20 @@ func (ts *TasksServer) processUpdateTask(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	if taskRequest.Description == nil && taskRequest.Done == nil {
-		handlers.JSONError(w, http.StatusBadRequest, "At least one field must be provided for update")
-		return
-	}
-
-	response, err := ts.store.GetTaskByID(taskID, userID)
+	task, err := ts.service.UpdateTask(taskID, userID, taskRequest.Description, taskRequest.Done)
 	if err != nil {
-		ts.logger.Warn("Failed to get task by ID from database to update",
-			slog.String(logger.FieldOperation, "task_handler"),
-			slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
-			slog.Int(logger.FieldUserID, userID),
-			slog.Int(logger.FieldTaskID, taskID),
-			slog.String(logger.FieldError, err.Error()),
-		)
-		handlers.JSONError(w, http.StatusNotFound, "Task not found")
-		return
-	}
-
-	if taskRequest.Description != nil {
-		desc := string(*taskRequest.Description)
-		desc, err = validation.ValidateTaskDescription(desc)
-		if err != nil {
-			ts.logger.Warn("Failed to validate description",
-				slog.String(logger.FieldOperation, "task_handler"),
-				slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
-				slog.Int(logger.FieldUserID, userID),
-				slog.String("task_description", string(*taskRequest.Description)),
-				slog.String(logger.FieldError, err.Error()),
-			)
-			handlers.JSONError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		response.Description = desc
-	}
-
-	if taskRequest.Done != nil {
-		response.Done = *taskRequest.Done
-	}
-
-	if err := ts.store.UpdateTask(response, userID); err != nil {
 		ts.logger.Error("Failed to update task in database",
 			slog.String(logger.FieldOperation, "task_handler"),
+			slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
 			slog.Int(logger.FieldTaskID, taskID),
+			slog.String("task_description", string(*taskRequest.Description)),
 			slog.String(logger.FieldError, err.Error()),
 		)
 		handlers.JSONError(w, http.StatusNotFound, "Failed to update task")
 		return
 	}
 
-	handlers.JSONSuccess(w, response)
+	handlers.JSONSuccess(w, task)
 }
 
 func (ts *TasksServer) processDeleteTask(w http.ResponseWriter, r *http.Request, taskID int, userID int) {

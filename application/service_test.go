@@ -105,3 +105,45 @@ func TestUpdateTask(t *testing.T) {
 
 func stringPtr(s string) *string { return &s }
 func boolPtr(b bool) *bool       { return &b }
+
+func TestCreateTask(t *testing.T) {
+	tests := []struct {
+		name                string
+		description         string
+		expectedCreateCall  int
+		expectedDescription string
+		wantErr             bool
+	}{
+		{
+			name:                "successfully created task",
+			description:         "task 1",
+			expectedCreateCall:  1,
+			expectedDescription: "task 1",
+			wantErr:             false,
+		},
+		{
+			name:                "empty description",
+			description:         "",
+			expectedCreateCall:  0,
+			expectedDescription: "",
+			wantErr:             true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := &testhelpers.StubTaskStore{}
+			service := NewService(store)
+
+			task, err := service.CreateTask(tt.description, 1)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.expectedCreateCall, len(store.CreateCall))
+			assert.Equal(t, tt.expectedDescription, task.Description)
+			assert.False(t, task.Done)
+		})
+	}
+}

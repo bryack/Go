@@ -42,3 +42,18 @@ func (s *Service) UpdateTask(taskID, userID int, description *string, done *bool
 	}
 	return task, nil
 }
+
+func (s *Service) CreateTask(description string, userID int) (domain.Task, error) {
+	desc, err := validation.ValidateTaskDescription(description)
+	if err != nil {
+		return domain.Task{}, fmt.Errorf("failed to validate description: %w", err)
+	}
+
+	newTask := domain.Task{Description: desc, Done: false}
+	id, err := s.store.CreateTask(newTask, userID)
+	if err != nil {
+		return domain.Task{}, fmt.Errorf("failed to create task: %w", err)
+	}
+	newTask.ID = id
+	return newTask, nil
+}

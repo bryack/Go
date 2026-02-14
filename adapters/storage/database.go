@@ -15,16 +15,6 @@ var (
 	ErrTaskNotFound = errors.New("task not found")
 )
 
-// Storage defines the interface for task persistence operations.
-type Storage interface {
-	LoadTasks(userID int) ([]domain.Task, error)
-	GetTaskByID(id int, userID int) (task domain.Task, err error)
-	CreateTask(task domain.Task, userID int) (int, error)
-	UpdateTask(task domain.Task, userID int) error
-	DeleteTask(id int, userID int) error
-	Close() error
-}
-
 // DatabaseStorage provides SQLite-based task persistence with automatic migrations.
 type DatabaseStorage struct {
 	db       *sql.DB

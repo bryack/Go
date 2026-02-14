@@ -3,7 +3,6 @@ package webserver
 import (
 	"errors"
 	"log/slog"
-	"myproject/adapters/storage"
 	"myproject/auth"
 	"myproject/internal/domain"
 	"myproject/internal/handlers"
@@ -62,14 +61,14 @@ type Authenticator interface {
 }
 
 type TasksServer struct {
-	store          storage.Storage
+	store          domain.Storage
 	authService    AuthService
 	authMiddleware Authenticator
 	logger         *slog.Logger
 	http.Handler
 }
 
-func NewTasksServer(store storage.Storage, authService AuthService, authMiddleware Authenticator, l *slog.Logger) *TasksServer {
+func NewTasksServer(store domain.Storage, authService AuthService, authMiddleware Authenticator, l *slog.Logger) *TasksServer {
 	ts := &TasksServer{}
 	ts.store = store
 	ts.authService = authService

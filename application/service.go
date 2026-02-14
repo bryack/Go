@@ -2,16 +2,15 @@ package application
 
 import (
 	"fmt"
-	"myproject/adapters/storage"
 	"myproject/internal/domain"
 	"myproject/validation"
 )
 
 type Service struct {
-	store storage.Storage
+	store domain.Storage
 }
 
-func NewService(store storage.Storage) *Service {
+func NewService(store domain.Storage) *Service {
 	return &Service{store: store}
 }
 

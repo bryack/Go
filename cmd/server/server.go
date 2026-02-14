@@ -12,6 +12,45 @@ import (
 	"time"
 )
 
+// HealthResponse represents the JSON response for health check endpoints.
+type HealthResponse struct {
+	Status    string    `json:"status"`
+	Timestamp time.Time `json:"timestamp"`
+	Service   string    `json:"service"`
+}
+
+// CreateTaskRequest represents the JSON payload for creating new tasks.
+type CreateTaskRequest struct {
+	Description string `json:"description"`
+}
+
+// UpdateTaskRequest represents the JSON payload for updating tasks with optional fields.
+type UpdateTaskRequest struct {
+	Description *string `json:"description,omitempty"`
+	Done        *bool   `json:"done,omitempty"`
+}
+
+// RegisterRequest represents the JSON payload for user registration.
+// Contains email and password fields for creating a new account.
+type RegisterRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// LoginRequest represents the JSON payload for user authentication.
+// Contains email and password credentials for login.
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// AuthResponse represents the JSON response for successful authentication.
+// Contains the JWT token and associated email address.
+type AuthResponse struct {
+	Token string `json:"token"`
+	Email string `json:"email"`
+}
+
 type AuthService interface {
 	Register(email, password string) (token string, err error)
 	Login(email, password string) (token string, err error)
@@ -51,6 +90,7 @@ func NewTasksServer(store storage.Storage, authService AuthService, authMiddlewa
 	return ts
 }
 
+// rootHandler serves the API information and available endpoints.
 func (ts *TasksServer) rootHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"message": "Task Manager API",
@@ -69,6 +109,7 @@ func (ts *TasksServer) rootHandler(w http.ResponseWriter, r *http.Request) {
 	handlers.JSONSuccess(w, response)
 }
 
+// tasksHandler handles GET (list all tasks) and POST (create task) requests.
 func (ts *TasksServer) tasksHandler(w http.ResponseWriter, r *http.Request) {
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {
@@ -131,6 +172,7 @@ func (ts *TasksServer) processCreateTask(w http.ResponseWriter, r *http.Request,
 	handlers.JSONResponse(w, http.StatusCreated, newTask)
 }
 
+// taskHandler handles GET, PUT, and DELETE operations for individual tasks by ID.
 func (ts *TasksServer) taskHandler(w http.ResponseWriter, r *http.Request) {
 	userID, err := auth.GetUserIDFromContext(r.Context())
 	if err != nil {
@@ -258,6 +300,7 @@ func (ts *TasksServer) healthHandler(w http.ResponseWriter, r *http.Request) {
 	handlers.JSONSuccess(w, response)
 }
 
+// RegisterHandler creates a new user account and returns a JWT token.
 func (ts *TasksServer) registerHandler(w http.ResponseWriter, r *http.Request) {
 	var registerRequest RegisterRequest
 	if err := handlers.ParseJSONRequest(w, r, &registerRequest); err != nil {
@@ -292,6 +335,7 @@ func (ts *TasksServer) registerHandler(w http.ResponseWriter, r *http.Request) {
 	handlers.JSONResponse(w, http.StatusCreated, authResp)
 }
 
+// LoginHandler authenticates user credentials and returns a JWT token.
 func (ts *TasksServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 	var loginRequest LoginRequest
 	if err := handlers.ParseJSONRequest(w, r, &loginRequest); err != nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"myproject/adapters/webserver"
 	"myproject/auth"
 	"myproject/cmd/server/config"
 	"myproject/logger"
@@ -65,7 +66,7 @@ func main() {
 		slog.Duration("expiration", cfg.JWTConfig.Expiration),
 	)
 
-	tasksServer := NewTasksServer(s, authService, authMiddleware, l)
+	tasksServer := webserver.NewTasksServer(s, authService, authMiddleware, l)
 
 	endpointsList := []string{
 		"GET /",

@@ -3,10 +3,10 @@ package webserver
 import (
 	"errors"
 	"log/slog"
+	"myproject/adapters/storage"
 	"myproject/auth"
 	"myproject/internal/handlers"
 	"myproject/logger"
-	"myproject/storage"
 	"myproject/validation"
 	"net/http"
 	"time"

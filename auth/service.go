@@ -3,8 +3,8 @@ package auth
 import (
 	"errors"
 	"log/slog"
+	"myproject/adapters/storage"
 	"myproject/logger"
-	"myproject/storage"
 	"regexp"
 
 	"golang.org/x/crypto/bcrypt"

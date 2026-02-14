@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
-	"myproject/adapters/storage"
 	"myproject/auth"
 	"myproject/infrastructure/testhelpers"
+	"myproject/internal/domain"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -102,7 +102,7 @@ func TestGetTaskByID(t *testing.T) {
 
 		svr.ServeHTTP(response, request)
 
-		task := storage.Task{}
+		task := domain.Task{}
 		err := json.NewDecoder(response.Body).Decode(&task)
 		assert.NoError(t, err)
 
@@ -120,7 +120,7 @@ func TestGetTaskByID(t *testing.T) {
 
 		svr.ServeHTTP(response, request)
 
-		task := storage.Task{}
+		task := domain.Task{}
 		err := json.NewDecoder(response.Body).Decode(&task)
 		assert.NoError(t, err)
 
@@ -161,7 +161,7 @@ func TestCreateTask(t *testing.T) {
 
 		svr.ServeHTTP(response, request)
 
-		task := storage.Task{}
+		task := domain.Task{}
 		err := json.NewDecoder(response.Body).Decode(&task)
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusCreated, response.Code)
@@ -173,7 +173,7 @@ func TestCreateTask(t *testing.T) {
 
 func createTaskRequest(t *testing.T) *http.Request {
 	t.Helper()
-	task := storage.Task{Description: "task 1"}
+	task := domain.Task{Description: "task 1"}
 	jsonTask, err := json.Marshal(task)
 
 	request, err := http.NewRequest(http.MethodPost, "/tasks", bytes.NewReader(jsonTask))
@@ -184,7 +184,7 @@ func createTaskRequest(t *testing.T) *http.Request {
 
 func TestLoadTasks(t *testing.T) {
 	t.Run("returns tasks on GET /tasks", func(t *testing.T) {
-		expectedTasks := []storage.Task{
+		expectedTasks := []domain.Task{
 			{ID: 1, Description: "task 1"},
 			{ID: 2, Description: "task 2"},
 			{ID: 3, Description: "task 3"},
@@ -213,7 +213,7 @@ func loadTasksRequest(t *testing.T) *http.Request {
 	return request
 }
 
-func loadTasksResponse(t testing.TB, body io.Reader) (tasks []storage.Task) {
+func loadTasksResponse(t testing.TB, body io.Reader) (tasks []domain.Task) {
 	t.Helper()
 	err := json.NewDecoder(body).Decode(&tasks)
 
@@ -249,7 +249,7 @@ func TestUpdateTask(t *testing.T) {
 
 func updateTaskRequest(t *testing.T) *http.Request {
 	t.Helper()
-	task := storage.Task{ID: 1, Description: "new task 1"}
+	task := domain.Task{ID: 1, Description: "new task 1"}
 	jsonTask, err := json.Marshal(task)
 	assert.NoError(t, err)
 

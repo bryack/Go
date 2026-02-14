@@ -2,34 +2,34 @@ package testhelpers
 
 import (
 	"fmt"
-	"myproject/adapters/storage"
+	"myproject/internal/domain"
 )
 
 type StubTaskStore struct {
 	Tasks            map[int]string
 	CreateCall       []int
-	TasksTable       []storage.Task
+	TasksTable       []domain.Task
 	UpdateTaskCalled int
 }
 
-func (s *StubTaskStore) GetTaskByID(id int, userID int) (task storage.Task, err error) {
+func (s *StubTaskStore) GetTaskByID(id int, userID int) (task domain.Task, err error) {
 	t, ok := s.Tasks[id]
 	if !ok {
-		return storage.Task{}, fmt.Errorf("Task not found")
+		return domain.Task{}, fmt.Errorf("Task not found")
 	}
-	return storage.Task{ID: id, Description: t}, nil
+	return domain.Task{ID: id, Description: t}, nil
 }
 
-func (s *StubTaskStore) CreateTask(task storage.Task, userID int) (int, error) {
+func (s *StubTaskStore) CreateTask(task domain.Task, userID int) (int, error) {
 	s.CreateCall = append(s.CreateCall, task.ID)
 	return task.ID, nil
 }
 
-func (s *StubTaskStore) LoadTasks(userID int) ([]storage.Task, error) {
+func (s *StubTaskStore) LoadTasks(userID int) ([]domain.Task, error) {
 	return s.TasksTable, nil
 }
 
-func (s *StubTaskStore) UpdateTask(task storage.Task, userID int) error {
+func (s *StubTaskStore) UpdateTask(task domain.Task, userID int) error {
 	s.UpdateTaskCalled++
 	s.Tasks[task.ID] = task.Description
 	return nil

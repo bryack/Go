@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"myproject/internal/domain"
 	"myproject/logger"
 	"os"
 	"time"
@@ -14,19 +15,12 @@ var (
 	ErrTaskNotFound = errors.New("task not found")
 )
 
-// Task represents a single task with ID, description, and completion status.
-type Task struct {
-	ID          int    `json:"id"`
-	Description string `json:"description"`
-	Done        bool   `json:"done"`
-}
-
 // Storage defines the interface for task persistence operations.
 type Storage interface {
-	LoadTasks(userID int) ([]Task, error)
-	GetTaskByID(id int, userID int) (task Task, err error)
-	CreateTask(task Task, userID int) (int, error)
-	UpdateTask(task Task, userID int) error
+	LoadTasks(userID int) ([]domain.Task, error)
+	GetTaskByID(id int, userID int) (task domain.Task, err error)
+	CreateTask(task domain.Task, userID int) (int, error)
+	UpdateTask(task domain.Task, userID int) error
 	DeleteTask(id int, userID int) error
 	Close() error
 }
@@ -81,7 +75,7 @@ func NewDatabaseStorage(dbPath string, logger *slog.Logger) (*DatabaseStorage, e
 }
 
 // CreateTask inserts a new task and returns the generated ID.
-func (ds *DatabaseStorage) CreateTask(task Task, userID int) (int, error) {
+func (ds *DatabaseStorage) CreateTask(task domain.Task, userID int) (int, error) {
 	desc := task.Description
 	if len(task.Description) > 50 {
 		desc = desc[:50]
@@ -117,7 +111,7 @@ func (ds *DatabaseStorage) CreateTask(task Task, userID int) (int, error) {
 }
 
 // UpdateTask modifies a task's description and status, returns ErrTaskNotFound if not owned by user.
-func (ds *DatabaseStorage) UpdateTask(task Task, userID int) error {
+func (ds *DatabaseStorage) UpdateTask(task domain.Task, userID int) error {
 	ds.logger.Debug("Updating task",
 		slog.String(logger.FieldOperation, "update_task"),
 		slog.Int(logger.FieldTaskID, task.ID),
@@ -209,7 +203,7 @@ func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
 }
 
 // GetTaskByID retrieves a task by ID, returns ErrTaskNotFound if not owned by user.
-func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task Task, err error) {
+func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task domain.Task, err error) {
 	ds.logger.Debug("Fetching task",
 		slog.String(logger.FieldOperation, "get_task_by_id"),
 		slog.Int(logger.FieldTaskID, id),
@@ -222,7 +216,7 @@ func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task Task, err error
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return task, ErrTaskNotFound
+			return domain.Task{}, ErrTaskNotFound
 		}
 		ds.logger.Error("Failed to query database select from tasks",
 			slog.String(logger.FieldOperation, "get_task_by_id"),
@@ -230,14 +224,14 @@ func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task Task, err error
 			slog.Int(logger.FieldUserID, userID),
 			slog.String(logger.FieldError, err.Error()),
 		)
-		return task, mapSQLiteError(err)
+		return domain.Task{}, mapSQLiteError(err)
 	}
 
 	return task, nil
 }
 
 // LoadTasks retrieves all tasks for a user ordered by ID.
-func (ds *DatabaseStorage) LoadTasks(userID int) ([]Task, error) {
+func (ds *DatabaseStorage) LoadTasks(userID int) ([]domain.Task, error) {
 	ds.logger.Debug("Loading tasks",
 		slog.String(logger.FieldOperation, "load_task"),
 		slog.Int(logger.FieldUserID, userID),
@@ -254,9 +248,9 @@ func (ds *DatabaseStorage) LoadTasks(userID int) ([]Task, error) {
 	}
 
 	defer rows.Close()
-	tasks := make([]Task, 0)
+	tasks := make([]domain.Task, 0)
 	for rows.Next() {
-		var task Task
+		var task domain.Task
 		if err := rows.Scan(&task.ID, &task.Description, &task.Done); err != nil {
 			ds.logger.Error("Failed to scan database rows",
 				slog.String(logger.FieldOperation, "load_task"),

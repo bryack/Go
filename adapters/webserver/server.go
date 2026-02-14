@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"myproject/adapters/storage"
 	"myproject/auth"
+	"myproject/internal/domain"
 	"myproject/internal/handlers"
 	"myproject/logger"
 	"myproject/validation"
@@ -155,7 +156,7 @@ func (ts *TasksServer) processCreateTask(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	newTask := storage.Task{Description: desc, Done: false}
+	newTask := domain.Task{Description: desc, Done: false}
 	id, err := ts.store.CreateTask(newTask, userID)
 	if err != nil {
 		ts.logger.Error("Failed to create task in database",

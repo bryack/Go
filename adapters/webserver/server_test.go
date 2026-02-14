@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"myproject/adapters/storage"
 	"myproject/auth"
+	"myproject/infrastructure/testhelpers"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,43 +20,6 @@ var (
 	dummyAuthMiddleware = &auth.AuthMiddleware{}
 	dummyLogger         = slog.New(slog.NewTextHandler(io.Discard, nil))
 )
-
-type StubTaskStore struct {
-	tasks      map[int]string
-	createCall []int
-	tasksTable []storage.Task
-}
-
-func (s *StubTaskStore) GetTaskByID(id int, userID int) (task storage.Task, err error) {
-	t, ok := s.tasks[id]
-	if !ok {
-		return storage.Task{}, fmt.Errorf("Task not found")
-	}
-	return storage.Task{ID: id, Description: t}, nil
-}
-
-func (s *StubTaskStore) CreateTask(task storage.Task, userID int) (int, error) {
-	s.createCall = append(s.createCall, task.ID)
-	return task.ID, nil
-}
-
-func (s *StubTaskStore) LoadTasks(userID int) ([]storage.Task, error) {
-	return s.tasksTable, nil
-}
-
-func (s *StubTaskStore) UpdateTask(task storage.Task, userID int) error {
-	s.tasks[task.ID] = task.Description
-	return nil
-}
-
-func (s *StubTaskStore) DeleteTask(id int, userID int) error {
-	delete(s.tasks, id)
-	return nil
-}
-
-func (s *StubTaskStore) Close() error {
-	return nil
-}
 
 type StubAuth struct {
 	authCalled int
@@ -88,7 +51,7 @@ func (sas *StubAuthService) Login(email, password string) (token string, err err
 
 func TestHealth(t *testing.T) {
 	t.Run("returns status healthy", func(t *testing.T) {
-		store := &StubTaskStore{}
+		store := &testhelpers.StubTaskStore{}
 		authService := &StubAuthService{}
 		svr := NewTasksServer(store, authService, dummyAuthMiddleware, dummyLogger)
 		request, err := http.NewRequest(http.MethodGet, "/health", nil)
@@ -109,7 +72,7 @@ func TestHealth(t *testing.T) {
 func TestRoot(t *testing.T) {
 
 	t.Run("returns 200 on /", func(t *testing.T) {
-		store := &StubTaskStore{}
+		store := &testhelpers.StubTaskStore{}
 		authService := &StubAuthService{}
 		svr := NewTasksServer(store, authService, dummyAuthMiddleware, dummyLogger)
 		request, err := http.NewRequest(http.MethodGet, "/", nil)
@@ -123,8 +86,8 @@ func TestRoot(t *testing.T) {
 }
 
 func TestGetTaskByID(t *testing.T) {
-	store := &StubTaskStore{
-		tasks: map[int]string{
+	store := &testhelpers.StubTaskStore{
+		Tasks: map[int]string{
 			1: "task 1",
 			2: "task 2",
 		},
@@ -188,7 +151,7 @@ func getTaskByIDRequest(t *testing.T, url string) *http.Request {
 }
 
 func TestCreateTask(t *testing.T) {
-	store := &StubTaskStore{}
+	store := &testhelpers.StubTaskStore{}
 	auth := &StubAuth{authCalled: 0}
 	authService := &StubAuthService{}
 	svr := NewTasksServer(store, authService, auth, dummyLogger)
@@ -202,7 +165,7 @@ func TestCreateTask(t *testing.T) {
 		err := json.NewDecoder(response.Body).Decode(&task)
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusCreated, response.Code)
-		assert.Equal(t, store.createCall[0], task.ID)
+		assert.Equal(t, store.CreateCall[0], task.ID)
 		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
 		assert.Equal(t, 1, auth.authCalled)
 	})
@@ -226,7 +189,7 @@ func TestLoadTasks(t *testing.T) {
 			{ID: 2, Description: "task 2"},
 			{ID: 3, Description: "task 3"},
 		}
-		store := &StubTaskStore{nil, nil, expectedTasks}
+		store := &testhelpers.StubTaskStore{Tasks: nil, CreateCall: nil, TasksTable: expectedTasks}
 		auth := &StubAuth{authCalled: 0}
 		authService := &StubAuthService{}
 		svr := NewTasksServer(store, authService, auth, dummyLogger)
@@ -262,8 +225,8 @@ func loadTasksResponse(t testing.TB, body io.Reader) (tasks []storage.Task) {
 }
 
 func TestUpdateTask(t *testing.T) {
-	store := &StubTaskStore{
-		tasks: map[int]string{
+	store := &testhelpers.StubTaskStore{
+		Tasks: map[int]string{
 			1: "task 1",
 			2: "task 2",
 		},
@@ -278,7 +241,7 @@ func TestUpdateTask(t *testing.T) {
 
 		svr.ServeHTTP(response, request)
 
-		assert.Equal(t, "new task 1", store.tasks[1])
+		assert.Equal(t, "new task 1", store.Tasks[1])
 		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
 		assert.Equal(t, 1, auth.authCalled)
 	})
@@ -297,8 +260,8 @@ func updateTaskRequest(t *testing.T) *http.Request {
 }
 
 func TestDeleteTask(t *testing.T) {
-	store := &StubTaskStore{
-		tasks: map[int]string{
+	store := &testhelpers.StubTaskStore{
+		Tasks: map[int]string{
 			1: "task 1",
 			2: "task 2",
 		},
@@ -313,7 +276,7 @@ func TestDeleteTask(t *testing.T) {
 
 		svr.ServeHTTP(response, request)
 
-		_, ok := store.tasks[1]
+		_, ok := store.Tasks[1]
 		assert.True(t, !ok)
 		assert.Equal(t, http.StatusNoContent, response.Code)
 		assert.Equal(t, 1, auth.authCalled)
@@ -331,7 +294,7 @@ func deleteTaskRequest(t *testing.T) *http.Request {
 func TestRegister(t *testing.T) {
 
 	t.Run("register test email", func(t *testing.T) {
-		store := &StubTaskStore{}
+		store := &testhelpers.StubTaskStore{}
 		auth := &StubAuth{}
 		authService := &StubAuthService{}
 		svr := NewTasksServer(store, authService, auth, dummyLogger)
@@ -364,7 +327,7 @@ func registerRequest(t *testing.T) *http.Request {
 func TestLogin(t *testing.T) {
 
 	t.Run("login test email", func(t *testing.T) {
-		store := &StubTaskStore{}
+		store := &testhelpers.StubTaskStore{}
 		auth := &StubAuth{}
 		authService := &StubAuthService{}
 		authService.RegisterCalled = []RegisterRequest{{"test@email.com", "test_pass"}}
@@ -398,7 +361,7 @@ func loginRequest(t *testing.T) *http.Request {
 func TestLoggingMiddleware(t *testing.T) {
 	var logBuffer bytes.Buffer
 	testLogger := slog.New(slog.NewJSONHandler(&logBuffer, nil))
-	store := &StubTaskStore{}
+	store := &testhelpers.StubTaskStore{}
 	authService := &StubAuthService{}
 	auth := &StubAuth{}
 

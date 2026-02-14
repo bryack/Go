@@ -2,6 +2,8 @@ package validation
 
 import (
 	"errors"
+	"fmt"
+	infraErrors "myproject/infrastructure/errors"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,12 +33,12 @@ func ValidateTaskID(input string) (int, error) {
 // Returns trimmed description or error if empty or exceeds 200 characters.
 func ValidateTaskDescription(input string) (string, error) {
 	if len(input) == 0 {
-		return "", errors.New("description is required")
+		return "", infraErrors.ErrDescriptionRequired
 	}
 
 	input = strings.TrimSpace(input)
 	if len(input) > 200 {
-		return "", errors.New("description too long (max 200 characters)")
+		return "", infraErrors.ErrDescriptionTooLong
 	}
 
 	return input, nil
@@ -56,7 +58,7 @@ func ExtractTaskIDFromPath(path string) (int, error) {
 
 	id, err := ValidateTaskID(idStr)
 	if err != nil {
-		return 0, ErrInvalidTaskID
+		return 0, fmt.Errorf("failed to validate task id %q: %w", idStr, err)
 	}
 
 	return id, nil

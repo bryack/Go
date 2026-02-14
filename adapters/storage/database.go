@@ -2,17 +2,13 @@ package storage
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"log/slog"
+	infraErrors "myproject/infrastructure/errors"
 	"myproject/internal/domain"
 	"myproject/logger"
 	"os"
 	"time"
-)
-
-var (
-	ErrTaskNotFound = errors.New("task not found")
 )
 
 // DatabaseStorage provides SQLite-based task persistence with automatic migrations.
@@ -141,7 +137,7 @@ func (ds *DatabaseStorage) UpdateTask(task domain.Task, userID int) error {
 	)
 
 	if rowsAffected == 0 {
-		return ErrTaskNotFound
+		return infraErrors.ErrTaskNotFound
 	}
 
 	return nil
@@ -186,7 +182,7 @@ func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
 	)
 
 	if rowsAffected == 0 {
-		return ErrTaskNotFound
+		return infraErrors.ErrTaskNotFound
 	}
 
 	return nil
@@ -206,7 +202,7 @@ func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task domain.Task, er
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return domain.Task{}, ErrTaskNotFound
+			return domain.Task{}, infraErrors.ErrTaskNotFound
 		}
 		ds.logger.Error("Failed to query database select from tasks",
 			slog.String(logger.FieldOperation, "get_task_by_id"),

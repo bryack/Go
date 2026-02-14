@@ -1,7 +1,7 @@
 package testhelpers
 
 import (
-	"fmt"
+	infraErrors "myproject/infrastructure/errors"
 	"myproject/internal/domain"
 )
 
@@ -15,7 +15,7 @@ type StubTaskStore struct {
 func (s *StubTaskStore) GetTaskByID(id int, userID int) (task domain.Task, err error) {
 	t, ok := s.Tasks[id]
 	if !ok {
-		return domain.Task{}, fmt.Errorf("Task not found")
+		return domain.Task{}, infraErrors.ErrTaskNotFound
 	}
 	return domain.Task{ID: id, Description: t}, nil
 }

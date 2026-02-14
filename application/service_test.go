@@ -1,6 +1,7 @@
 package application
 
 import (
+	infraErrors "myproject/infrastructure/errors"
 	"myproject/infrastructure/testhelpers"
 	"testing"
 
@@ -22,6 +23,7 @@ func TestUpdateTask(t *testing.T) {
 		expectedDone        bool
 		expectedUpdateCalls int
 		wantErr             bool
+		expectedError       error
 	}{
 		{
 			name: "update both fields successfully",
@@ -62,6 +64,7 @@ func TestUpdateTask(t *testing.T) {
 			expectedDone:        false,
 			expectedUpdateCalls: 0,
 			wantErr:             true,
+			expectedError:       infraErrors.ErrEmptyFieldsToUpdate,
 		},
 		{
 			name: "error when task not found",
@@ -82,6 +85,7 @@ func TestUpdateTask(t *testing.T) {
 			expectedDone:        false,
 			expectedUpdateCalls: 0,
 			wantErr:             true,
+			expectedError:       infraErrors.ErrTaskNotFound,
 		},
 	}
 
@@ -93,6 +97,7 @@ func TestUpdateTask(t *testing.T) {
 			task, err := service.UpdateTask(tt.up.taskID, tt.up.userID, tt.up.description, tt.up.done)
 			if tt.wantErr {
 				assert.Error(t, err)
+				assert.ErrorIs(t, err, tt.expectedError)
 			} else {
 				assert.NoError(t, err)
 			}

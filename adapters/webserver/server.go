@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"myproject/application"
 	"myproject/auth"
+	infraErrors "myproject/infrastructure/errors"
 	"myproject/internal/domain"
 	"myproject/internal/handlers"
 	"myproject/logger"
@@ -145,21 +146,7 @@ func (ts *TasksServer) processCreateTask(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	desc, err := validation.ValidateTaskDescription(string(taskRequest.Description))
-	if err != nil {
-		ts.logger.Warn("Failed to validate description",
-			slog.String(logger.FieldOperation, "tasks_handler"),
-			slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
-			slog.Int(logger.FieldUserID, userID),
-			slog.String("task_description", string(taskRequest.Description)),
-			slog.String(logger.FieldError, err.Error()),
-		)
-		handlers.JSONError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	newTask := domain.Task{Description: desc, Done: false}
-	id, err := ts.store.CreateTask(newTask, userID)
+	task, err := ts.service.CreateTask(taskRequest.Description, userID)
 	if err != nil {
 		ts.logger.Error("Failed to create task in database",
 			slog.String(logger.FieldOperation, "tasks_handler"),
@@ -170,9 +157,8 @@ func (ts *TasksServer) processCreateTask(w http.ResponseWriter, r *http.Request,
 		handlers.JSONError(w, http.StatusInternalServerError, "Failed to create task")
 		return
 	}
-	newTask.ID = id
 
-	handlers.JSONResponse(w, http.StatusCreated, newTask)
+	handlers.JSONResponse(w, http.StatusCreated, task)
 }
 
 // taskHandler handles GET, PUT, and DELETE operations for individual tasks by ID.
@@ -227,10 +213,16 @@ func (ts *TasksServer) processUpdateTask(w http.ResponseWriter, r *http.Request,
 			slog.String(logger.FieldOperation, "task_handler"),
 			slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
 			slog.Int(logger.FieldTaskID, taskID),
-			slog.String("task_description", string(*taskRequest.Description)),
 			slog.String(logger.FieldError, err.Error()),
 		)
-		handlers.JSONError(w, http.StatusNotFound, "Failed to update task")
+		if errors.Is(err, infraErrors.ErrDescriptionRequired) || errors.Is(err, infraErrors.ErrDescriptionTooLong) || errors.Is(err, infraErrors.ErrEmptyFieldsToUpdate) {
+			handlers.JSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if errors.Is(err, infraErrors.ErrTaskNotFound) {
+			handlers.JSONError(w, http.StatusNotFound, "Task not found")
+		}
+		handlers.JSONError(w, http.StatusInternalServerError, "Failed to update task")
 		return
 	}
 

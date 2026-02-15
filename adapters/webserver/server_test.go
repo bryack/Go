@@ -92,12 +92,39 @@ func TestGetTaskByID(t *testing.T) {
 			2: "task 2",
 		},
 	}
+	authService := &StubAuthService{}
+	auth := &StubAuth{}
 
-	t.Run("returns task by ID 1", func(t *testing.T) {
-		auth := &StubAuth{}
-		authService := &StubAuthService{}
+	tests := []struct {
+		name                string
+		url                 string
+		expectedDescription string
+		expectedStatus      int
+	}{
+		{
+			name:                "returns task by ID 1",
+			url:                 "/tasks/1",
+			expectedDescription: "task 1",
+			expectedStatus:      http.StatusOK,
+		},
+		{
+			name:                "returns task by ID 2",
+			url:                 "/tasks/2",
+			expectedDescription: "task 2",
+			expectedStatus:      http.StatusOK,
+		},
+		{
+			name:                "returns 404 on nonexistense task",
+			url:                 "/tasks/404",
+			expectedDescription: "",
+			expectedStatus:      http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		auth.authCalled = 0
 		svr := NewTasksServer(store, authService, auth, dummyLogger)
-		request := getTaskByIDRequest(t, "/tasks/1")
+		request := getTaskByIDRequest(t, tt.url)
 		response := httptest.NewRecorder()
 
 		svr.ServeHTTP(response, request)
@@ -106,41 +133,11 @@ func TestGetTaskByID(t *testing.T) {
 		err := json.NewDecoder(response.Body).Decode(&task)
 		assert.NoError(t, err)
 
-		assert.Equal(t, http.StatusOK, response.Code)
-		assert.Equal(t, "task 1", task.Description)
+		assert.Equal(t, tt.expectedStatus, response.Code)
+		assert.Equal(t, tt.expectedDescription, task.Description)
 		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
 		assert.Equal(t, 1, auth.authCalled)
-	})
-	t.Run("returns task by ID 2", func(t *testing.T) {
-		auth := &StubAuth{}
-		authService := &StubAuthService{}
-		svr := NewTasksServer(store, authService, auth, dummyLogger)
-		request := getTaskByIDRequest(t, "/tasks/2")
-		response := httptest.NewRecorder()
-
-		svr.ServeHTTP(response, request)
-
-		task := domain.Task{}
-		err := json.NewDecoder(response.Body).Decode(&task)
-		assert.NoError(t, err)
-
-		assert.Equal(t, http.StatusOK, response.Code)
-		assert.Equal(t, "task 2", task.Description)
-		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
-		assert.Equal(t, 1, auth.authCalled)
-	})
-	t.Run("returns 404", func(t *testing.T) {
-		auth := &StubAuth{}
-		authService := &StubAuthService{}
-		svr := NewTasksServer(store, authService, auth, dummyLogger)
-		request := getTaskByIDRequest(t, "/tasks/404")
-		response := httptest.NewRecorder()
-
-		svr.ServeHTTP(response, request)
-
-		assert.Equal(t, http.StatusNotFound, response.Code)
-		assert.Equal(t, 1, auth.authCalled)
-	})
+	}
 }
 
 func getTaskByIDRequest(t *testing.T, url string) *http.Request {
@@ -156,7 +153,7 @@ func TestCreateTask(t *testing.T) {
 	authService := &StubAuthService{}
 	svr := NewTasksServer(store, authService, auth, dummyLogger)
 	t.Run("returns 201 on POST", func(t *testing.T) {
-		request := createTaskRequest(t)
+		request := createTaskRequest(t, "task 1")
 		response := httptest.NewRecorder()
 
 		svr.ServeHTTP(response, request)
@@ -169,11 +166,26 @@ func TestCreateTask(t *testing.T) {
 		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
 		assert.Equal(t, 1, auth.authCalled)
 	})
+	t.Run("returns 400 on empty description", func(t *testing.T) {
+		auth.authCalled = 0
+		request := createTaskRequest(t, "")
+		response := httptest.NewRecorder()
+
+		svr.ServeHTTP(response, request)
+
+		task := domain.Task{}
+		err := json.NewDecoder(response.Body).Decode(&task)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, response.Code)
+		assert.True(t, task == domain.Task{})
+		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
+		assert.Equal(t, 1, auth.authCalled)
+	})
 }
 
-func createTaskRequest(t *testing.T) *http.Request {
+func createTaskRequest(t *testing.T, desription string) *http.Request {
 	t.Helper()
-	task := domain.Task{Description: "task 1"}
+	task := domain.Task{Description: desription}
 	jsonTask, err := json.Marshal(task)
 
 	request, err := http.NewRequest(http.MethodPost, "/tasks", bytes.NewReader(jsonTask))
@@ -231,29 +243,59 @@ func TestUpdateTask(t *testing.T) {
 			2: "task 2",
 		},
 	}
+	authService := &StubAuthService{}
+
 	t.Run("update task 1", func(t *testing.T) {
 		auth := &StubAuth{authCalled: 0}
-		authService := &StubAuthService{}
 		svr := NewTasksServer(store, authService, auth, dummyLogger)
 
-		request := updateTaskRequest(t)
+		request := updateTaskRequest(t, "/tasks/1", "new task 1")
 		response := httptest.NewRecorder()
 
 		svr.ServeHTTP(response, request)
 
 		assert.Equal(t, "new task 1", store.Tasks[1])
+		assert.Equal(t, http.StatusOK, response.Code)
+
+		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
+		assert.Equal(t, 1, auth.authCalled)
+	})
+	t.Run("returns 400 on empty description", func(t *testing.T) {
+		auth := &StubAuth{authCalled: 0}
+		svr := NewTasksServer(store, authService, auth, dummyLogger)
+
+		request := updateTaskRequest(t, "/tasks/1", "")
+		response := httptest.NewRecorder()
+
+		svr.ServeHTTP(response, request)
+
+		assert.Equal(t, http.StatusBadRequest, response.Code)
+		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
+		assert.Equal(t, 1, auth.authCalled)
+	})
+	t.Run("returns 404, if task not found", func(t *testing.T) {
+		auth := &StubAuth{authCalled: 0}
+		svr := NewTasksServer(store, authService, auth, dummyLogger)
+
+		request := updateTaskRequest(t, "/tasks/404", "new task 404")
+		response := httptest.NewRecorder()
+
+		svr.ServeHTTP(response, request)
+
+		assert.Equal(t, "new task 1", store.Tasks[1])
+		assert.Equal(t, http.StatusNotFound, response.Code)
 		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
 		assert.Equal(t, 1, auth.authCalled)
 	})
 }
 
-func updateTaskRequest(t *testing.T) *http.Request {
+func updateTaskRequest(t *testing.T, url, description string) *http.Request {
 	t.Helper()
-	task := domain.Task{ID: 1, Description: "new task 1"}
+	task := domain.Task{ID: 1, Description: description}
 	jsonTask, err := json.Marshal(task)
 	assert.NoError(t, err)
 
-	request, err := http.NewRequest(http.MethodPut, "/tasks/1", bytes.NewReader(jsonTask))
+	request, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(jsonTask))
 	request.Header.Set("Content-Type", "application/json")
 	assert.NoError(t, err)
 	return request

@@ -148,17 +148,21 @@ func (ts *TasksServer) processCreateTask(w http.ResponseWriter, r *http.Request,
 
 	task, err := ts.service.CreateTask(taskRequest.Description, userID)
 	if err != nil {
-		if errors.Is(err, infraErrors.ErrDescriptionRequired) || errors.Is(err, infraErrors.ErrDescriptionTooLong) || errors.Is(err, infraErrors.ErrEmptyFieldsToUpdate) {
-			ts.logTaskError(r, slog.LevelWarn, "Failed to validate description", userID, 0, err)
-			handlers.JSONError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		ts.logTaskError(r, slog.LevelError, "Failed to create task in database", userID, 0, err)
-		handlers.JSONError(w, http.StatusInternalServerError, "Failed to create task")
+		ts.handleCreateTaskError(w, r, userID, err)
 		return
 	}
 
 	handlers.JSONResponse(w, http.StatusCreated, task)
+}
+
+func (ts *TasksServer) handleCreateTaskError(w http.ResponseWriter, r *http.Request, userID int, err error) {
+	if errors.Is(err, infraErrors.ErrDescriptionRequired) || errors.Is(err, infraErrors.ErrDescriptionTooLong) || errors.Is(err, infraErrors.ErrEmptyFieldsToUpdate) {
+		ts.logTaskError(r, slog.LevelWarn, "Failed to validate description", userID, 0, err)
+		handlers.JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	ts.logTaskError(r, slog.LevelError, "Failed to create task in database", userID, 0, err)
+	handlers.JSONError(w, http.StatusInternalServerError, "Failed to create task")
 }
 
 // taskHandler handles GET, PUT, and DELETE operations for individual tasks by ID.
@@ -203,22 +207,27 @@ func (ts *TasksServer) processUpdateTask(w http.ResponseWriter, r *http.Request,
 
 	task, err := ts.service.UpdateTask(taskID, userID, taskRequest.Description, taskRequest.Done)
 	if err != nil {
-		if errors.Is(err, infraErrors.ErrDescriptionRequired) || errors.Is(err, infraErrors.ErrDescriptionTooLong) || errors.Is(err, infraErrors.ErrEmptyFieldsToUpdate) {
-			ts.logTaskError(r, slog.LevelWarn, "Failed to validate description", userID, taskID, err)
-			handlers.JSONError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if errors.Is(err, infraErrors.ErrTaskNotFound) {
-			ts.logTaskError(r, slog.LevelWarn, "Failed to get task by ID from database to update", userID, taskID, err)
-			handlers.JSONError(w, http.StatusNotFound, "Task not found")
-			return
-		}
-		ts.logTaskError(r, slog.LevelError, "Failed to update task in database", userID, taskID, err)
-		handlers.JSONError(w, http.StatusInternalServerError, "Failed to update task")
+		ts.handleUpdateTaskError(w, r, userID, taskID, err)
 		return
 	}
 
 	handlers.JSONSuccess(w, task)
+}
+
+func (ts *TasksServer) handleUpdateTaskError(w http.ResponseWriter, r *http.Request, userID, taskID int, err error) {
+	switch {
+	case errors.Is(err, infraErrors.ErrDescriptionRequired),
+		errors.Is(err, infraErrors.ErrDescriptionTooLong),
+		errors.Is(err, infraErrors.ErrEmptyFieldsToUpdate):
+		ts.logTaskError(r, slog.LevelWarn, "Failed to validate description", userID, taskID, err)
+		handlers.JSONError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, infraErrors.ErrTaskNotFound):
+		ts.logTaskError(r, slog.LevelWarn, "Failed to get task by ID from database to update", userID, taskID, err)
+		handlers.JSONError(w, http.StatusNotFound, "Task not found")
+	default:
+		ts.logTaskError(r, slog.LevelError, "Failed to update task in database", userID, taskID, err)
+		handlers.JSONError(w, http.StatusInternalServerError, "Failed to update task")
+	}
 }
 
 func (ts *TasksServer) processDeleteTask(w http.ResponseWriter, r *http.Request, taskID, userID int) {

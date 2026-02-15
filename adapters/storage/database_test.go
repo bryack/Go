@@ -67,3 +67,44 @@ func createTestUser(t *testing.T, store *DatabaseStorage) (userID int) {
 	assert.NoError(t, err)
 	return int(id)
 }
+
+func TestUpdateTask(t *testing.T) {
+
+	t.Run("successfully updates task for valid user", func(t *testing.T) {
+		store := setupTestStore(t)
+		userID := createTestUser(t, store)
+
+		task := domain.Task{Description: "task 1"}
+		taskID, err := store.CreateTask(task, userID)
+		assert.NoError(t, err)
+
+		task.Description = "new task description"
+		task.Done = true
+		task.ID = taskID
+		err = store.UpdateTask(task, userID)
+		assert.NoError(t, err)
+
+		description, done := getTaskDescriptionAndDone(t, store, taskID)
+		assert.Equal(t, "new task description", description)
+		assert.True(t, done)
+	})
+	t.Run("fails when task belongs to different user", func(t *testing.T) {
+		store := setupTestStore(t)
+		userID := createTestUser(t, store)
+		task := domain.Task{Description: "task 1"}
+		taskID, err := store.CreateTask(task, userID)
+		assert.NoError(t, err)
+		task = domain.Task{ID: taskID, Description: "new task description"}
+
+		userID = createTestUser(t, store)
+		err = store.UpdateTask(task, userID)
+		assert.Error(t, err)
+	})
+	t.Run("fails when task does not exist", func(t *testing.T) {
+		store := setupTestStore(t)
+		userID := createTestUser(t, store)
+		task := domain.Task{ID: 99999, Description: "task 1"}
+		err := store.UpdateTask(task, userID)
+		assert.Error(t, err)
+	})
+}

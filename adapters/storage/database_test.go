@@ -108,3 +108,83 @@ func TestUpdateTask(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+func TestDeleteTask(t *testing.T) {
+
+	t.Run("successfully deletes task for valid user", func(t *testing.T) {
+		store := setupTestStore(t)
+		userID := createTestUser(t, store)
+
+		task := domain.Task{Description: "task 1"}
+		taskID, err := store.CreateTask(task, userID)
+		assert.NoError(t, err)
+
+		err = store.DeleteTask(taskID, userID)
+		assert.NoError(t, err)
+
+		var count int
+		err = store.db.QueryRow("SELECT COUNT(*) FROM tasks").Scan(&count)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, count)
+	})
+	t.Run("fails when task belongs to different user", func(t *testing.T) {
+		store := setupTestStore(t)
+		userID := createTestUser(t, store)
+		task := domain.Task{Description: "task 1"}
+		taskID, err := store.CreateTask(task, userID)
+		assert.NoError(t, err)
+
+		userID = createTestUser(t, store)
+		err = store.DeleteTask(taskID, userID)
+		assert.Error(t, err)
+
+		var count int
+		err = store.db.QueryRow("SELECT COUNT(*) FROM tasks").Scan(&count)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, count)
+	})
+	t.Run("fails when task does not exist", func(t *testing.T) {
+		store := setupTestStore(t)
+		userID := createTestUser(t, store)
+
+		err := store.DeleteTask(99999, userID)
+		assert.Error(t, err)
+	})
+}
+
+func TestGetTaskByID(t *testing.T) {
+
+	t.Run("successfully gets task for valid user", func(t *testing.T) {
+		store := setupTestStore(t)
+		userID := createTestUser(t, store)
+
+		task := domain.Task{Description: "task 1"}
+		taskID, err := store.CreateTask(task, userID)
+		assert.NoError(t, err)
+
+		task, err = store.GetTaskByID(taskID, userID)
+		assert.NoError(t, err)
+
+		assert.Equal(t, "task 1", task.Description)
+		assert.Equal(t, taskID, task.ID)
+		assert.False(t, task.Done)
+	})
+	t.Run("fails when task belongs to different user", func(t *testing.T) {
+		store := setupTestStore(t)
+		userID := createTestUser(t, store)
+		task := domain.Task{Description: "task 1"}
+		taskID, err := store.CreateTask(task, userID)
+		assert.NoError(t, err)
+
+		userID = createTestUser(t, store)
+		task, err = store.GetTaskByID(taskID, userID)
+		assert.Error(t, err)
+	})
+	t.Run("fails when task does not exist", func(t *testing.T) {
+		store := setupTestStore(t)
+		userID := createTestUser(t, store)
+
+		_, err := store.GetTaskByID(99999, userID)
+		assert.Error(t, err)
+	})
+}

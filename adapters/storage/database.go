@@ -68,7 +68,7 @@ func (ds *DatabaseStorage) CreateTask(task domain.Task, userID int) (int, error)
 		slog.String("description", task.Description),
 	)
 	result, err := ds.db.Exec(
-		"INSERT INTO tasks (description, done, user_id, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+		"INSERT INTO tasks (description, done, user_id) VALUES (?, ?, ?)",
 		task.Description, task.Done, userID,
 	)
 	if err != nil {
@@ -218,7 +218,7 @@ func (ds *DatabaseStorage) LoadTasks(userID int) ([]domain.Task, error) {
 		slog.String(logger.FieldOperation, "load_task"),
 		slog.Int(logger.FieldUserID, userID),
 	)
-	query := "SELECT id, description, done FROM tasks WHERE user_id = ? ORDER BY id"
+	query := "SELECT id, description, done FROM tasks WHERE user_id = ? ORDER BY done ASC, created_at DESC"
 	rows, err := ds.db.Query(query, userID)
 	if err != nil {
 		ds.logger.Error("Failed to query database select",

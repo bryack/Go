@@ -19,7 +19,7 @@ func TestNewMigratorWithDefaults(t *testing.T) {
 
 		store, err := NewDatabaseStorage(dbPath, dummyLogger)
 		if err != nil {
-			t.Fatal("failed to create DatabaseStorage")
+			t.Fatalf("failed to create DatabaseStorage: %v", err)
 		}
 		t.Cleanup(func() {
 			if store.db != nil {

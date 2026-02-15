@@ -62,14 +62,10 @@ func NewDatabaseStorage(dbPath string, logger *slog.Logger) (*DatabaseStorage, e
 
 // CreateTask inserts a new task and returns the generated ID.
 func (ds *DatabaseStorage) CreateTask(task domain.Task, userID int) (int, error) {
-	desc := task.Description
-	if len(task.Description) > 50 {
-		desc = desc[:50]
-	}
 	ds.logger.Debug("Creating task",
 		slog.String(logger.FieldOperation, "create_task"),
 		slog.Int(logger.FieldUserID, userID),
-		slog.String("description", desc),
+		slog.String("description", task.Description),
 	)
 	result, err := ds.db.Exec(
 		"INSERT INTO tasks (description, done, user_id, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",

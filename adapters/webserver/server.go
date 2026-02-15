@@ -148,12 +148,12 @@ func (ts *TasksServer) processCreateTask(w http.ResponseWriter, r *http.Request,
 
 	task, err := ts.service.CreateTask(taskRequest.Description, userID)
 	if err != nil {
-		ts.logger.Error("Failed to create task in database",
-			slog.String(logger.FieldOperation, "tasks_handler"),
-			slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
-			slog.Int(logger.FieldUserID, userID),
-			slog.String(logger.FieldError, err.Error()),
-		)
+		if errors.Is(err, infraErrors.ErrDescriptionRequired) || errors.Is(err, infraErrors.ErrDescriptionTooLong) || errors.Is(err, infraErrors.ErrEmptyFieldsToUpdate) {
+			ts.logTaskError(r, slog.LevelWarn, "Failed to validate description", userID, 0, err)
+			handlers.JSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		ts.logTaskError(r, slog.LevelError, "Failed to create task in database", userID, 0, err)
 		handlers.JSONError(w, http.StatusInternalServerError, "Failed to create task")
 		return
 	}
@@ -188,13 +188,7 @@ func (ts *TasksServer) processGetTaskByID(w http.ResponseWriter, r *http.Request
 
 	response, err := ts.store.GetTaskByID(taskID, userID)
 	if err != nil {
-		ts.logger.Warn("Failed to get task by ID from database",
-			slog.String(logger.FieldOperation, "task_handler"),
-			slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
-			slog.Int(logger.FieldUserID, userID),
-			slog.Int(logger.FieldTaskID, taskID),
-			slog.String(logger.FieldError, err.Error()),
-		)
+		ts.logTaskError(r, slog.LevelWarn, "Failed to get task by ID from database", userID, taskID, err)
 		handlers.JSONError(w, http.StatusNotFound, "Task not found")
 		return
 	}
@@ -209,19 +203,17 @@ func (ts *TasksServer) processUpdateTask(w http.ResponseWriter, r *http.Request,
 
 	task, err := ts.service.UpdateTask(taskID, userID, taskRequest.Description, taskRequest.Done)
 	if err != nil {
-		ts.logger.Error("Failed to update task in database",
-			slog.String(logger.FieldOperation, "task_handler"),
-			slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
-			slog.Int(logger.FieldTaskID, taskID),
-			slog.String(logger.FieldError, err.Error()),
-		)
 		if errors.Is(err, infraErrors.ErrDescriptionRequired) || errors.Is(err, infraErrors.ErrDescriptionTooLong) || errors.Is(err, infraErrors.ErrEmptyFieldsToUpdate) {
+			ts.logTaskError(r, slog.LevelWarn, "Failed to validate description", userID, taskID, err)
 			handlers.JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		if errors.Is(err, infraErrors.ErrTaskNotFound) {
+			ts.logTaskError(r, slog.LevelWarn, "Failed to get task by ID from database to update", userID, taskID, err)
 			handlers.JSONError(w, http.StatusNotFound, "Task not found")
+			return
 		}
+		ts.logTaskError(r, slog.LevelError, "Failed to update task in database", userID, taskID, err)
 		handlers.JSONError(w, http.StatusInternalServerError, "Failed to update task")
 		return
 	}
@@ -229,15 +221,9 @@ func (ts *TasksServer) processUpdateTask(w http.ResponseWriter, r *http.Request,
 	handlers.JSONSuccess(w, task)
 }
 
-func (ts *TasksServer) processDeleteTask(w http.ResponseWriter, r *http.Request, taskID int, userID int) {
+func (ts *TasksServer) processDeleteTask(w http.ResponseWriter, r *http.Request, taskID, userID int) {
 	if err := ts.store.DeleteTask(taskID, userID); err != nil {
-		ts.logger.Warn("Failed to delete task from database",
-			slog.String(logger.FieldOperation, "task_handler"),
-			slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
-			slog.Int(logger.FieldUserID, userID),
-			slog.Int(logger.FieldTaskID, taskID),
-			slog.String(logger.FieldError, err.Error()),
-		)
+		ts.logTaskError(r, slog.LevelWarn, "Failed to delete task from database", userID, taskID, err)
 		handlers.JSONError(w, http.StatusNotFound, "Task not found")
 		return
 	}
@@ -321,4 +307,14 @@ func (ts *TasksServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 	authResp.Email = loginRequest.Email
 	authResp.Token = token
 	handlers.JSONSuccess(w, authResp)
+}
+
+func (ts *TasksServer) logTaskError(r *http.Request, level slog.Level, msg string, userID, taskID int, err error) {
+	ts.logger.Log(r.Context(), level, msg,
+		slog.String(logger.FieldOperation, "task_handler"),
+		slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
+		slog.Int(logger.FieldUserID, userID),
+		slog.Int(logger.FieldTaskID, taskID),
+		slog.String(logger.FieldError, err.Error()),
+	)
 }

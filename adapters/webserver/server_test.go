@@ -210,7 +210,7 @@ func TestLoadTasks(t *testing.T) {
 
 		svr.ServeHTTP(response, request)
 
-		got := loadTasksResponse(t, response.Body)
+		got := LoadTasksResponse(t, response.Body)
 		assert.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, expectedTasks, got)
 		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
@@ -225,12 +225,12 @@ func loadTasksRequest(t *testing.T) *http.Request {
 	return request
 }
 
-func loadTasksResponse(t testing.TB, body io.Reader) (tasks []domain.Task) {
+func LoadTasksResponse(t testing.TB, body io.Reader) (tasks []domain.Task) {
 	t.Helper()
 	err := json.NewDecoder(body).Decode(&tasks)
 
 	if err != nil {
-		t.Fatalf("Unable to parse response from server %q into slice of Player, '%v'", body, err)
+		t.Fatalf("Unable to parse response from server %q into slice of Tasks, '%v'", body, err)
 	}
 
 	return

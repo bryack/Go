@@ -188,3 +188,29 @@ func TestGetTaskByID(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+func TestLoadTasks(t *testing.T) {
+	store := setupTestStore(t)
+	userID := createTestUser(t, store)
+
+	tasks := []domain.Task{
+		{ID: 1, Description: "task 1", Done: false},
+		{ID: 2, Description: "task 2", Done: false},
+		{ID: 3, Description: "task 3", Done: true},
+	}
+	for _, task := range tasks {
+		_, err := store.CreateTask(task, userID)
+		assert.NoError(t, err)
+	}
+	t.Run("successfully loads tasks for valid user", func(t *testing.T) {
+		loadTasks, err := store.LoadTasks(userID)
+		assert.NoError(t, err)
+		assert.Equal(t, tasks, loadTasks)
+	})
+	t.Run("returns 0 tasks when tasks belongs to different user", func(t *testing.T) {
+		userID := createTestUser(t, store)
+		loadTasks, err := store.LoadTasks(userID)
+		assert.NoError(t, err)
+		assert.Empty(t, loadTasks)
+	})
+}

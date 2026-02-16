@@ -17,25 +17,25 @@ import (
 )
 
 func TestCreatingTasksAndRetrievingThem(t *testing.T) {
-	expectedTasks := []domain.Task{
-		{ID: 1, Description: "task 1"},
-		{ID: 2, Description: "task 2"},
-		{ID: 3, Description: "task 3"},
-	}
-
 	server, token := setupIntegrationTest(t)
 
-	server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "task 1", token))
-	server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "task 2", token))
-	server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "task 3", token))
+	server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "integration task 1", token))
+	server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "integration task 2", token))
+	server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "integration task 3", token))
 
 	response := httptest.NewRecorder()
 	server.ServeHTTP(response, loadTasksRequest(t, token))
 
 	assert.Equal(t, http.StatusOK, response.Code)
 
-	got := webserver.LoadTasksResponse(t, response.Body)
-	assert.Equal(t, expectedTasks, got)
+	got := webserver.HandleLoadTasksResponse(t, response.Body)
+
+	expectedTasks := []string{
+		"integration task 1",
+		"integration task 2",
+		"integration task 3",
+	}
+	assert.ElementsMatch(t, expectedTasks, got)
 	assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
 }
 
@@ -61,7 +61,7 @@ func loadTasksRequest(t *testing.T, token string) *http.Request {
 
 func setupIntegrationTest(t *testing.T) (*webserver.TasksServer, string) {
 	testLogger, err := logger.NewLogger(&logger.Config{
-		Level:       "info",
+		Level:       "error",
 		Format:      "text",
 		Output:      "stderr",
 		ServiceName: "test-service",

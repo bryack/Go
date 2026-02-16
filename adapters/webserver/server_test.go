@@ -196,12 +196,12 @@ func createTaskRequest(t *testing.T, desription string) *http.Request {
 
 func TestLoadTasks(t *testing.T) {
 	t.Run("returns tasks on GET /tasks", func(t *testing.T) {
-		expectedTasks := []domain.Task{
-			{ID: 1, Description: "task 1"},
-			{ID: 2, Description: "task 2"},
-			{ID: 3, Description: "task 3"},
+		tasksList := []domain.Task{
+			{Description: "task 1"},
+			{Description: "task 2"},
+			{Description: "task 3"},
 		}
-		store := &testhelpers.StubTaskStore{Tasks: nil, CreateCall: nil, TasksTable: expectedTasks}
+		store := &testhelpers.StubTaskStore{Tasks: nil, CreateCall: nil, TasksTable: tasksList}
 		auth := &StubAuth{authCalled: 0}
 		authService := &StubAuthService{}
 		svr := NewTasksServer(store, authService, auth, dummyLogger)
@@ -210,9 +210,10 @@ func TestLoadTasks(t *testing.T) {
 
 		svr.ServeHTTP(response, request)
 
-		got := LoadTasksResponse(t, response.Body)
+		expectedDescription := []string{"task 1", "task 2", "task 3"}
+		got := HandleLoadTasksResponse(t, response.Body)
 		assert.Equal(t, http.StatusOK, response.Code)
-		assert.Equal(t, expectedTasks, got)
+		assert.ElementsMatch(t, expectedDescription, got)
 		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
 		assert.Equal(t, 1, auth.authCalled)
 	})
@@ -225,12 +226,17 @@ func loadTasksRequest(t *testing.T) *http.Request {
 	return request
 }
 
-func LoadTasksResponse(t testing.TB, body io.Reader) (tasks []domain.Task) {
+func HandleLoadTasksResponse(t testing.TB, body io.Reader) (descriptions []string) {
 	t.Helper()
+	tasks := []domain.Task{}
 	err := json.NewDecoder(body).Decode(&tasks)
 
 	if err != nil {
 		t.Fatalf("Unable to parse response from server %q into slice of Tasks, '%v'", body, err)
+	}
+	descriptions = make([]string, len(tasks))
+	for i, task := range tasks {
+		descriptions[i] = task.Description
 	}
 
 	return

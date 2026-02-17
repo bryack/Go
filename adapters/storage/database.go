@@ -29,7 +29,7 @@ func GetDatabasePath() string {
 // NewDatabaseStorage creates a new database storage with connection pooling and migrations.
 func NewDatabaseStorage(dbPath string, logger *slog.Logger) (*DatabaseStorage, error) {
 	config := ConnectionConfig{
-		MaxOpenConns:    25,
+		MaxOpenConns:    1,
 		MaxIdleConns:    5,
 		ConnMaxLifetime: time.Hour,
 		ConnMaxIdleTime: 15 * time.Minute,

@@ -80,8 +80,8 @@ func NewTasksServer(store domain.Storage, authService AuthService, authMiddlewar
 	ts.logger = l
 	router := http.NewServeMux()
 
-	router.Handle("/", http.HandlerFunc(ts.rootHandler))
-	router.Handle("/health", http.HandlerFunc(ts.healthHandler))
+	router.Handle("GET /", http.HandlerFunc(ts.rootHandler))
+	router.Handle("GET /health", http.HandlerFunc(ts.healthHandler))
 	router.Handle("GET /tasks", ts.authMiddleware.Authenticate(ts.tasksHandler))
 	router.Handle("POST /tasks", ts.authMiddleware.Authenticate(ts.tasksHandler))
 	router.Handle("GET /tasks/{id}", ts.authMiddleware.Authenticate(ts.taskHandler))

@@ -27,7 +27,7 @@ type ConnectionManager struct {
 // CreateConnection establishes a SQLite database connection with retry logic.
 // It applies connection pool settings and tests connectivity before returning.
 func CreateConnection(config *ConnectionConfig, path string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)")
+	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)")
 	if err != nil {
 		return nil, mapSQLiteError(err)
 	}

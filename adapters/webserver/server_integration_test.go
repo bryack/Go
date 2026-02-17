@@ -10,6 +10,8 @@ import (
 	"myproject/logger"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,26 +19,29 @@ import (
 )
 
 func TestCreatingTasksAndRetrievingThem(t *testing.T) {
-	server, token := setupIntegrationTest(t)
 
-	server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "integration task 1", token))
-	server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "integration task 2", token))
-	server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "integration task 3", token))
+	t.Run("successfully creates tasks and retrieves them", func(t *testing.T) {
+		server, token := setupIntegrationTest(t)
 
-	response := httptest.NewRecorder()
-	server.ServeHTTP(response, loadTasksRequest(t, token))
+		server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "integration task 1", token))
+		server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "integration task 2", token))
+		server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "integration task 3", token))
 
-	assert.Equal(t, http.StatusOK, response.Code)
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, loadTasksRequest(t, token))
 
-	got := webserver.HandleLoadTasksResponse(t, response.Body)
+		assert.Equal(t, http.StatusOK, response.Code)
 
-	expectedTasks := []string{
-		"integration task 1",
-		"integration task 2",
-		"integration task 3",
-	}
-	assert.ElementsMatch(t, expectedTasks, got)
-	assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
+		got := webserver.HandleLoadTasksResponse(t, response.Body)
+
+		expectedTasks := []string{
+			"integration task 1",
+			"integration task 2",
+			"integration task 3",
+		}
+		assert.ElementsMatch(t, expectedTasks, got)
+		assert.Equal(t, "application/json", response.Result().Header.Get("content-type"))
+	})
 }
 
 func createTaskRequest(t *testing.T, description, token string) *http.Request {
@@ -71,7 +76,8 @@ func setupIntegrationTest(t *testing.T) (*webserver.TasksServer, string) {
 		t.Fatalf("failed to configure logger: %v", err)
 	}
 
-	store, err := storage.NewDatabaseStorage(":memory:", testLogger)
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	store, err := storage.NewDatabaseStorage(dbPath, testLogger)
 	if err != nil {
 		t.Fatalf("failed to create in-memory database: %v", err)
 	}
@@ -93,4 +99,28 @@ func setupIntegrationTest(t *testing.T) (*webserver.TasksServer, string) {
 	}
 
 	return server, token
+}
+
+func TestRaceDatabaseStorage(t *testing.T) {
+	server, token := setupIntegrationTest(t)
+
+	const concurrentRequests = 100
+
+	var wg sync.WaitGroup
+
+	for range concurrentRequests {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "race task 1", token))
+		}()
+	}
+	wg.Wait()
+
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, loadTasksRequest(t, token))
+	assert.Equal(t, http.StatusOK, response.Code)
+
+	got := webserver.HandleLoadTasksResponse(t, response.Body)
+	assert.Equal(t, concurrentRequests, len(got))
 }

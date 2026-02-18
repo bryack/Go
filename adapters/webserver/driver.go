@@ -33,7 +33,7 @@ func (d Driver) Register(email, password string) error {
 		return fmt.Errorf("unexpected status: %d", response.StatusCode)
 	}
 
-	return fmt.Errorf("not implemented")
+	return nil
 }
 
 func (d Driver) Login(email, password string) (token string, err error) {
@@ -70,9 +70,19 @@ func (d Driver) CreateTask(token, description string) (taskID int, err error) {
 		return 0, fmt.Errorf("failed to marshal json body with description %q: %w", description, err)
 	}
 
-	response, err := http.Post(d.BaseURL+"/tasks", "application/json", bytes.NewReader(jsonBody))
+	request, err := http.NewRequest("POST", d.BaseURL+"/tasks", bytes.NewBuffer(jsonBody))
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	response, err := client.Do(request)
 	if err != nil {
-		return 0, fmt.Errorf("failed to post create task request: %w", err)
+		return 0, fmt.Errorf("failed to post create task request with description %q: %w", description, err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusCreated {
+		return 0, fmt.Errorf("unexpected status: %d", response.StatusCode)
 	}
 
 	result := domain.Task{}

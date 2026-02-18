@@ -112,7 +112,9 @@ func TestRaceDatabaseStorage(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			server.ServeHTTP(httptest.NewRecorder(), createTaskRequest(t, "race task 1", token))
+			response := httptest.NewRecorder()
+			server.ServeHTTP(response, createTaskRequest(t, "race task 1", token))
+			assert.Equal(t, http.StatusCreated, response.Code)
 		}()
 	}
 	wg.Wait()

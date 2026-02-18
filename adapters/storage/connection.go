@@ -27,7 +27,7 @@ type ConnectionManager struct {
 // CreateConnection establishes a SQLite database connection with retry logic.
 // It applies connection pool settings and tests connectivity before returning.
 func CreateConnection(config *ConnectionConfig, path string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)")
+	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_busy_timeout=5000")
 	if err != nil {
 		return nil, mapSQLiteError(err)
 	}
@@ -47,7 +47,7 @@ func CreateConnection(config *ConnectionConfig, path string) (*sql.DB, error) {
 }
 
 // retry executes an operation with exponential backoff on failure.
-// It attempts the operation up to maxAttempts times with 1s, 2s, 4s delays.
+// It attempts the operation up to maxAttempts times with 1ms, 5s, 25s delays.
 func retry[T any](operations func() (T, error), maxAttempts int) (T, error) {
 	var zero T
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
@@ -61,7 +61,7 @@ func retry[T any](operations func() (T, error), maxAttempts int) (T, error) {
 			return zero, err
 		}
 
-		backoff := time.Duration(math.Pow(2, float64(attempt-1))) * time.Second
+		backoff := time.Duration(math.Pow(5, float64(attempt-1))) * time.Millisecond
 		time.Sleep(backoff)
 	}
 

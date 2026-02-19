@@ -56,5 +56,10 @@ func TestTaskManagerServer(t *testing.T) {
 
 	baseURL := fmt.Sprintf("http://%s:%s", host, mappedPort.Port())
 	driver := webserver.Driver{BaseURL: baseURL, Client: &client}
-	specifications.TaskManagerSpecification(t, driver)
+	t.Run("happy path", func(t *testing.T) {
+		specifications.TaskManagerSpecification(t, driver)
+	})
+	t.Run("isolation", func(t *testing.T) {
+		specifications.TaskManagerSpecification_Isolation(t, driver)
+	})
 }

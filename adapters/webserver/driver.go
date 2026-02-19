@@ -114,3 +114,28 @@ func checkStatus(response *http.Response) error {
 
 	return fmt.Errorf("unexpected status %d: %w", response.StatusCode, apiErr)
 }
+
+func (d Driver) GetTasks(token string) ([]domain.Task, error) {
+	request, err := http.NewRequest(http.MethodGet, d.BaseURL+"/tasks", nil)
+	if err != nil {
+		return []domain.Task{}, fmt.Errorf("failed to create GET request: %w", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+
+	response, err := d.Client.Do(request)
+	if err != nil {
+		return []domain.Task{}, fmt.Errorf("failed to get response: %w", err)
+	}
+	defer response.Body.Close()
+
+	if err = checkStatus(response); err != nil {
+		return []domain.Task{}, err
+	}
+
+	result := []domain.Task{}
+	if err = json.NewDecoder(response.Body).Decode(&result); err != nil {
+		return []domain.Task{}, fmt.Errorf("failed to decode get tasks response: %w", err)
+	}
+
+	return result, nil
+}

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"myproject/adapters/webserver"
 	"myproject/specifications"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,7 +50,11 @@ func TestTaskManagerServer(t *testing.T) {
 	host, err := container.Host(ctx)
 	require.NoError(t, err)
 
+	client := http.Client{
+		Timeout: 2 * time.Second,
+	}
+
 	baseURL := fmt.Sprintf("http://%s:%s", host, mappedPort.Port())
-	driver := webserver.Driver{BaseURL: baseURL}
+	driver := webserver.Driver{BaseURL: baseURL, Client: &client}
 	specifications.TaskManagerSpecification(t, driver)
 }

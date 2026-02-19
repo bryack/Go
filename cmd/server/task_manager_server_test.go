@@ -1,18 +1,14 @@
 package main_test
 
 import (
-	"context"
-	"fmt"
 	"myproject/adapters/webserver"
+	"myproject/infrastructure/testhelpers"
 	"myproject/specifications"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
+	"github.com/docker/go-connections/nat"
 )
 
 func TestTaskManagerServer(t *testing.T) {
@@ -20,41 +16,11 @@ func TestTaskManagerServer(t *testing.T) {
 		t.Skip()
 	}
 
-	ctx := context.Background()
-
-	req := testcontainers.ContainerRequest{
-		FromDockerfile: testcontainers.FromDockerfile{
-			Context:    "../../.",
-			Dockerfile: "./Dockerfile",
-		},
-		ExposedPorts: []string{"8080/tcp"},
-		WaitingFor:   wait.ForHTTP("/health").WithPort("8080/tcp"),
-		Env: map[string]string{
-			"TASKMANAGER_JWT_SECRET": "test-only-secret-min32chars-long",
-		},
-	}
-
-	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		assert.NoError(t, container.Terminate(ctx))
-	})
-
-	mappedPort, err := container.MappedPort(ctx, "8080/tcp")
-	require.NoError(t, err)
-
-	host, err := container.Host(ctx)
-	require.NoError(t, err)
-
 	client := http.Client{
 		Timeout: 2 * time.Second,
 	}
-
-	baseURL := fmt.Sprintf("http://%s:%s", host, mappedPort.Port())
+	port := nat.Port("8080/tcp")
+	baseURL := testhelpers.StartDockerServer(t, port, "./Dockerfile")
 	driver := webserver.Driver{BaseURL: baseURL, Client: &client}
 	t.Run("happy path", func(t *testing.T) {
 		specifications.TaskManagerSpecification(t, driver)

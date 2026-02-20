@@ -9,14 +9,10 @@ import (
 	"myproject/adapters/webserver"
 	"myproject/auth"
 	"myproject/cmd/server/config"
-	"myproject/logger"
+	"myproject/internal/domain"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
-	"time"
-
-	"github.com/spf13/pflag"
 )
 
 var endpointsList = []string{
@@ -31,47 +27,19 @@ var endpointsList = []string{
 	"POST /login",
 }
 
+type appStorage interface {
+	domain.Storage
+	storage.UserStorage
+}
+
 type App struct {
 	cfg     *config.Config
 	logger  *slog.Logger
 	server  *http.Server
-	storage *storage.DatabaseStorage
+	storage appStorage
 }
 
-func NewApp() (*App, error) {
-	cfg, v, err := config.LoadConfig()
-	if err != nil {
-		return nil, fmt.Errorf("Failed to load config: %w", err)
-	}
-
-	// Check if --show-config flag was set
-	if pflag.Lookup("show-config").Changed && pflag.Lookup("show-config").Value.String() == "true" {
-		config.ShowConfig(cfg, v)
-		os.Exit(0)
-	}
-
-	l, err := logger.NewLogger(&cfg.LogConfig)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create logger: %w", err)
-	}
-
-	l.Info("Logger initialized successfully",
-		slog.String("level", cfg.LogConfig.Level),
-		slog.String("format", cfg.LogConfig.Format),
-		slog.String("output", cfg.LogConfig.Output),
-		slog.String("service_name", cfg.LogConfig.ServiceName),
-	)
-
-	s, err := storage.NewDatabaseStorage(cfg.DatabaseConfig.Path, l)
-	if err != nil {
-		l.Error("Failed to initialize database",
-			slog.String("operation", "database_init"),
-			slog.String("path", cfg.DatabaseConfig.Path),
-			slog.String("error", err.Error()),
-		)
-		return nil, fmt.Errorf("Failed to initialize database storage: %w", err)
-	}
-
+func NewApp(cfg *config.Config, l *slog.Logger, s appStorage) (*App, error) {
 	jwtService := auth.NewJWTService(cfg.JWTConfig.Secret, cfg.JWTConfig.Expiration)
 	authService := auth.NewService(s, jwtService, l)
 	authMiddleware := auth.NewAuthMiddleware(jwtService, l)
@@ -96,9 +64,9 @@ func NewApp() (*App, error) {
 	server := &http.Server{
 		Addr:         address,
 		Handler:      tasksServer,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  2 * time.Second,
+		ReadTimeout:  cfg.ServerConfig.ReadTimeout,
+		WriteTimeout: cfg.ServerConfig.WriteTimeout,
+		IdleTimeout:  cfg.ServerConfig.IdleTimeout,
 	}
 
 	return &App{
@@ -135,12 +103,12 @@ func (a *App) Run(ctx context.Context) error {
 func (a *App) shutdown() error {
 	a.logger.Info("shutting down gracefully")
 
-	shutdownCtx, cansel := context.WithTimeout(
+	shutdownCtx, cancel := context.WithTimeout(
 		context.Background(),
 		a.cfg.ServerConfig.ShutdownTimeout,
 	)
 
-	defer cansel()
+	defer cancel()
 
 	var errs []error
 	if err := a.server.Shutdown(shutdownCtx); err != nil {

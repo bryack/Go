@@ -31,6 +31,9 @@ type ServerConfig struct {
 	Port            int           `mapstructure:"port"`
 	Host            string        `mapstructure:"host"`
 	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
+	ReadTimeout     time.Duration `mapstructure:"read_timeout"`
+	WriteTimeout    time.Duration `mapstructure:"write_timeout"`
+	IdleTimeout     time.Duration `mapstructure:"idle_timeout"`
 }
 
 // DatabaseConfig contains database connection settings.
@@ -53,6 +56,9 @@ func LoadConfig() (*Config, *viper.Viper, error) {
 	v.SetDefault("server.port", 8080)
 	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("server.shutdown_timeout", "30s")
+	v.SetDefault("server.read_timeout", "15s")
+	v.SetDefault("server.write_timeout", "15s")
+	v.SetDefault("server.idle_timeout", "2s")
 	v.SetDefault("database.path", "./data/tasks.db")
 	v.SetDefault("jwt.expiration", "24h")
 	v.SetDefault("logging.level", "info")
@@ -68,6 +74,9 @@ func LoadConfig() (*Config, *viper.Viper, error) {
 	pflag.Int("port", 8080, "Server port")
 	pflag.String("host", "0.0.0.0", "Server host")
 	pflag.String("shutdown-timeout", "30s", "Graceful shutdown timeout")
+	pflag.String("read-timeout", "15s", "Server ReadTimeout")
+	pflag.String("write-timeout", "15s", "Server WriteTimeout")
+	pflag.String("idle-timeout", "2s", "Server IdleTimeout")
 	pflag.String("db-path", "./data/tasks.db", "Database path")
 	pflag.String("jwt-expiration", "24h", "JWT expiration")
 	pflag.String("jwt-secret", "", "JWT Secret")
@@ -110,6 +119,9 @@ func LoadConfig() (*Config, *viper.Viper, error) {
 	v.BindPFlag("server.port", pflag.Lookup("port"))
 	v.BindPFlag("server.host", pflag.Lookup("host"))
 	v.BindPFlag("server.shutdown_timeout", pflag.Lookup("shutdown-timeout"))
+	v.BindPFlag("server.read_timeout", pflag.Lookup("read-timeout"))
+	v.BindPFlag("server.write_timeout", pflag.Lookup("write-timeout"))
+	v.BindPFlag("server.idle_timeout", pflag.Lookup("idle-timeout"))
 	v.BindPFlag("database.path", pflag.Lookup("db-path"))
 	v.BindPFlag("jwt.expiration", pflag.Lookup("jwt-expiration"))
 	v.BindPFlag("jwt.secret", pflag.Lookup("jwt-secret"))
@@ -212,6 +224,9 @@ func getSource(v *viper.Viper, key string) string {
 		"server.port":             "port",
 		"server.host":             "host",
 		"server.shutdown_timeout": "shutdown-timeout",
+		"server.read_timeout":     "read-timeout",
+		"server.write_timeout":    "write-timeout",
+		"server.idle_timeout":     "idle-timeout",
 		"database.path":           "db-path",
 		"jwt.secret":              "jwt-secret",
 		"jwt.expiration":          "jwt-expiration",
@@ -249,6 +264,9 @@ func ShowConfig(cfg *Config, v *viper.Viper) {
 	fmt.Printf("server.host: %s (%s)\n", cfg.ServerConfig.Host, getSource(v, "server.host"))
 	fmt.Printf("server.port: %d (%s)\n", cfg.ServerConfig.Port, getSource(v, "server.port"))
 	fmt.Printf("server.shutdown_timeout: %s (%s)\n", cfg.ServerConfig.ShutdownTimeout, getSource(v, "server.shutdown_timeout"))
+	fmt.Printf("server.read_timeout: %s (%s)\n", cfg.ServerConfig.ReadTimeout, getSource(v, "server.read_timeout"))
+	fmt.Printf("server.write_timeout: %s (%s)\n", cfg.ServerConfig.WriteTimeout, getSource(v, "server.write_timeout"))
+	fmt.Printf("server.idle_timeout: %s (%s)\n", cfg.ServerConfig.IdleTimeout, getSource(v, "server.idle_timeout"))
 	fmt.Printf("database.path: %s (%s)\n", cfg.DatabaseConfig.Path, getSource(v, "database.path"))
 	fmt.Printf("jwt.secret: %s (%s)\n", maskSensitive(cfg.JWTConfig.Secret), getSource(v, "jwt.secret"))
 	fmt.Printf("jwt.expiration: %s (%s)\n", cfg.JWTConfig.Expiration, getSource(v, "jwt.expiration"))

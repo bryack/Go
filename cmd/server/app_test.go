@@ -20,10 +20,13 @@ import (
 
 type slowStorage struct {
 	domain.AppStorage
-	delay time.Duration
+	delay   time.Duration
+	started chan struct{}
 }
 
 func (s *slowStorage) LoadTasks(userID int) ([]domain.Task, error) {
+	close(s.started)
+
 	time.Sleep(s.delay)
 	return s.AppStorage.LoadTasks(userID)
 }
@@ -33,7 +36,7 @@ func TestApp_GracefulShutdown(t *testing.T) {
 		t.Skip("skipping graceful shutdown test in short mode")
 	}
 
-	app, cfg := newTestApp(t, 2*time.Second)
+	app, cfg, slowDB := newTestApp(t, 2*time.Second)
 
 	runCtx, cancelRun := context.WithCancel(context.Background())
 	serverDone := make(chan error, 1)
@@ -77,9 +80,12 @@ func TestApp_GracefulShutdown(t *testing.T) {
 		close(requestFinished)
 	}()
 
-	time.Sleep(500 * time.Millisecond)
-
-	t.Log("Triggering graceful shutdown...")
+	select {
+	case <-slowDB.started:
+		t.Log("Request started, triggering shutdown")
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("request never started")
+	}
 	cancelRun()
 
 	select {
@@ -93,7 +99,7 @@ func TestApp_GracefulShutdown(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func newTestApp(t *testing.T, delay time.Duration) (app *App, cfg *config.Config) {
+func newTestApp(t *testing.T, delay time.Duration) (app *App, cfg *config.Config, slowDB *slowStorage) {
 	t.Helper()
 
 	os.Setenv("TASKMANAGER_JWT_SECRET", "test-only-secret-min32chars-long")
@@ -115,15 +121,16 @@ func newTestApp(t *testing.T, delay time.Duration) (app *App, cfg *config.Config
 	db, err := storage.NewDatabaseStorage(dbPath, l)
 	require.NoError(t, err)
 
-	slowDB := &slowStorage{
+	slowDB = &slowStorage{
 		AppStorage: db,
 		delay:      delay,
+		started:    make(chan struct{}),
 	}
 
 	app, err = NewApp(cfg, l, slowDB)
 	require.NoError(t, err)
 
-	return app, cfg
+	return app, cfg, slowDB
 }
 
 func newAuthenticatedRequest(t *testing.T, method, url, token string) *http.Request {

@@ -46,9 +46,9 @@ func CreateConnection(config *ConnectionConfig, path string) (*sql.DB, error) {
 	return db, nil
 }
 
-// retry executes an operation with exponential backoff on failure.
+// Retry executes an operation with exponential backoff on failure.
 // It attempts the operation up to maxAttempts times with 1ms, 5s, 25s delays.
-func retry[T any](operations func() (T, error), maxAttempts int) (T, error) {
+func Retry[T any](operations func() (T, error), maxAttempts int) (T, error) {
 	var zero T
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		result, err := operations()

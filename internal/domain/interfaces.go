@@ -9,3 +9,16 @@ type Storage interface {
 	DeleteTask(id int, userID int) error
 	Close() error
 }
+
+// UserStorage defines the interface for user persistence operations.
+type UserStorage interface {
+	CreateUser(email string, passwordHash string) (int, error)
+	GetUserByEmail(email string) (*User, error)
+	GetUserByID(id int) (*User, error)
+	EmailExists(email string) (bool, error)
+}
+
+type AppStorage interface {
+	Storage
+	UserStorage
+}

@@ -13,10 +13,6 @@ import (
 )
 
 func StartDockerServer(t testing.TB, port nat.Port, dockerfilePath string) string {
-	if testing.Short() {
-		t.Skip()
-	}
-
 	ctx := context.Background()
 
 	req := testcontainers.ContainerRequest{

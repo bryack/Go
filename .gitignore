@@ -6,6 +6,8 @@ examples
 AGENTS.md
 GEMINI.md
 docs
+code-reviewer
+code-reviewer.skill
 
 # Build artifacts
 myproject

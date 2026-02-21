@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"myproject/adapters/storage"
+	"myproject/internal/domain"
 	"myproject/logger"
 	"regexp"
 
@@ -12,13 +13,13 @@ import (
 
 // Service handles authentication operations including user registration and login.
 type Service struct {
-	userStorage storage.UserStorage
+	userStorage domain.UserStorage
 	jwtService  *JWTService
 	logger      *slog.Logger
 }
 
 // NewService creates a new authentication service with the provided dependencies.
-func NewService(userStorage storage.UserStorage, jwtService *JWTService, logger *slog.Logger) *Service {
+func NewService(userStorage domain.UserStorage, jwtService *JWTService, logger *slog.Logger) *Service {
 	return &Service{
 		userStorage: userStorage,
 		jwtService:  jwtService,

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"myproject/adapters/storage"
 	"myproject/adapters/webserver"
 	"myproject/auth"
 	"myproject/cmd/server/config"
@@ -27,19 +26,14 @@ var endpointsList = []string{
 	"POST /login",
 }
 
-type appStorage interface {
-	domain.Storage
-	storage.UserStorage
-}
-
 type App struct {
 	cfg     *config.Config
 	logger  *slog.Logger
 	server  *http.Server
-	storage appStorage
+	storage domain.AppStorage
 }
 
-func NewApp(cfg *config.Config, l *slog.Logger, s appStorage) (*App, error) {
+func NewApp(cfg *config.Config, l *slog.Logger, s domain.AppStorage) (*App, error) {
 	jwtService := auth.NewJWTService(cfg.JWTConfig.Secret, cfg.JWTConfig.Expiration)
 	authService := auth.NewService(s, jwtService, l)
 	authMiddleware := auth.NewAuthMiddleware(jwtService, l)

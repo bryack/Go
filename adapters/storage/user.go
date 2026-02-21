@@ -4,28 +4,12 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
+	"myproject/internal/domain"
 	"myproject/logger"
-	"time"
 )
 
 // ErrUserNotFound is returned when a user lookup fails.
 var ErrUserNotFound = errors.New("user not found")
-
-// User represents a user account with authentication credentials.
-type User struct {
-	ID           int       `json:"id"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"`
-	CreatedAt    time.Time `json:"created_at"`
-}
-
-// UserStorage defines the interface for user persistence operations.
-type UserStorage interface {
-	CreateUser(email string, passwordHash string) (int, error)
-	GetUserByEmail(email string) (*User, error)
-	GetUserByID(id int) (*User, error)
-	EmailExists(email string) (bool, error)
-}
 
 // CreateUser inserts a new user and returns the generated ID.
 func (ds *DatabaseStorage) CreateUser(email, passwordHash string) (int, error) {
@@ -59,12 +43,12 @@ func (ds *DatabaseStorage) CreateUser(email, passwordHash string) (int, error) {
 }
 
 // GetUserByEmail retrieves a user by email, returns ErrUserNotFound if not exists.
-func (ds *DatabaseStorage) GetUserByEmail(email string) (*User, error) {
+func (ds *DatabaseStorage) GetUserByEmail(email string) (*domain.User, error) {
 	ds.logger.Debug("Fetching user by email",
 		slog.String(logger.FieldOperation, "get_user_by_email"),
 		slog.String(logger.FieldEmail, logger.MaskEmail(email)),
 	)
-	var user User
+	var user domain.User
 	err := ds.db.QueryRow(
 		"SELECT id, email, password_hash FROM users WHERE email = ?",
 		email,
@@ -86,12 +70,12 @@ func (ds *DatabaseStorage) GetUserByEmail(email string) (*User, error) {
 }
 
 // GetUserByID retrieves a user by ID, returns ErrUserNotFound if not exists.
-func (ds *DatabaseStorage) GetUserByID(id int) (*User, error) {
+func (ds *DatabaseStorage) GetUserByID(id int) (*domain.User, error) {
 	ds.logger.Debug("Fetching user by id",
 		slog.String(logger.FieldOperation, "get_user_by_id"),
 		slog.Int(logger.FieldUserID, id),
 	)
-	var user User
+	var user domain.User
 	err := ds.db.QueryRow(
 		"SELECT id, email, password_hash FROM users WHERE id = ?",
 		id,

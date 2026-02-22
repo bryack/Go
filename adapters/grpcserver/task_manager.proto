@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+option go_package = "myproject/adapters/grpcserver";
+
+package grpcserver;
+
+service TaskManager {
+    rpc Register (RegisterRequest) returns (RegisterReply) {}
+    rpc Login (LoginRequest) returns (LoginReply) {}
+    rpc CreateTask (CreateTaskRequest) returns (CreateTaskReply) {}
+    rpc GetTasks (GetTasksRequest) returns (GetTasksReply) {}
+}
+
+message RegisterRequest {
+    string email = 1;
+    string password = 2;
+}
+
+message RegisterReply {
+    string token = 1;
+}
+
+message LoginRequest {
+    string email = 1;
+    string password = 2;
+}
+
+message LoginReply {
+    string token = 1;
+}
+
+message CreateTaskRequest {
+    string token = 1;
+    string description = 2;
+}
+
+message CreateTaskReply {
+    int32 task_id = 1;
+}
+
+message GetTasksRequest {
+    string token = 1;
+}
+
+message GetTasksReply {
+    message Task {
+      int32 id = 1;
+      string description = 2;
+      bool done = 3;
+    }
+
+    repeated Task tasks = 1;
+}

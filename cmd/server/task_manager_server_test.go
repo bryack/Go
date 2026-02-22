@@ -22,6 +22,7 @@ func TestTaskManagerServer(t *testing.T) {
 	port := nat.Port("8080/tcp")
 	baseURL := testhelpers.StartDockerServer(t, port, "./Dockerfile")
 	driver := webserver.Driver{BaseURL: baseURL, Client: &client}
+
 	t.Run("happy path", func(t *testing.T) {
 		specifications.TaskManagerSpecification(t, driver)
 	})

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"myproject/adapters/auth"
 	"myproject/domain"
 	"myproject/infrastructure/testhelpers"
 	"net/http"
@@ -27,7 +28,7 @@ type StubAuth struct {
 func (sa *StubAuth) Authenticate(handler http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sa.authCalled++
-		ctx := context.WithValue(r.Context(), UserIDKey, 1)
+		ctx := context.WithValue(r.Context(), auth.UserIDKey, 1)
 		r = r.WithContext(ctx)
 		handler(w, r)
 	}

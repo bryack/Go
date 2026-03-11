@@ -33,13 +33,17 @@ func main() {
 	taskService := application.NewService(store)
 	grpcServer := grpcserver.NewTaskManageServer(store, authService, taskService)
 
+	authInterceptor := grpcserver.NewAuthInterceptor(jwtService, l)
+
 	port := 50051
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(authInterceptor.UnaryInterceptor),
+	)
 	grpcserver.RegisterTaskManagerServer(s, grpcServer)
 	if err := s.Serve(lis); err != nil {
 		log.Fatal(err)

@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 type Driver struct {
@@ -60,8 +61,12 @@ func (d *Driver) CreateTask(token, description string) (taskID int, err error) {
 		return 0, fmt.Errorf("failed to get task manager client: %w", err)
 	}
 
-	reply, err := client.CreateTask(context.Background(), &CreateTaskRequest{
-		Token:       token,
+	ctx := metadata.NewOutgoingContext(
+		context.Background(),
+		metadata.Pairs("authorization", "Bearer "+token),
+	)
+
+	reply, err := client.CreateTask(ctx, &CreateTaskRequest{
 		Description: description,
 	})
 	if err != nil {
@@ -75,9 +80,13 @@ func (d *Driver) GetTasks(token string) ([]domain.Task, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get task manager client: %w", err)
 	}
-	reply, err := client.GetTasks(context.Background(), &GetTasksRequest{
-		Token: token,
-	})
+
+	ctx := metadata.NewOutgoingContext(
+		context.Background(),
+		metadata.Pairs("authorization", "Bearer "+token),
+	)
+
+	reply, err := client.GetTasks(ctx, &GetTasksRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tasks: %w", err)
 	}

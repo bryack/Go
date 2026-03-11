@@ -39,16 +39,57 @@ func (d *Driver) Register(email, password string) error {
 }
 
 func (d *Driver) Login(email, password string) (token string, err error) {
+	client, err := d.getClient()
+	if err != nil {
+		return "", fmt.Errorf("failed to get task manager client: %w", err)
+	}
 
-	return "", fmt.Errorf("not implemented")
+	reply, err := client.Login(context.Background(), &LoginRequest{
+		Email:    email,
+		Password: password,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to login: %w", err)
+	}
+	return reply.Token, nil
 }
 
 func (d *Driver) CreateTask(token, description string) (taskID int, err error) {
+	client, err := d.getClient()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get task manager client: %w", err)
+	}
 
-	return 0, fmt.Errorf("not implemented")
+	reply, err := client.CreateTask(context.Background(), &CreateTaskRequest{
+		Token:       token,
+		Description: description,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to create task: %w", err)
+	}
+	return int(reply.TaskId), nil
 }
 
 func (d *Driver) GetTasks(token string) ([]domain.Task, error) {
+	client, err := d.getClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get task manager client: %w", err)
+	}
+	reply, err := client.GetTasks(context.Background(), &GetTasksRequest{
+		Token: token,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tasks: %w", err)
+	}
 
-	return []domain.Task{}, fmt.Errorf("not implemented")
+	tasks := make([]domain.Task, len(reply.Tasks))
+	for i, task := range reply.Tasks {
+		tasks[i] = domain.Task{
+			ID:          int(task.Id),
+			Description: task.Description,
+			Done:        task.Done,
+		}
+	}
+
+	return tasks, nil
 }

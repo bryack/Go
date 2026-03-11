@@ -1,0 +1,48 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Test and coverage
+*.out
+*.test
+coverage*
+
+# Documentation
+docs
+*.md
+!go.mod
+!go.sum
+
+# Data
+data/
+
+# Build artifacts
+server
+cli
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Qwen and AI
+.qwen/
+QWEN.md
+AGENTS.md
+GEMINI.md
+code-reviewer/
+code-reviewer.skill
+
+# Other
+testgen
+examples

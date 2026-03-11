@@ -52,8 +52,9 @@ func StartDockerGRPCServer(t testing.TB, port nat.Port, dockerfilePath string) s
 
 	req := testcontainers.ContainerRequest{
 		FromDockerfile: testcontainers.FromDockerfile{
-			Context:    "../../.",
-			Dockerfile: dockerfilePath,
+			Context:       "../../.",
+			Dockerfile:    dockerfilePath,
+			PrintBuildLog: true,
 		},
 		ExposedPorts: []string{string(port)},
 		WaitingFor:   wait.ForListeningPort(port),

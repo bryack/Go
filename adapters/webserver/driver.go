@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"myproject/internal/domain"
+	"myproject/domain"
 	"net/http"
 )
 

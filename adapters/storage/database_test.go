@@ -2,7 +2,7 @@ package storage
 
 import (
 	"fmt"
-	"myproject/internal/domain"
+	"myproject/domain"
 	"path/filepath"
 	"testing"
 	"time"

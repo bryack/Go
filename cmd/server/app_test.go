@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"myproject/adapters/auth"
 	"myproject/adapters/storage"
-	"myproject/auth"
 	"myproject/cmd/server/config"
-	"myproject/internal/domain"
+	"myproject/domain"
 	"myproject/logger"
 	"net/http"
 	"os"

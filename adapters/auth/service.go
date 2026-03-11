@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"myproject/adapters/storage"
-	"myproject/internal/domain"
+	"myproject/domain"
 	"myproject/logger"
 	"regexp"
 

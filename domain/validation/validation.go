@@ -3,7 +3,7 @@ package validation
 import (
 	"errors"
 	"fmt"
-	infraErrors "myproject/infrastructure/errors"
+	infraErrors "myproject/domain/errors"
 	"regexp"
 	"strconv"
 	"strings"

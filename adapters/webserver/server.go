@@ -3,13 +3,13 @@ package webserver
 import (
 	"errors"
 	"log/slog"
+	"myproject/adapters/auth"
 	"myproject/application"
-	"myproject/auth"
-	infraErrors "myproject/infrastructure/errors"
-	"myproject/internal/domain"
+	"myproject/domain"
+	infraErrors "myproject/domain/errors"
+	"myproject/domain/validation"
 	"myproject/internal/handlers"
 	"myproject/logger"
-	"myproject/validation"
 	"net/http"
 	"time"
 )
@@ -97,7 +97,7 @@ func NewTasksServer(store domain.Storage, authService AuthService, authMiddlewar
 // rootHandler serves the API information and available endpoints.
 func (ts *TasksServer) rootHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
-		"message":  "Task Manager API",
+		"message": "Task Manager API",
 		"endpoints": []string{
 			"GET /health - Health check",
 			"GET /tasks - Get tasks",

@@ -1,7 +1,7 @@
 package specifications
 
 import (
-	"myproject/internal/domain"
+	"myproject/domain"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

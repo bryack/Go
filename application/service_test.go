@@ -1,7 +1,7 @@
 package application
 
 import (
-	infraErrors "myproject/infrastructure/errors"
+	infraErrors "myproject/domain/errors"
 	"myproject/infrastructure/testhelpers"
 	"testing"
 

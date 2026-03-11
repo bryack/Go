@@ -7,7 +7,7 @@ import (
 	"io"
 	"myproject/cmd/cli/auth"
 	"myproject/cmd/cli/client"
-	"myproject/validation"
+	"myproject/domain/validation"
 	"strings"
 )
 

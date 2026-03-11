@@ -3,7 +3,7 @@ package grpcserver
 import (
 	"context"
 	"fmt"
-	"myproject/internal/domain"
+	"myproject/domain"
 	"sync"
 
 	"google.golang.org/grpc"

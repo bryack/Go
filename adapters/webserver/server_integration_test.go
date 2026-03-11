@@ -3,10 +3,10 @@ package webserver_test
 import (
 	"bytes"
 	"encoding/json"
+	"myproject/adapters/auth"
 	"myproject/adapters/storage"
 	"myproject/adapters/webserver"
-	"myproject/auth"
-	"myproject/internal/domain"
+	"myproject/domain"
 	"myproject/logger"
 	"net/http"
 	"net/http/httptest"

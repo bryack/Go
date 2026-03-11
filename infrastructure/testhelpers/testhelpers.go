@@ -1,8 +1,8 @@
 package testhelpers
 
 import (
-	infraErrors "myproject/infrastructure/errors"
-	"myproject/internal/domain"
+	"myproject/domain"
+	infraErrors "myproject/domain/errors"
 )
 
 type StubTaskStore struct {

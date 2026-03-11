@@ -2,9 +2,9 @@ package application
 
 import (
 	"fmt"
-	infraErrors "myproject/infrastructure/errors"
-	"myproject/internal/domain"
-	"myproject/validation"
+	"myproject/domain"
+	infraErrors "myproject/domain/errors"
+	"myproject/domain/validation"
 )
 
 type Service struct {

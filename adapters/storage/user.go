@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
-	"myproject/internal/domain"
+	"myproject/domain"
 	"myproject/logger"
 )
 

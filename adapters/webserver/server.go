@@ -8,7 +8,6 @@ import (
 	"myproject/domain"
 	infraErrors "myproject/domain/errors"
 	"myproject/domain/validation"
-	"myproject/internal/handlers"
 	"myproject/logger"
 	"net/http"
 	"time"
@@ -110,14 +109,14 @@ func (ts *TasksServer) rootHandler(w http.ResponseWriter, r *http.Request) {
 			"GET / - This message",
 		},
 	}
-	handlers.JSONSuccess(w, response)
+	JSONSuccess(w, response)
 }
 
 // tasksHandler handles GET (list all tasks) and POST (create task) requests.
 func (ts *TasksServer) tasksHandler(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromContext(r.Context())
+	userID, err := GetUserIDFromContext(r.Context())
 	if err != nil {
-		handlers.JSONError(w, http.StatusBadRequest, err.Error())
+		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	switch r.Method {
@@ -126,7 +125,7 @@ func (ts *TasksServer) tasksHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		ts.processCreateTask(w, r, userID)
 	default:
-		handlers.HandleMethodNotAllowed(w, []string{"GET", "POST"})
+		HandleMethodNotAllowed(w, []string{"GET", "POST"})
 		return
 	}
 }
@@ -134,15 +133,15 @@ func (ts *TasksServer) tasksHandler(w http.ResponseWriter, r *http.Request) {
 func (ts *TasksServer) processLoadTasks(w http.ResponseWriter, userID int) {
 	response, err := ts.store.LoadTasks(userID)
 	if err != nil {
-		handlers.JSONError(w, http.StatusInternalServerError, "Failed to load tasks")
+		JSONError(w, http.StatusInternalServerError, "Failed to load tasks")
 		return
 	}
-	handlers.JSONSuccess(w, response)
+	JSONSuccess(w, response)
 }
 
 func (ts *TasksServer) processCreateTask(w http.ResponseWriter, r *http.Request, userID int) {
 	var taskRequest CreateTaskRequest
-	if err := handlers.ParseJSONRequest(w, r, &taskRequest); err != nil {
+	if err := ParseJSONRequest(w, r, &taskRequest); err != nil {
 		return
 	}
 
@@ -152,30 +151,30 @@ func (ts *TasksServer) processCreateTask(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	handlers.JSONResponse(w, http.StatusCreated, task)
+	JSONResponse(w, http.StatusCreated, task)
 }
 
 func (ts *TasksServer) handleCreateTaskError(w http.ResponseWriter, r *http.Request, userID int, err error) {
 	if errors.Is(err, infraErrors.ErrDescriptionRequired) || errors.Is(err, infraErrors.ErrDescriptionTooLong) || errors.Is(err, infraErrors.ErrEmptyFieldsToUpdate) {
 		ts.logTaskError(r, slog.LevelWarn, "Failed to validate description", userID, 0, err)
-		handlers.JSONError(w, http.StatusBadRequest, err.Error())
+		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	ts.logTaskError(r, slog.LevelError, "Failed to create task in database", userID, 0, err)
-	handlers.JSONError(w, http.StatusInternalServerError, "Failed to create task")
+	JSONError(w, http.StatusInternalServerError, "Failed to create task")
 }
 
 // taskHandler handles GET, PUT, and DELETE operations for individual tasks by ID.
 func (ts *TasksServer) taskHandler(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromContext(r.Context())
+	userID, err := GetUserIDFromContext(r.Context())
 	if err != nil {
-		handlers.JSONError(w, http.StatusBadRequest, err.Error())
+		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	idStr := r.PathValue("id")
 	id, err := validation.ValidateTaskID(idStr)
 	if err != nil {
-		handlers.JSONError(w, http.StatusBadRequest, "Invalid task ID")
+		JSONError(w, http.StatusBadRequest, "Invalid task ID")
 		return
 	}
 	switch r.Method {
@@ -193,15 +192,15 @@ func (ts *TasksServer) processGetTaskByID(w http.ResponseWriter, r *http.Request
 	response, err := ts.store.GetTaskByID(taskID, userID)
 	if err != nil {
 		ts.logTaskError(r, slog.LevelWarn, "Failed to get task by ID from database", userID, taskID, err)
-		handlers.JSONError(w, http.StatusNotFound, "Task not found")
+		JSONError(w, http.StatusNotFound, "Task not found")
 		return
 	}
-	handlers.JSONSuccess(w, response)
+	JSONSuccess(w, response)
 }
 
 func (ts *TasksServer) processUpdateTask(w http.ResponseWriter, r *http.Request, taskID int, userID int) {
 	var taskRequest UpdateTaskRequest
-	if err := handlers.ParseJSONRequest(w, r, &taskRequest); err != nil {
+	if err := ParseJSONRequest(w, r, &taskRequest); err != nil {
 		return
 	}
 
@@ -211,7 +210,7 @@ func (ts *TasksServer) processUpdateTask(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	handlers.JSONSuccess(w, task)
+	JSONSuccess(w, task)
 }
 
 func (ts *TasksServer) handleUpdateTaskError(w http.ResponseWriter, r *http.Request, userID, taskID int, err error) {
@@ -220,20 +219,20 @@ func (ts *TasksServer) handleUpdateTaskError(w http.ResponseWriter, r *http.Requ
 		errors.Is(err, infraErrors.ErrDescriptionTooLong),
 		errors.Is(err, infraErrors.ErrEmptyFieldsToUpdate):
 		ts.logTaskError(r, slog.LevelWarn, "Failed to validate description", userID, taskID, err)
-		handlers.JSONError(w, http.StatusBadRequest, err.Error())
+		JSONError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, infraErrors.ErrTaskNotFound):
 		ts.logTaskError(r, slog.LevelWarn, "Failed to get task by ID from database to update", userID, taskID, err)
-		handlers.JSONError(w, http.StatusNotFound, "Task not found")
+		JSONError(w, http.StatusNotFound, "Task not found")
 	default:
 		ts.logTaskError(r, slog.LevelError, "Failed to update task in database", userID, taskID, err)
-		handlers.JSONError(w, http.StatusInternalServerError, "Failed to update task")
+		JSONError(w, http.StatusInternalServerError, "Failed to update task")
 	}
 }
 
 func (ts *TasksServer) processDeleteTask(w http.ResponseWriter, r *http.Request, taskID, userID int) {
 	if err := ts.store.DeleteTask(taskID, userID); err != nil {
 		ts.logTaskError(r, slog.LevelWarn, "Failed to delete task from database", userID, taskID, err)
-		handlers.JSONError(w, http.StatusNotFound, "Task not found")
+		JSONError(w, http.StatusNotFound, "Task not found")
 		return
 	}
 
@@ -243,7 +242,7 @@ func (ts *TasksServer) processDeleteTask(w http.ResponseWriter, r *http.Request,
 // healthHandler provides service health status information.
 func (ts *TasksServer) healthHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		handlers.HandleMethodNotAllowed(w, []string{"GET"})
+		HandleMethodNotAllowed(w, []string{"GET"})
 		return
 	}
 	response := HealthResponse{
@@ -251,17 +250,17 @@ func (ts *TasksServer) healthHandler(w http.ResponseWriter, r *http.Request) {
 		Timestamp: time.Now(),
 		Service:   "task-manager-api",
 	}
-	handlers.JSONSuccess(w, response)
+	JSONSuccess(w, response)
 }
 
 // RegisterHandler creates a new user account and returns a JWT token.
 func (ts *TasksServer) registerHandler(w http.ResponseWriter, r *http.Request) {
 	var registerRequest RegisterRequest
-	if err := handlers.ParseJSONRequest(w, r, &registerRequest); err != nil {
+	if err := ParseJSONRequest(w, r, &registerRequest); err != nil {
 		return
 	}
 	if registerRequest.Email == "" || registerRequest.Password == "" {
-		handlers.JSONError(w, http.StatusBadRequest, "Fields must be provided for register")
+		JSONError(w, http.StatusBadRequest, "Fields must be provided for register")
 		return
 	}
 
@@ -269,15 +268,15 @@ func (ts *TasksServer) registerHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrInvalidEmail), errors.Is(err, auth.ErrPasswordTooLong), errors.Is(err, auth.ErrPasswordTooShort):
-			handlers.JSONError(w, http.StatusBadRequest, err.Error())
+			JSONError(w, http.StatusBadRequest, err.Error())
 		case errors.Is(err, auth.ErrEmailAlreadyExists):
-			handlers.JSONError(w, http.StatusConflict, err.Error())
+			JSONError(w, http.StatusConflict, err.Error())
 		default:
 			ts.logger.Error("Registration failed",
 				slog.String(logger.FieldOperation, "register_handler"),
 				slog.String(logger.FieldError, err.Error()),
 			)
-			handlers.JSONError(w, http.StatusInternalServerError, "registration failed")
+			JSONError(w, http.StatusInternalServerError, "registration failed")
 		}
 		return
 	}
@@ -286,18 +285,18 @@ func (ts *TasksServer) registerHandler(w http.ResponseWriter, r *http.Request) {
 	authResp.Email = registerRequest.Email
 	authResp.Token = token
 
-	handlers.JSONResponse(w, http.StatusCreated, authResp)
+	JSONResponse(w, http.StatusCreated, authResp)
 }
 
 // LoginHandler authenticates user credentials and returns a JWT token.
 func (ts *TasksServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 	var loginRequest LoginRequest
-	if err := handlers.ParseJSONRequest(w, r, &loginRequest); err != nil {
+	if err := ParseJSONRequest(w, r, &loginRequest); err != nil {
 		return
 	}
 
 	if loginRequest.Email == "" || loginRequest.Password == "" {
-		handlers.JSONError(w, http.StatusBadRequest, "Fields must be provided for login")
+		JSONError(w, http.StatusBadRequest, "Fields must be provided for login")
 		return
 	}
 
@@ -308,14 +307,14 @@ func (ts *TasksServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 			slog.String("email", loginRequest.Email),
 			slog.String(logger.FieldError, err.Error()),
 		)
-		handlers.JSONError(w, http.StatusUnauthorized, "invalid credentials")
+		JSONError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
 
 	var authResp AuthResponse
 	authResp.Email = loginRequest.Email
 	authResp.Token = token
-	handlers.JSONSuccess(w, authResp)
+	JSONSuccess(w, authResp)
 }
 
 func (ts *TasksServer) logTaskError(r *http.Request, level slog.Level, msg string, userID, taskID int, err error) {

@@ -88,7 +88,7 @@ func setupIntegrationTest(t *testing.T) (*webserver.TasksServer, string) {
 
 	jwtService := auth.NewJWTService("test-secret-key-minimum-32-chars!", 24*time.Hour)
 	authService := auth.NewService(store, jwtService, testLogger)
-	authMiddleware := auth.NewAuthMiddleware(jwtService, testLogger)
+	authMiddleware := webserver.NewAuthMiddleware(jwtService, testLogger)
 
 	server := webserver.NewTasksServer(store, authService, authMiddleware, testLogger)
 

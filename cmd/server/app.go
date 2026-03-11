@@ -36,7 +36,7 @@ type App struct {
 func NewApp(cfg *config.Config, l *slog.Logger, s domain.AppStorage) (*App, error) {
 	jwtService := auth.NewJWTService(cfg.JWTConfig.Secret, cfg.JWTConfig.Expiration)
 	authService := auth.NewService(s, jwtService, l)
-	authMiddleware := auth.NewAuthMiddleware(jwtService, l)
+	authMiddleware := webserver.NewAuthMiddleware(jwtService, l)
 
 	l.Info("Database storage initialized",
 		slog.String("path", cfg.DatabaseConfig.Path),

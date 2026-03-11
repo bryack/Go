@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
-	"myproject/adapters/auth"
 	"myproject/domain"
 	"myproject/infrastructure/testhelpers"
 	"net/http"
@@ -17,7 +16,7 @@ import (
 )
 
 var (
-	dummyAuthMiddleware = &auth.AuthMiddleware{}
+	dummyAuthMiddleware = &AuthMiddleware{}
 	dummyLogger         = slog.New(slog.NewTextHandler(io.Discard, nil))
 )
 
@@ -28,7 +27,7 @@ type StubAuth struct {
 func (sa *StubAuth) Authenticate(handler http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sa.authCalled++
-		ctx := context.WithValue(r.Context(), auth.UserIDKey, 1)
+		ctx := context.WithValue(r.Context(), UserIDKey, 1)
 		r = r.WithContext(ctx)
 		handler(w, r)
 	}

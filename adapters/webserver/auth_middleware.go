@@ -1,10 +1,10 @@
-package auth
+package webserver
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
-	"myproject/internal/handlers"
+	"myproject/adapters/auth"
 	"myproject/logger"
 	"net/http"
 	"strings"
@@ -17,12 +17,12 @@ const UserIDKey ContextKey = "user_id"
 
 // AuthMiddleware handles JWT token validation and user authentication for HTTP requests.
 type AuthMiddleware struct {
-	jwtService *JWTService
+	jwtService *auth.JWTService
 	logger     *slog.Logger
 }
 
 // NewAuthMiddleware creates a new authentication middleware with the provided JWT service.
-func NewAuthMiddleware(jwtService *JWTService, logger *slog.Logger) *AuthMiddleware {
+func NewAuthMiddleware(jwtService *auth.JWTService, logger *slog.Logger) *AuthMiddleware {
 	return &AuthMiddleware{
 		jwtService: jwtService,
 		logger:     logger,
@@ -57,7 +57,7 @@ func (am *AuthMiddleware) Authenticate(handler http.HandlerFunc) http.HandlerFun
 				slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
 				slog.String(logger.FieldError, err.Error()),
 			)
-			handlers.JSONError(w, http.StatusUnauthorized, "authorization header required")
+			JSONError(w, http.StatusUnauthorized, "authorization header required")
 			return
 		}
 
@@ -70,7 +70,7 @@ func (am *AuthMiddleware) Authenticate(handler http.HandlerFunc) http.HandlerFun
 				slog.String(logger.FieldRequestID, logger.GetRequestID(r.Context())),
 				slog.String(logger.FieldError, err.Error()),
 			)
-			handlers.JSONError(w, http.StatusUnauthorized, "invalid or expired token")
+			JSONError(w, http.StatusUnauthorized, "invalid or expired token")
 			return
 		}
 

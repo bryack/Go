@@ -16,9 +16,9 @@ func TestTaskManagerServer(t *testing.T) {
 
 	port := nat.Port("50051/tcp")
 	baseURL := testhelpers.StartDockerGRPCServer(t, port, "./cmd/grpcserver/Dockerfile")
-	driver := grpcserver.Driver{BaseURL: baseURL}
+	driver := grpcserver.Driver{Addr: baseURL}
 
 	t.Run("happy path", func(t *testing.T) {
-		specifications.TaskManagerSpecification(t, driver)
+		specifications.TaskManagerSpecification(t, &driver)
 	})
 }

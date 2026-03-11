@@ -97,9 +97,9 @@ func NewTasksServer(store domain.Storage, authService AuthService, authMiddlewar
 // rootHandler serves the API information and available endpoints.
 func (ts *TasksServer) rootHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
-		"message": "Task Manager API",
-		"enpoints": []string{
-			"Get /health - Health check",
+		"message":  "Task Manager API",
+		"endpoints": []string{
+			"GET /health - Health check",
 			"GET /tasks - Get tasks",
 			"POST /tasks - Add task",
 			"GET /tasks/{id} - Get task",
@@ -107,7 +107,7 @@ func (ts *TasksServer) rootHandler(w http.ResponseWriter, r *http.Request) {
 			"DELETE /tasks/{id} - Delete task",
 			"POST /register - Register user",
 			"POST /login - Login user",
-			"Get / - This message",
+			"GET / - This message",
 		},
 	}
 	handlers.JSONSuccess(w, response)

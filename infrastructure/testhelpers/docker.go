@@ -56,7 +56,7 @@ func StartDockerGRPCServer(t testing.TB, port nat.Port, dockerfilePath string) s
 			Dockerfile: dockerfilePath,
 		},
 		ExposedPorts: []string{string(port)},
-		WaitingFor:   wait.ForLog("gRPC server listening at"),
+		WaitingFor:   wait.ForListeningPort(port),
 		Env: map[string]string{
 			"TASKMANAGER_JWT_SECRET": "test-only-secret-min32chars-long",
 		},
@@ -78,6 +78,6 @@ func StartDockerGRPCServer(t testing.TB, port nat.Port, dockerfilePath string) s
 	host, err := container.Host(ctx)
 	require.NoError(t, err)
 
-	baseURL := fmt.Sprintf("http://%s:%s", host, mappedPort.Port())
+	baseURL := fmt.Sprintf("%s:%s", host, mappedPort.Port())
 	return baseURL
 }

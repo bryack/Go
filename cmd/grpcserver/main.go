@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"myproject/adapters/grpcserver"
 	"net"
+
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -13,7 +17,17 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	log.Printf("gRPC server listening at %v", lis.Addr())
+	s := grpc.NewServer()
+	grpcserver.RegisterTaskManagerServer(s, &TaskManagerServer{})
+	if err := s.Serve(lis); err != nil {
+		log.Fatal(err)
+	}
+}
 
-	select {}
+type TaskManagerServer struct {
+	grpcserver.UnimplementedTaskManagerServer
+}
+
+func (g TaskManagerServer) Register(ctx context.Context, request *grpcserver.RegisterRequest) (*grpcserver.RegisterReply, error) {
+	return &grpcserver.RegisterReply{Token: "fixme"}, nil
 }

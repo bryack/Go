@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/docker/go-connections/nat"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 func TestTaskManagerServer(t *testing.T) {
@@ -20,7 +21,7 @@ func TestTaskManagerServer(t *testing.T) {
 		Timeout: 2 * time.Second,
 	}
 	port := nat.Port("8080/tcp")
-	baseURL := testhelpers.StartDockerServer(t, port, "./Dockerfile")
+	baseURL := testhelpers.StartDockerServer(t, port, "server", wait.ForHTTP("/health"), true)
 	driver := webserver.Driver{BaseURL: baseURL, Client: &client}
 
 	t.Run("happy path", func(t *testing.T) {

@@ -1,8 +1,10 @@
 package specifications
 
 import (
+	"fmt"
 	"myproject/domain"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -15,12 +17,13 @@ type TaskManager interface {
 }
 
 func TaskManagerSpecification(t testing.TB, tm TaskManager) {
-	err := tm.Register("test@email.com", "password123")
+	uniqueEmail := fmt.Sprintf("test_%d@email.com", time.Now().UnixNano())
+	err := tm.Register(uniqueEmail, "password123")
 	if err != nil {
 		t.Fatalf("failed to register: %v", err)
 	}
 
-	token, err := tm.Login("test@email.com", "password123")
+	token, err := tm.Login(uniqueEmail, "password123")
 	if err != nil {
 		t.Fatalf("failed to login: %v", err)
 	}

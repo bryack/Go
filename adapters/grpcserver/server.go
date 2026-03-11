@@ -2,21 +2,44 @@ package grpcserver
 
 import (
 	"context"
+	"myproject/adapters/auth"
+	"myproject/application"
+	"myproject/domain"
 )
 
 type TaskManageServer struct {
 	UnimplementedTaskManagerServer
+	store       domain.Storage
+	authService *auth.Service
+	taskService *application.Service
+}
+
+func NewTaskManageServer(store domain.Storage, authService *auth.Service, taskService *application.Service) *TaskManageServer {
+	return &TaskManageServer{
+		store:       store,
+		authService: authService,
+		taskService: taskService,
+	}
 }
 
 func (g TaskManageServer) Register(ctx context.Context, request *RegisterRequest) (*RegisterReply, error) {
-	return &RegisterReply{Token: "fixme"}, nil
+	token, err := g.authService.Register(request.Email, request.Password)
+	if err != nil {
+		return nil, err
+	}
+	return &RegisterReply{Token: token}, nil
 }
 
 func (g TaskManageServer) Login(ctx context.Context, request *LoginRequest) (*LoginReply, error) {
-	return &LoginReply{Token: "fixme"}, nil
+	token, err := g.authService.Login(request.Email, request.Password)
+	if err != nil {
+		return nil, err
+	}
+	return &LoginReply{Token: token}, nil
 }
 
 func (g TaskManageServer) CreateTask(ctx context.Context, request *CreateTaskRequest) (*CreateTaskReply, error) {
+
 	return &CreateTaskReply{TaskId: 1}, nil
 }
 

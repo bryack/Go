@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/assert"
@@ -15,6 +16,8 @@ import (
 func StartDockerServer(t testing.TB, port nat.Port, binToBuild string, waitStrategy wait.Strategy, includeScheme bool) string {
 	ctx := context.Background()
 
+	dbName := fmt.Sprintf("tasks_test_%d.db", time.Now().UnixNano())
+
 	req := testcontainers.ContainerRequest{
 		FromDockerfile: testcontainers.FromDockerfile{
 			Context:       "../../.",
@@ -25,7 +28,8 @@ func StartDockerServer(t testing.TB, port nat.Port, binToBuild string, waitStrat
 		ExposedPorts: []string{string(port)},
 		WaitingFor:   waitStrategy,
 		Env: map[string]string{
-			"TASKMANAGER_JWT_SECRET": "test-only-secret-min32chars-long",
+			"TASKMANAGER_JWT_SECRET":    "test-only-secret-min32chars-long",
+			"TASKMANAGER_DATABASE_PATH": "/tmp/" + dbName,
 		},
 	}
 

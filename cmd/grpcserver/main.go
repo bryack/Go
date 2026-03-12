@@ -29,7 +29,7 @@ func main() {
 		log.Fatal(err)
 	}
 	jwtService := auth.NewJWTService(cfg.JWTConfig.Secret, cfg.JWTConfig.Expiration)
-	authService := auth.NewService(store, jwtService, l)
+	authService := application.NewAuthService(store, jwtService, l)
 	taskService := application.NewService(store)
 	grpcServer := grpcserver.NewTaskManageServer(store, authService, taskService)
 

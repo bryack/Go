@@ -2,7 +2,6 @@ package grpcserver
 
 import (
 	"context"
-	"myproject/adapters/auth"
 	"myproject/application"
 	"myproject/domain"
 )
@@ -10,11 +9,11 @@ import (
 type TaskManageServer struct {
 	UnimplementedTaskManagerServer
 	store       domain.Storage
-	authService *auth.Service
+	authService *application.AuthService
 	taskService *application.Service
 }
 
-func NewTaskManageServer(store domain.Storage, authService *auth.Service, taskService *application.Service) *TaskManageServer {
+func NewTaskManageServer(store domain.Storage, authService *application.AuthService, taskService *application.Service) *TaskManageServer {
 	return &TaskManageServer{
 		store:       store,
 		authService: authService,

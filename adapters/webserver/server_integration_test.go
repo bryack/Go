@@ -6,6 +6,7 @@ import (
 	"myproject/adapters/auth"
 	"myproject/adapters/storage"
 	"myproject/adapters/webserver"
+	"myproject/application"
 	"myproject/domain"
 	"myproject/logger"
 	"net/http"
@@ -87,7 +88,7 @@ func setupIntegrationTest(t *testing.T) (*webserver.TasksServer, string) {
 	})
 
 	jwtService := auth.NewJWTService("test-secret-key-minimum-32-chars!", 24*time.Hour)
-	authService := auth.NewService(store, jwtService, testLogger)
+	authService := application.NewAuthService(store, jwtService, testLogger)
 	authMiddleware := webserver.NewAuthMiddleware(jwtService, testLogger)
 
 	server := webserver.NewTasksServer(store, authService, authMiddleware, testLogger)

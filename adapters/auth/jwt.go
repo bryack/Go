@@ -2,14 +2,15 @@ package auth
 
 import (
 	"fmt"
+	"myproject/application"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
 // Claims represents JWT token payload containing user identification and standard claims.
-type Claims struct {
-	UserID int `json:"user_id"`
+type jwtClaims struct {
+	application.Claims
 	jwt.RegisteredClaims
 }
 
@@ -30,8 +31,10 @@ func NewJWTService(secret string, expiration time.Duration) *JWTService {
 
 // GenerateToken creates a signed JWT token for the specified user ID with configured expiration.
 func (j *JWTService) GenerateToken(userID int) (string, error) {
-	claims := Claims{
-		UserID: userID,
+	claims := jwtClaims{
+		Claims: application.Claims{
+			UserID: userID,
+		},
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.expiration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -48,8 +51,8 @@ func (j *JWTService) GenerateToken(userID int) (string, error) {
 }
 
 // ValidateToken verifies the token signature and expiration, returning the extracted claims.
-func (j *JWTService) ValidateToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (any, error) {
+func (j *JWTService) ValidateToken(tokenString string) (*application.Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method, got %v", token.Header["alg"])
 		}
@@ -59,10 +62,10 @@ func (j *JWTService) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, fmt.Errorf("failed to parse token: %w", err)
 	}
 
-	claims, ok := token.Claims.(*Claims)
+	claims, ok := token.Claims.(*jwtClaims)
 	if !ok {
 		return nil, fmt.Errorf("invalid token claims type")
 	}
 
-	return claims, nil
+	return &claims.Claims, nil
 }

@@ -1,9 +1,8 @@
-package auth
+package application
 
 import (
 	"errors"
 	"log/slog"
-	"myproject/adapters/storage"
 	"myproject/domain"
 	"myproject/logger"
 	"regexp"
@@ -11,19 +10,28 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Service handles authentication operations including user registration and login.
-type Service struct {
-	userStorage domain.UserStorage
-	jwtService  *JWTService
-	logger      *slog.Logger
+type TokenGenerator interface {
+	GenerateToken(userID int) (string, error)
+	ValidateToken(tokenString string) (*Claims, error)
+}
+
+type Claims struct {
+	UserID int `json:"user_id"`
+}
+
+// AuthService handles authentication operations including user registration and login.
+type AuthService struct {
+	userStorage    domain.UserStorage
+	tokenGenerator TokenGenerator
+	logger         *slog.Logger
 }
 
 // NewService creates a new authentication service with the provided dependencies.
-func NewService(userStorage domain.UserStorage, jwtService *JWTService, logger *slog.Logger) *Service {
-	return &Service{
-		userStorage: userStorage,
-		jwtService:  jwtService,
-		logger:      logger,
+func NewAuthService(userStorage domain.UserStorage, tokenGenerator TokenGenerator, logger *slog.Logger) *AuthService {
+	return &AuthService{
+		userStorage:    userStorage,
+		tokenGenerator: tokenGenerator,
+		logger:         logger,
 	}
 }
 
@@ -62,7 +70,7 @@ func ComparePassword(hash, password string) error {
 }
 
 // Register creates a new user account with the provided credentials and returns a JWT token.
-func (service *Service) Register(email, password string) (token string, err error) {
+func (service *AuthService) Register(email, password string) (token string, err error) {
 	service.logger.Info("Register",
 		slog.String(logger.FieldOperation, "user_registration"),
 		slog.String(logger.FieldEmail, logger.MaskEmail(email)),
@@ -126,7 +134,7 @@ func (service *Service) Register(email, password string) (token string, err erro
 		return "", domain.ErrStorageFailure
 	}
 
-	token, err = service.jwtService.GenerateToken(userID)
+	token, err = service.tokenGenerator.GenerateToken(userID)
 	if err != nil {
 		return "", domain.ErrTokenGenerationFailed
 	}
@@ -141,7 +149,7 @@ func (service *Service) Register(email, password string) (token string, err erro
 }
 
 // Login authenticates a user with email and password, returning a JWT token on success.
-func (service *Service) Login(email, password string) (token string, err error) {
+func (service *AuthService) Login(email, password string) (token string, err error) {
 	service.logger.Info("Login attempt",
 		slog.String(logger.FieldOperation, "user_login"),
 		slog.String(logger.FieldEmail, logger.MaskEmail(email)),
@@ -149,7 +157,7 @@ func (service *Service) Login(email, password string) (token string, err error) 
 
 	user, err := service.userStorage.GetUserByEmail(email)
 	if err != nil {
-		if errors.Is(err, storage.ErrUserNotFound) {
+		if errors.Is(err, domain.ErrUserNotFound) {
 			service.logger.Warn("Failed login",
 				slog.String(logger.FieldOperation, "user_login"),
 				slog.String(logger.FieldEmail, logger.MaskEmail(email)),
@@ -174,7 +182,7 @@ func (service *Service) Login(email, password string) (token string, err error) 
 		return "", domain.ErrInvalidCredentials
 	}
 
-	token, err = service.jwtService.GenerateToken(user.ID)
+	token, err = service.tokenGenerator.GenerateToken(user.ID)
 	if err != nil {
 		service.logger.Error("Failed to generate token",
 			slog.String(logger.FieldOperation, "user_login"),

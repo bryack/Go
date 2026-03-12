@@ -2,14 +2,10 @@ package storage
 
 import (
 	"database/sql"
-	"errors"
 	"log/slog"
 	"myproject/domain"
 	"myproject/logger"
 )
-
-// ErrUserNotFound is returned when a user lookup fails.
-var ErrUserNotFound = errors.New("user not found")
 
 // CreateUser inserts a new user and returns the generated ID.
 func (ds *DatabaseStorage) CreateUser(email, passwordHash string) (int, error) {
@@ -56,7 +52,7 @@ func (ds *DatabaseStorage) GetUserByEmail(email string) (*domain.User, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrUserNotFound
+			return nil, domain.ErrUserNotFound
 		}
 		ds.logger.Error("Failed to query database select from users",
 			slog.String(logger.FieldOperation, "get_user_by_email"),
@@ -83,7 +79,7 @@ func (ds *DatabaseStorage) GetUserByID(id int) (*domain.User, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrUserNotFound
+			return nil, domain.ErrUserNotFound
 		}
 		ds.logger.Error("Failed to query database select from users",
 			slog.String(logger.FieldOperation, "get_user_by_id"),

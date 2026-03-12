@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"myproject/adapters/auth"
 	"myproject/adapters/webserver"
+	"myproject/application"
 	"myproject/cmd/server/config"
 	"myproject/domain"
 	"net/http"
@@ -35,7 +36,7 @@ type App struct {
 
 func NewApp(cfg *config.Config, l *slog.Logger, s domain.AppStorage) (*App, error) {
 	jwtService := auth.NewJWTService(cfg.JWTConfig.Secret, cfg.JWTConfig.Expiration)
-	authService := auth.NewService(s, jwtService, l)
+	authService := application.NewAuthService(s, jwtService, l)
 	authMiddleware := webserver.NewAuthMiddleware(jwtService, l)
 
 	l.Info("Database storage initialized",

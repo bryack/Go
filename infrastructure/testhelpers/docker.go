@@ -30,6 +30,8 @@ func StartDockerServer(t testing.TB, port nat.Port, binToBuild string, waitStrat
 		Env: map[string]string{
 			"TASKMANAGER_JWT_SECRET":    "test-only-secret-min32chars-long",
 			"TASKMANAGER_DATABASE_PATH": "/tmp/" + dbName,
+			"TASKMANAGER_SERVER_PORT":   port.Port(),
+			"TASKMANAGER_GRPC_PORT":     port.Port(),
 		},
 	}
 

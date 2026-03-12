@@ -1,17 +1,12 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
-	"myproject/adapters/auth"
-	"myproject/adapters/grpcserver"
+	"log/slog"
 	"myproject/adapters/storage"
-	"myproject/application"
-	"myproject/cmd/server/config"
+	"myproject/config"
 	"myproject/logger"
-	"net"
-
-	"google.golang.org/grpc"
 )
 
 func main() {
@@ -24,28 +19,29 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	l.Info("Logger initialized successfully",
+		slog.String("level", cfg.LogConfig.Level),
+		slog.String("format", cfg.LogConfig.Format),
+		slog.String("output", cfg.LogConfig.Output),
+		slog.String("service_name", cfg.LogConfig.ServiceName),
+	)
+
 	store, err := storage.NewDatabaseStorage(cfg.DatabaseConfig.Path, l)
+	if err != nil {
+		l.Error("Failed to initialize database",
+			slog.String("operation", "database_init"),
+			slog.String("path", cfg.DatabaseConfig.Path),
+			slog.String("error", err.Error()),
+		)
+		log.Fatal(err)
+	}
+
+	app, err := NewApp(cfg, l, store)
 	if err != nil {
 		log.Fatal(err)
 	}
-	jwtService := auth.NewJWTService(cfg.JWTConfig.Secret, cfg.JWTConfig.Expiration)
-	authService := application.NewAuthService(store, jwtService, l)
-	taskService := application.NewService(store)
-	grpcServer := grpcserver.NewTaskManageServer(store, authService, taskService)
-
-	authInterceptor := grpcserver.NewAuthInterceptor(jwtService, l)
-
-	port := 50051
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-
-	s := grpc.NewServer(
-		grpc.UnaryInterceptor(authInterceptor.UnaryInterceptor),
-	)
-	grpcserver.RegisterTaskManagerServer(s, grpcServer)
-	if err := s.Serve(lis); err != nil {
+	if err = app.Run(context.Background()); err != nil {
+		l.Error("application error", slog.String("error", err.Error()))
 		log.Fatal(err)
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"myproject/adapters/storage"
-	"myproject/cmd/server/config"
+	"myproject/config"
 	"myproject/logger"
 	"os"
 

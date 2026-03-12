@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"myproject/adapters/auth"
 	"myproject/adapters/storage"
-	"myproject/cmd/server/config"
+	"myproject/config"
 	"myproject/domain"
 	"myproject/logger"
 	"net/http"

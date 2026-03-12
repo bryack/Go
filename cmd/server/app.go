@@ -8,7 +8,7 @@ import (
 	"myproject/adapters/auth"
 	"myproject/adapters/webserver"
 	"myproject/application"
-	"myproject/cmd/server/config"
+	"myproject/config"
 	"myproject/domain"
 	"net/http"
 	"os/signal"

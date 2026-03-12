@@ -6,6 +6,9 @@ server:
   port: 8080
   shutdown_timeout: "30s"
 
+grpc:
+  port: 50051
+
 database:
   path: "./data/tasks.db"
 

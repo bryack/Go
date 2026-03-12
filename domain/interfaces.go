@@ -1,5 +1,10 @@
 package domain
 
+type TaskService interface {
+	CreateTask(description string, userID int) (Task, error)
+	UpdateTask(taskID, userID int, description *string, done *bool) (Task, error)
+}
+
 // Storage defines the interface for task persistence operations.
 type Storage interface {
 	LoadTasks(userID int) ([]Task, error)
@@ -21,6 +26,11 @@ type UserStorage interface {
 type AppStorage interface {
 	Storage
 	UserStorage
+}
+
+type AuthService interface {
+	Register(email, password string) (token string, err error)
+	Login(email, password string) (token string, err error)
 }
 
 type TokenGenerator interface {

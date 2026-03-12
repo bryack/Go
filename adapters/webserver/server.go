@@ -50,25 +50,20 @@ type AuthResponse struct {
 	Email string `json:"email"`
 }
 
-type AuthService interface {
-	Register(email, password string) (token string, err error)
-	Login(email, password string) (token string, err error)
-}
-
 type Authenticator interface {
 	Authenticate(handler http.HandlerFunc) http.HandlerFunc
 }
 
 type TasksServer struct {
 	store          domain.Storage
-	service        *application.Service
-	authService    AuthService
+	service        domain.TaskService
+	authService    domain.AuthService
 	authMiddleware Authenticator
 	logger         *slog.Logger
 	http.Handler
 }
 
-func NewTasksServer(store domain.Storage, authService AuthService, authMiddleware Authenticator, l *slog.Logger) *TasksServer {
+func NewTasksServer(store domain.Storage, authService domain.AuthService, authMiddleware Authenticator, l *slog.Logger) *TasksServer {
 	ts := &TasksServer{}
 	ts.store = store
 	ts.authService = authService

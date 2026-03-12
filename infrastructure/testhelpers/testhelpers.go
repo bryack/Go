@@ -4,6 +4,23 @@ import (
 	"myproject/domain"
 )
 
+type SpyTaskService struct {
+	LastDescription string
+	LastUserID      int
+	ResultTask      domain.Task
+	ResultErr       error
+}
+
+func (ts *SpyTaskService) CreateTask(description string, userID int) (domain.Task, error) {
+	ts.LastDescription = description
+	ts.LastUserID = userID
+	return ts.ResultTask, ts.ResultErr
+}
+
+func (ts *SpyTaskService) UpdateTask(taskID, userID int, description *string, done *bool) (domain.Task, error) {
+	return domain.Task{}, nil
+}
+
 type StubTaskStore struct {
 	Tasks            map[int]string
 	CreateCall       []int
@@ -41,6 +58,25 @@ func (s *StubTaskStore) DeleteTask(id int, userID int) error {
 
 func (s *StubTaskStore) Close() error {
 	return nil
+}
+
+type SpyAuthService struct {
+	ResultToken  string
+	ResultErr    error
+	LastEmail    string
+	LastPassword string
+}
+
+func (s *SpyAuthService) Register(email, password string) (string, error) {
+	s.LastEmail = email
+	s.LastPassword = password
+	return s.ResultToken, s.ResultErr
+}
+
+func (s *SpyAuthService) Login(email, password string) (string, error) {
+	s.LastEmail = email
+	s.LastPassword = password
+	return s.ResultToken, s.ResultErr
 }
 
 type StubTokenGenerator struct {

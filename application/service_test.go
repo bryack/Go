@@ -1,7 +1,7 @@
 package application
 
 import (
-	infraErrors "myproject/domain/errors"
+	"myproject/domain"
 	"myproject/infrastructure/testhelpers"
 	"testing"
 
@@ -64,7 +64,7 @@ func TestUpdateTask(t *testing.T) {
 			expectedDone:        false,
 			expectedUpdateCalls: 0,
 			wantErr:             true,
-			expectedError:       infraErrors.ErrEmptyFieldsToUpdate,
+			expectedError:       domain.ErrEmptyFieldsToUpdate,
 		},
 		{
 			name: "error when task not found",
@@ -85,7 +85,7 @@ func TestUpdateTask(t *testing.T) {
 			expectedDone:        false,
 			expectedUpdateCalls: 0,
 			wantErr:             true,
-			expectedError:       infraErrors.ErrTaskNotFound,
+			expectedError:       domain.ErrTaskNotFound,
 		},
 	}
 

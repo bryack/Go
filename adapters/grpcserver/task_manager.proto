@@ -4,50 +4,81 @@ option go_package = "myproject/adapters/grpcserver";
 
 package grpcserver;
 
+// TaskManager provides task management operations with JWT authentication.
 service TaskManager {
+    // Register creates a new user account and returns a JWT token.
     rpc Register (RegisterRequest) returns (RegisterReply) {}
+    
+    // Login authenticates a user and returns a JWT token.
     rpc Login (LoginRequest) returns (LoginReply) {}
+    
+    // CreateTask creates a new task for the authenticated user.
     rpc CreateTask (CreateTaskRequest) returns (CreateTaskReply) {}
+    
+    // GetTasks retrieves all tasks for the authenticated user.
     rpc GetTasks (GetTasksRequest) returns (GetTasksReply) {}
 }
 
+// RegisterRequest contains user registration credentials.
 message RegisterRequest {
+    // User's email address.
     string email = 1;
+    // User's password (minimum 8 characters).
     string password = 2;
 }
 
+// RegisterReply contains the JWT token after successful registration.
 message RegisterReply {
+    // JWT token for authenticated requests.
     string token = 1;
 }
 
+// LoginRequest contains user login credentials.
 message LoginRequest {
+    // User's email address.
     string email = 1;
+    // User's password.
     string password = 2;
 }
 
+// LoginReply contains the JWT token after successful login.
 message LoginReply {
+    // JWT token for authenticated requests.
     string token = 1;
 }
 
+// CreateTaskRequest contains task creation data.
 message CreateTaskRequest {
+    // JWT token for authentication (will be moved to metadata).
     string token = 1;
+    // Task description (required, max 200 characters).
     string description = 2;
 }
 
+// CreateTaskReply contains the ID of the created task.
 message CreateTaskReply {
+    // Unique task identifier.
     int32 task_id = 1;
 }
 
+// GetTasksRequest for retrieving user's tasks.
 message GetTasksRequest {
+    // JWT token for authentication.
     string token = 1;
 }
 
+// GetTasksReply contains a list of user's tasks.
 message GetTasksReply {
+    // Task represents a single task item.
     message Task {
-      int32 id = 1;
-      string description = 2;
-      bool done = 3;
+        // Unique task identifier.
+        int32 id = 1;
+        // Task description.
+        string description = 2;
+        // Completion status (true = done).
+        bool done = 3;
     }
-
+    
+    // List of tasks.
     repeated Task tasks = 1;
 }

@@ -2,7 +2,6 @@ package testhelpers
 
 import (
 	"myproject/domain"
-	infraErrors "myproject/domain/errors"
 )
 
 type StubTaskStore struct {
@@ -15,7 +14,7 @@ type StubTaskStore struct {
 func (s *StubTaskStore) GetTaskByID(id int, userID int) (task domain.Task, err error) {
 	t, ok := s.Tasks[id]
 	if !ok {
-		return domain.Task{}, infraErrors.ErrTaskNotFound
+		return domain.Task{}, domain.ErrTaskNotFound
 	}
 	return domain.Task{ID: id, Description: t}, nil
 }

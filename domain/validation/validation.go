@@ -3,7 +3,7 @@ package validation
 import (
 	"errors"
 	"fmt"
-	infraErrors "myproject/domain/errors"
+	"myproject/domain"
 	"regexp"
 	"strconv"
 	"strings"
@@ -33,12 +33,12 @@ func ValidateTaskID(input string) (int, error) {
 // Returns trimmed description or error if empty or exceeds 200 characters.
 func ValidateTaskDescription(input string) (string, error) {
 	if len(input) == 0 {
-		return "", infraErrors.ErrDescriptionRequired
+		return "", domain.ErrDescriptionRequired
 	}
 
 	input = strings.TrimSpace(input)
 	if len(input) > 200 {
-		return "", infraErrors.ErrDescriptionTooLong
+		return "", domain.ErrDescriptionTooLong
 	}
 
 	return input, nil

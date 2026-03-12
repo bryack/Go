@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"myproject/domain"
-	infraErrors "myproject/domain/errors"
 	"myproject/logger"
 	"os"
 	"time"
@@ -133,7 +132,7 @@ func (ds *DatabaseStorage) UpdateTask(task domain.Task, userID int) error {
 	)
 
 	if rowsAffected == 0 {
-		return infraErrors.ErrTaskNotFound
+		return domain.ErrTaskNotFound
 	}
 
 	return nil
@@ -178,7 +177,7 @@ func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
 	)
 
 	if rowsAffected == 0 {
-		return infraErrors.ErrTaskNotFound
+		return domain.ErrTaskNotFound
 	}
 
 	return nil
@@ -198,7 +197,7 @@ func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task domain.Task, er
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return domain.Task{}, infraErrors.ErrTaskNotFound
+			return domain.Task{}, domain.ErrTaskNotFound
 		}
 		ds.logger.Error("Failed to query database select from tasks",
 			slog.String(logger.FieldOperation, "get_task_by_id"),

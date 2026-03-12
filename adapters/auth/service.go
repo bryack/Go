@@ -30,11 +30,11 @@ func NewService(userStorage domain.UserStorage, jwtService *JWTService, logger *
 // ValidatePassword checks if a password meets minimum security requirements.
 func ValidatePassword(password string) error {
 	if len(password) < 8 {
-		return ErrPasswordTooShort
+		return domain.ErrPasswordTooShort
 	}
 
 	if len(password) > 72 {
-		return ErrPasswordTooLong
+		return domain.ErrPasswordTooLong
 	}
 	return nil
 }
@@ -46,7 +46,7 @@ func HashPassword(password string) (string, error) {
 		bcrypt.DefaultCost,
 	)
 	if err != nil {
-		return "", ErrHashingFailed
+		return "", domain.ErrHashingFailed
 	}
 
 	return string(hashedPassword), nil
@@ -56,7 +56,7 @@ func HashPassword(password string) (string, error) {
 func ComparePassword(hash, password string) error {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	if err != nil {
-		return ErrInvalidCredentials
+		return domain.ErrInvalidCredentials
 	}
 	return nil
 }
@@ -73,9 +73,9 @@ func (service *Service) Register(email, password string) (token string, err erro
 		service.logger.Warn("Failed to validate email",
 			slog.String(logger.FieldOperation, "user_registration"),
 			slog.String(logger.FieldEmail, logger.MaskEmail(email)),
-			slog.String(logger.FieldError, ErrInvalidEmail.Error()),
+			slog.String(logger.FieldError, domain.ErrInvalidEmail.Error()),
 		)
-		return "", ErrInvalidEmail
+		return "", domain.ErrInvalidEmail
 	}
 
 	if err = ValidatePassword(password); err != nil {
@@ -84,7 +84,7 @@ func (service *Service) Register(email, password string) (token string, err erro
 			slog.String(logger.FieldEmail, logger.MaskEmail(email)),
 			slog.String(logger.FieldError, err.Error()),
 		)
-		return "", ErrInvalidCredentials
+		return "", domain.ErrInvalidCredentials
 	}
 
 	exists, err := service.userStorage.EmailExists(email)
@@ -94,16 +94,16 @@ func (service *Service) Register(email, password string) (token string, err erro
 			slog.String(logger.FieldEmail, logger.MaskEmail(email)),
 			slog.String(logger.FieldError, err.Error()),
 		)
-		return "", ErrStorageFailure
+		return "", domain.ErrStorageFailure
 	}
 
 	if exists {
 		service.logger.Warn("Email exists",
 			slog.String(logger.FieldOperation, "user_registration"),
 			slog.String(logger.FieldEmail, logger.MaskEmail(email)),
-			slog.String(logger.FieldError, ErrEmailAlreadyExists.Error()),
+			slog.String(logger.FieldError, domain.ErrEmailAlreadyExists.Error()),
 		)
-		return "", ErrEmailAlreadyExists
+		return "", domain.ErrEmailAlreadyExists
 	}
 
 	passwordHash, err := HashPassword(password)
@@ -113,7 +113,7 @@ func (service *Service) Register(email, password string) (token string, err erro
 			slog.String(logger.FieldEmail, logger.MaskEmail(email)),
 			slog.String(logger.FieldError, err.Error()),
 		)
-		return "", ErrHashingFailed
+		return "", domain.ErrHashingFailed
 	}
 
 	userID, err := service.userStorage.CreateUser(email, passwordHash)
@@ -123,12 +123,12 @@ func (service *Service) Register(email, password string) (token string, err erro
 			slog.String(logger.FieldEmail, logger.MaskEmail(email)),
 			slog.String(logger.FieldError, err.Error()),
 		)
-		return "", ErrStorageFailure
+		return "", domain.ErrStorageFailure
 	}
 
 	token, err = service.jwtService.GenerateToken(userID)
 	if err != nil {
-		return "", ErrTokenGenerationFailed
+		return "", domain.ErrTokenGenerationFailed
 	}
 
 	service.logger.Info("User registered successfully",
@@ -153,25 +153,25 @@ func (service *Service) Login(email, password string) (token string, err error) 
 			service.logger.Warn("Failed login",
 				slog.String(logger.FieldOperation, "user_login"),
 				slog.String(logger.FieldEmail, logger.MaskEmail(email)),
-				slog.String(logger.FieldError, ErrInvalidCredentials.Error()),
+				slog.String(logger.FieldError, domain.ErrInvalidCredentials.Error()),
 			)
-			return "", ErrInvalidCredentials
+			return "", domain.ErrInvalidCredentials
 		}
 		service.logger.Error("Failed to fetch user by email from database",
 			slog.String(logger.FieldOperation, "user_login"),
 			slog.String(logger.FieldEmail, logger.MaskEmail(email)),
 			slog.String(logger.FieldError, err.Error()),
 		)
-		return "", ErrStorageFailure
+		return "", domain.ErrStorageFailure
 	}
 
 	if err = ComparePassword(user.PasswordHash, password); err != nil {
 		service.logger.Warn("Failed login",
 			slog.String(logger.FieldOperation, "user_login"),
 			slog.String(logger.FieldEmail, logger.MaskEmail(email)),
-			slog.String(logger.FieldError, ErrInvalidCredentials.Error()),
+			slog.String(logger.FieldError, domain.ErrInvalidCredentials.Error()),
 		)
-		return "", ErrInvalidCredentials
+		return "", domain.ErrInvalidCredentials
 	}
 
 	token, err = service.jwtService.GenerateToken(user.ID)
@@ -181,7 +181,7 @@ func (service *Service) Login(email, password string) (token string, err error) 
 			slog.String(logger.FieldEmail, logger.MaskEmail(email)),
 			slog.String(logger.FieldError, err.Error()),
 		)
-		return "", ErrTokenGenerationFailed
+		return "", domain.ErrTokenGenerationFailed
 	}
 
 	service.logger.Info("Login successful",

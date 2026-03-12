@@ -6,7 +6,6 @@ import (
 	"myproject/adapters/auth"
 	"myproject/application"
 	"myproject/domain"
-	infraErrors "myproject/domain/errors"
 	"myproject/domain/validation"
 	"myproject/logger"
 	"net/http"
@@ -155,7 +154,7 @@ func (ts *TasksServer) processCreateTask(w http.ResponseWriter, r *http.Request,
 }
 
 func (ts *TasksServer) handleCreateTaskError(w http.ResponseWriter, r *http.Request, userID int, err error) {
-	if errors.Is(err, infraErrors.ErrDescriptionRequired) || errors.Is(err, infraErrors.ErrDescriptionTooLong) || errors.Is(err, infraErrors.ErrEmptyFieldsToUpdate) {
+	if errors.Is(err, domain.ErrDescriptionRequired) || errors.Is(err, domain.ErrDescriptionTooLong) || errors.Is(err, domain.ErrEmptyFieldsToUpdate) {
 		ts.logTaskError(r, slog.LevelWarn, "Failed to validate description", userID, 0, err)
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
@@ -215,12 +214,12 @@ func (ts *TasksServer) processUpdateTask(w http.ResponseWriter, r *http.Request,
 
 func (ts *TasksServer) handleUpdateTaskError(w http.ResponseWriter, r *http.Request, userID, taskID int, err error) {
 	switch {
-	case errors.Is(err, infraErrors.ErrDescriptionRequired),
-		errors.Is(err, infraErrors.ErrDescriptionTooLong),
-		errors.Is(err, infraErrors.ErrEmptyFieldsToUpdate):
+	case errors.Is(err, domain.ErrDescriptionRequired),
+		errors.Is(err, domain.ErrDescriptionTooLong),
+		errors.Is(err, domain.ErrEmptyFieldsToUpdate):
 		ts.logTaskError(r, slog.LevelWarn, "Failed to validate description", userID, taskID, err)
 		JSONError(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, infraErrors.ErrTaskNotFound):
+	case errors.Is(err, domain.ErrTaskNotFound):
 		ts.logTaskError(r, slog.LevelWarn, "Failed to get task by ID from database to update", userID, taskID, err)
 		JSONError(w, http.StatusNotFound, "Task not found")
 	default:
@@ -267,9 +266,9 @@ func (ts *TasksServer) registerHandler(w http.ResponseWriter, r *http.Request) {
 	token, err := ts.authService.Register(registerRequest.Email, registerRequest.Password)
 	if err != nil {
 		switch {
-		case errors.Is(err, auth.ErrInvalidEmail), errors.Is(err, auth.ErrPasswordTooLong), errors.Is(err, auth.ErrPasswordTooShort):
+		case errors.Is(err, domain.ErrInvalidEmail), errors.Is(err, domain.ErrPasswordTooLong), errors.Is(err, domain.ErrPasswordTooShort):
 			JSONError(w, http.StatusBadRequest, err.Error())
-		case errors.Is(err, auth.ErrEmailAlreadyExists):
+		case errors.Is(err, domain.ErrEmailAlreadyExists):
 			JSONError(w, http.StatusConflict, err.Error())
 		default:
 			ts.logger.Error("Registration failed",

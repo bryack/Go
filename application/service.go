@@ -3,7 +3,6 @@ package application
 import (
 	"fmt"
 	"myproject/domain"
-	infraErrors "myproject/domain/errors"
 	"myproject/domain/validation"
 )
 
@@ -17,7 +16,7 @@ func NewService(store domain.Storage) *Service {
 
 func (s *Service) UpdateTask(taskID, userID int, description *string, done *bool) (domain.Task, error) {
 	if description == nil && done == nil {
-		return domain.Task{}, infraErrors.ErrEmptyFieldsToUpdate
+		return domain.Task{}, domain.ErrEmptyFieldsToUpdate
 	}
 
 	task, err := s.store.GetTaskByID(taskID, userID)

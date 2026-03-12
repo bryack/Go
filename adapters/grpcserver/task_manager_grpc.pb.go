@@ -2,13 +2,12 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v3.19.6
-// source: adapters/grpcserver/task_manager.proto
+// source: task_manager.proto
 
 package grpcserver
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -29,10 +28,16 @@ const (
 // TaskManagerClient is the client API for TaskManager service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// TaskManager provides task management operations with JWT authentication.
 type TaskManagerClient interface {
+	// Register creates a new user account and returns a JWT token.
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterReply, error)
+	// Login authenticates a user and returns a JWT token.
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginReply, error)
+	// CreateTask creates a new task for the authenticated user.
 	CreateTask(ctx context.Context, in *CreateTaskRequest, opts ...grpc.CallOption) (*CreateTaskReply, error)
+	// GetTasks retrieves all tasks for the authenticated user.
 	GetTasks(ctx context.Context, in *GetTasksRequest, opts ...grpc.CallOption) (*GetTasksReply, error)
 }
 
@@ -87,10 +92,16 @@ func (c *taskManagerClient) GetTasks(ctx context.Context, in *GetTasksRequest, o
 // TaskManagerServer is the server API for TaskManager service.
 // All implementations must embed UnimplementedTaskManagerServer
 // for forward compatibility.
+//
+// TaskManager provides task management operations with JWT authentication.
 type TaskManagerServer interface {
+	// Register creates a new user account and returns a JWT token.
 	Register(context.Context, *RegisterRequest) (*RegisterReply, error)
+	// Login authenticates a user and returns a JWT token.
 	Login(context.Context, *LoginRequest) (*LoginReply, error)
+	// CreateTask creates a new task for the authenticated user.
 	CreateTask(context.Context, *CreateTaskRequest) (*CreateTaskReply, error)
+	// GetTasks retrieves all tasks for the authenticated user.
 	GetTasks(context.Context, *GetTasksRequest) (*GetTasksReply, error)
 	mustEmbedUnimplementedTaskManagerServer()
 }
@@ -232,5 +243,5 @@ var TaskManager_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "adapters/grpcserver/task_manager.proto",
+	Metadata: "task_manager.proto",
 }

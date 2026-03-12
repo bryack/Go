@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v3.19.6
-// source: adapters/grpcserver/task_manager.proto
+// source: task_manager.proto
 
 package grpcserver
 
@@ -21,17 +21,20 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// RegisterRequest contains user registration credentials.
 type RegisterRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
-	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// User's email address.
+	Email string `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	// User's password (minimum 8 characters).
+	Password      string `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RegisterRequest) Reset() {
 	*x = RegisterRequest{}
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[0]
+	mi := &file_task_manager_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -43,7 +46,7 @@ func (x *RegisterRequest) String() string {
 func (*RegisterRequest) ProtoMessage() {}
 
 func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[0]
+	mi := &file_task_manager_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -56,7 +59,7 @@ func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
 func (*RegisterRequest) Descriptor() ([]byte, []int) {
-	return file_adapters_grpcserver_task_manager_proto_rawDescGZIP(), []int{0}
+	return file_task_manager_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *RegisterRequest) GetEmail() string {
@@ -73,16 +76,18 @@ func (x *RegisterRequest) GetPassword() string {
 	return ""
 }
 
+// RegisterReply contains the JWT token after successful registration.
 type RegisterReply struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// JWT token for authenticated requests.
+	Token         string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RegisterReply) Reset() {
 	*x = RegisterReply{}
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[1]
+	mi := &file_task_manager_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -94,7 +99,7 @@ func (x *RegisterReply) String() string {
 func (*RegisterReply) ProtoMessage() {}
 
 func (x *RegisterReply) ProtoReflect() protoreflect.Message {
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[1]
+	mi := &file_task_manager_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -107,7 +112,7 @@ func (x *RegisterReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterReply.ProtoReflect.Descriptor instead.
 func (*RegisterReply) Descriptor() ([]byte, []int) {
-	return file_adapters_grpcserver_task_manager_proto_rawDescGZIP(), []int{1}
+	return file_task_manager_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *RegisterReply) GetToken() string {
@@ -117,17 +122,20 @@ func (x *RegisterReply) GetToken() string {
 	return ""
 }
 
+// LoginRequest contains user login credentials.
 type LoginRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
-	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// User's email address.
+	Email string `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	// User's password.
+	Password      string `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *LoginRequest) Reset() {
 	*x = LoginRequest{}
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[2]
+	mi := &file_task_manager_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -139,7 +147,7 @@ func (x *LoginRequest) String() string {
 func (*LoginRequest) ProtoMessage() {}
 
 func (x *LoginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[2]
+	mi := &file_task_manager_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -152,7 +160,7 @@ func (x *LoginRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoginRequest.ProtoReflect.Descriptor instead.
 func (*LoginRequest) Descriptor() ([]byte, []int) {
-	return file_adapters_grpcserver_task_manager_proto_rawDescGZIP(), []int{2}
+	return file_task_manager_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *LoginRequest) GetEmail() string {
@@ -169,16 +177,18 @@ func (x *LoginRequest) GetPassword() string {
 	return ""
 }
 
+// LoginReply contains the JWT token after successful login.
 type LoginReply struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// JWT token for authenticated requests.
+	Token         string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *LoginReply) Reset() {
 	*x = LoginReply{}
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[3]
+	mi := &file_task_manager_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -190,7 +200,7 @@ func (x *LoginReply) String() string {
 func (*LoginReply) ProtoMessage() {}
 
 func (x *LoginReply) ProtoReflect() protoreflect.Message {
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[3]
+	mi := &file_task_manager_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -203,7 +213,7 @@ func (x *LoginReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoginReply.ProtoReflect.Descriptor instead.
 func (*LoginReply) Descriptor() ([]byte, []int) {
-	return file_adapters_grpcserver_task_manager_proto_rawDescGZIP(), []int{3}
+	return file_task_manager_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *LoginReply) GetToken() string {
@@ -213,17 +223,20 @@ func (x *LoginReply) GetToken() string {
 	return ""
 }
 
+// CreateTaskRequest contains task creation data.
 type CreateTaskRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// JWT token for authentication (will be moved to metadata).
+	Token string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	// Task description (required, max 200 characters).
+	Description   string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateTaskRequest) Reset() {
 	*x = CreateTaskRequest{}
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[4]
+	mi := &file_task_manager_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -235,7 +248,7 @@ func (x *CreateTaskRequest) String() string {
 func (*CreateTaskRequest) ProtoMessage() {}
 
 func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[4]
+	mi := &file_task_manager_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -248,7 +261,7 @@ func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskRequest.ProtoReflect.Descriptor instead.
 func (*CreateTaskRequest) Descriptor() ([]byte, []int) {
-	return file_adapters_grpcserver_task_manager_proto_rawDescGZIP(), []int{4}
+	return file_task_manager_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CreateTaskRequest) GetToken() string {
@@ -265,16 +278,18 @@ func (x *CreateTaskRequest) GetDescription() string {
 	return ""
 }
 
+// CreateTaskReply contains the ID of the created task.
 type CreateTaskReply struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TaskId        int32                  `protobuf:"varint,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unique task identifier.
+	TaskId        int32 `protobuf:"varint,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateTaskReply) Reset() {
 	*x = CreateTaskReply{}
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[5]
+	mi := &file_task_manager_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -286,7 +301,7 @@ func (x *CreateTaskReply) String() string {
 func (*CreateTaskReply) ProtoMessage() {}
 
 func (x *CreateTaskReply) ProtoReflect() protoreflect.Message {
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[5]
+	mi := &file_task_manager_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -299,7 +314,7 @@ func (x *CreateTaskReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskReply.ProtoReflect.Descriptor instead.
 func (*CreateTaskReply) Descriptor() ([]byte, []int) {
-	return file_adapters_grpcserver_task_manager_proto_rawDescGZIP(), []int{5}
+	return file_task_manager_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CreateTaskReply) GetTaskId() int32 {
@@ -309,16 +324,18 @@ func (x *CreateTaskReply) GetTaskId() int32 {
 	return 0
 }
 
+// GetTasksRequest for retrieving user's tasks.
 type GetTasksRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// JWT token for authentication.
+	Token         string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetTasksRequest) Reset() {
 	*x = GetTasksRequest{}
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[6]
+	mi := &file_task_manager_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -330,7 +347,7 @@ func (x *GetTasksRequest) String() string {
 func (*GetTasksRequest) ProtoMessage() {}
 
 func (x *GetTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[6]
+	mi := &file_task_manager_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -343,7 +360,7 @@ func (x *GetTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTasksRequest.ProtoReflect.Descriptor instead.
 func (*GetTasksRequest) Descriptor() ([]byte, []int) {
-	return file_adapters_grpcserver_task_manager_proto_rawDescGZIP(), []int{6}
+	return file_task_manager_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetTasksRequest) GetToken() string {
@@ -353,16 +370,18 @@ func (x *GetTasksRequest) GetToken() string {
 	return ""
 }
 
+// GetTasksReply contains a list of user's tasks.
 type GetTasksReply struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tasks         []*GetTasksReply_Task  `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// List of tasks.
+	Tasks         []*GetTasksReply_Task `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetTasksReply) Reset() {
 	*x = GetTasksReply{}
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[7]
+	mi := &file_task_manager_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -374,7 +393,7 @@ func (x *GetTasksReply) String() string {
 func (*GetTasksReply) ProtoMessage() {}
 
 func (x *GetTasksReply) ProtoReflect() protoreflect.Message {
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[7]
+	mi := &file_task_manager_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -387,7 +406,7 @@ func (x *GetTasksReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTasksReply.ProtoReflect.Descriptor instead.
 func (*GetTasksReply) Descriptor() ([]byte, []int) {
-	return file_adapters_grpcserver_task_manager_proto_rawDescGZIP(), []int{7}
+	return file_task_manager_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetTasksReply) GetTasks() []*GetTasksReply_Task {
@@ -397,18 +416,22 @@ func (x *GetTasksReply) GetTasks() []*GetTasksReply_Task {
 	return nil
 }
 
+// Task represents a single task item.
 type GetTasksReply_Task struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	Done          bool                   `protobuf:"varint,3,opt,name=done,proto3" json:"done,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unique task identifier.
+	Id int32 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Task description.
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// Completion status (true = done).
+	Done          bool `protobuf:"varint,3,opt,name=done,proto3" json:"done,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetTasksReply_Task) Reset() {
 	*x = GetTasksReply_Task{}
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[8]
+	mi := &file_task_manager_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -420,7 +443,7 @@ func (x *GetTasksReply_Task) String() string {
 func (*GetTasksReply_Task) ProtoMessage() {}
 
 func (x *GetTasksReply_Task) ProtoReflect() protoreflect.Message {
-	mi := &file_adapters_grpcserver_task_manager_proto_msgTypes[8]
+	mi := &file_task_manager_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -433,7 +456,7 @@ func (x *GetTasksReply_Task) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTasksReply_Task.ProtoReflect.Descriptor instead.
 func (*GetTasksReply_Task) Descriptor() ([]byte, []int) {
-	return file_adapters_grpcserver_task_manager_proto_rawDescGZIP(), []int{7, 0}
+	return file_task_manager_proto_rawDescGZIP(), []int{7, 0}
 }
 
 func (x *GetTasksReply_Task) GetId() int32 {
@@ -457,11 +480,11 @@ func (x *GetTasksReply_Task) GetDone() bool {
 	return false
 }
 
-var File_adapters_grpcserver_task_manager_proto protoreflect.FileDescriptor
+var File_task_manager_proto protoreflect.FileDescriptor
 
-const file_adapters_grpcserver_task_manager_proto_rawDesc = "" +
+const file_task_manager_proto_rawDesc = "" +
 	"\n" +
-	"&adapters/grpcserver/task_manager.proto\x12\n" +
+	"\x12task_manager.proto\x12\n" +
 	"grpcserver\"C\n" +
 	"\x0fRegisterRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
@@ -495,19 +518,19 @@ const file_adapters_grpcserver_task_manager_proto_rawDesc = "" +
 	"\bGetTasks\x12\x1b.grpcserver.GetTasksRequest\x1a\x19.grpcserver.GetTasksReply\"\x00B\x1fZ\x1dmyproject/adapters/grpcserverb\x06proto3"
 
 var (
-	file_adapters_grpcserver_task_manager_proto_rawDescOnce sync.Once
-	file_adapters_grpcserver_task_manager_proto_rawDescData []byte
+	file_task_manager_proto_rawDescOnce sync.Once
+	file_task_manager_proto_rawDescData []byte
 )
 
-func file_adapters_grpcserver_task_manager_proto_rawDescGZIP() []byte {
-	file_adapters_grpcserver_task_manager_proto_rawDescOnce.Do(func() {
-		file_adapters_grpcserver_task_manager_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_adapters_grpcserver_task_manager_proto_rawDesc), len(file_adapters_grpcserver_task_manager_proto_rawDesc)))
+func file_task_manager_proto_rawDescGZIP() []byte {
+	file_task_manager_proto_rawDescOnce.Do(func() {
+		file_task_manager_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_task_manager_proto_rawDesc), len(file_task_manager_proto_rawDesc)))
 	})
-	return file_adapters_grpcserver_task_manager_proto_rawDescData
+	return file_task_manager_proto_rawDescData
 }
 
-var file_adapters_grpcserver_task_manager_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
-var file_adapters_grpcserver_task_manager_proto_goTypes = []any{
+var file_task_manager_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_task_manager_proto_goTypes = []any{
 	(*RegisterRequest)(nil),    // 0: grpcserver.RegisterRequest
 	(*RegisterReply)(nil),      // 1: grpcserver.RegisterReply
 	(*LoginRequest)(nil),       // 2: grpcserver.LoginRequest
@@ -518,7 +541,7 @@ var file_adapters_grpcserver_task_manager_proto_goTypes = []any{
 	(*GetTasksReply)(nil),      // 7: grpcserver.GetTasksReply
 	(*GetTasksReply_Task)(nil), // 8: grpcserver.GetTasksReply.Task
 }
-var file_adapters_grpcserver_task_manager_proto_depIdxs = []int32{
+var file_task_manager_proto_depIdxs = []int32{
 	8, // 0: grpcserver.GetTasksReply.tasks:type_name -> grpcserver.GetTasksReply.Task
 	0, // 1: grpcserver.TaskManager.Register:input_type -> grpcserver.RegisterRequest
 	2, // 2: grpcserver.TaskManager.Login:input_type -> grpcserver.LoginRequest
@@ -535,26 +558,26 @@ var file_adapters_grpcserver_task_manager_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_adapters_grpcserver_task_manager_proto_init() }
-func file_adapters_grpcserver_task_manager_proto_init() {
-	if File_adapters_grpcserver_task_manager_proto != nil {
+func init() { file_task_manager_proto_init() }
+func file_task_manager_proto_init() {
+	if File_task_manager_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_adapters_grpcserver_task_manager_proto_rawDesc), len(file_adapters_grpcserver_task_manager_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_task_manager_proto_rawDesc), len(file_task_manager_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_adapters_grpcserver_task_manager_proto_goTypes,
-		DependencyIndexes: file_adapters_grpcserver_task_manager_proto_depIdxs,
-		MessageInfos:      file_adapters_grpcserver_task_manager_proto_msgTypes,
+		GoTypes:           file_task_manager_proto_goTypes,
+		DependencyIndexes: file_task_manager_proto_depIdxs,
+		MessageInfos:      file_task_manager_proto_msgTypes,
 	}.Build()
-	File_adapters_grpcserver_task_manager_proto = out.File
-	file_adapters_grpcserver_task_manager_proto_goTypes = nil
-	file_adapters_grpcserver_task_manager_proto_depIdxs = nil
+	File_task_manager_proto = out.File
+	file_task_manager_proto_goTypes = nil
+	file_task_manager_proto_depIdxs = nil
 }

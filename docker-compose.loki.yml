@@ -1,66 +1,101 @@
 # Grafana Loki Stack for Task Manager API
 #
 # This Docker Compose file runs the complete Grafana Loki logging stack:
-# - Task Manager API (with JSON logging to stdout)
+# - Task Manager HTTP API
+# - Task Manager gRPC Server
 # - Loki (log aggregation and storage)
 # - Grafana (web UI for querying and visualizing logs)
 #
 # Usage:
 #   Start:  docker compose -f docker-compose.loki.yml up -d
 #   Stop:   docker compose -f docker-compose.loki.yml down
-#   Logs:   docker compose -f docker-compose.loki.yml logs -f task-manager
+#   Logs:   docker compose -f docker-compose.loki.yml logs -f task-manager-http
 #   Clean:  docker compose -f docker-compose.loki.yml down -v
 #
 # Access points:
 #   - Grafana UI:  http://localhost:3000 (no login required)
 #   - Loki API:    http://localhost:3100
-#   - Application: http://localhost:8080
+#   - HTTP API:    http://localhost:8080
+#   - gRPC API:    localhost:50051
 
 services:
-  # Task Manager API with structured JSON logging
-  task-manager:
+  # --- HTTP API Server with structured JSON logging ---
+  task-manager-http:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: task-manager-loki
+      args:
+        bin_to_build: server # Собираем cmd/server/main.go
+    container_name: task-manager-http-loki
     ports:
       - "8080:8080"
     environment:
-      # JWT Configuration
-      # ⚠️  SECURITY: Change this secret in production!
-      # Must be at least 32 characters long
       TASKMANAGER_JWT_SECRET: "local-dev-secret-key-change-in-production-min-32-chars"
-      
-      # Logging Configuration
-      # JSON format enables structured log parsing in Loki
+      TASKMANAGER_DATABASE_PATH: "/data/tasks.db"
+      TASKMANAGER_SERVER_PORT: "8080"
       TASKMANAGER_LOGGING_FORMAT: "json"
-      # stdout allows Docker logging driver to capture logs
       TASKMANAGER_LOGGING_OUTPUT: "stderr"
       TASKMANAGER_LOGGING_LEVEL: "info"
-      TASKMANAGER_LOGGING_SERVICE_NAME: "task-manager-api"
+      TASKMANAGER_LOGGING_SERVICE_NAME: "task-manager-http"
       TASKMANAGER_LOGGING_ENVIRONMENT: "local"
     volumes:
-      # Persist SQLite database across container restarts
       - ./data:/data
     depends_on:
       - loki
-    # Docker Loki logging driver configuration
-    # Sends container logs directly to Loki without needing Promtail
     logging:
       driver: loki
       options:
-        # Loki endpoint for receiving logs
-        # Note: Use localhost (not loki) because the driver runs on the host
         loki-url: "http://localhost:3100/loki/api/v1/push"
-        # Batch logs for efficiency
         loki-batch-size: "100"
-        # Retry configuration for reliability
         loki-retries: "2"
         loki-max-backoff: "1s"
         loki-timeout: "1s"
-        # Labels for filtering and organizing logs in Loki
-        # Keep labels low-cardinality (few unique values)
-        labels: "service=task-manager-api,environment=local"
+        labels: "service=task-manager,component=http,env=local"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # --- gRPC Server with structured JSON logging ---
+  task-manager-grpc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        bin_to_build: grpcserver # Собираем cmd/grpcserver/main.go
+    container_name: task-manager-grpc-loki
+    ports:
+      - "50051:50051"
+    environment:
+      TASKMANAGER_JWT_SECRET: "local-dev-secret-key-change-in-production-min-32-chars"
+      TASKMANAGER_DATABASE_PATH: "/data/tasks.db"
+      TASKMANAGER_GRPC_PORT: "50051"
+      TASKMANAGER_LOGGING_FORMAT: "json"
+      TASKMANAGER_LOGGING_OUTPUT: "stderr"
+      TASKMANAGER_LOGGING_LEVEL: "info"
+      TASKMANAGER_LOGGING_SERVICE_NAME: "task-manager-grpc"
+      TASKMANAGER_LOGGING_ENVIRONMENT: "local"
+    volumes:
+      - ./data:/data
+    depends_on:
+      - loki
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-batch-size: "100"
+        loki-retries: "2"
+        loki-max-backoff: "1s"
+        loki-timeout: "1s"
+        labels: "service=task-manager,component=grpc,env=local"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 50051 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # Loki - Log aggregation system
   loki:
@@ -68,10 +103,8 @@ services:
     container_name: loki
     ports:
       - "3100:3100"
-    # Use Loki's built-in local configuration (suitable for development)
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
-      # Persist log data across container restarts
       - loki-data:/loki
 
   # Grafana - Visualization and query interface
@@ -81,27 +114,17 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Enable anonymous access for local development convenience
-      # ⚠️  Disable in production!
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
     volumes:
-      # Persist Grafana dashboards and settings
       - grafana-data:/var/lib/grafana
-      # Auto-configure Loki as a data source on startup
-      # Note: These files will be created in subsequent tasks
-      # - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
-      # - ./grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
-      # - ./dashboards:/var/lib/grafana/dashboards
     depends_on:
       - loki
 
 # Named volumes for persistent storage
 volumes:
   loki-data:
-    driver: local
   grafana-data:
-    driver: local
 
 # Quick Start Guide:
 #
@@ -132,22 +155,9 @@ volumes:
 # 7. Explore logs:
 #    - Click "Explore" (compass icon) in the left sidebar
 #    - Loki should be selected as the data source
-#    - Try query: {container_name="task-manager-loki"}
-#    - Try query: {service="task-manager-api"} | json | level="INFO"
+#    - Try query: {component="http"}
+#    - Try query: {component="grpc"}
+#    - Try query: {service="task-manager"} | json | level="INFO"
 #
 # 8. Stop the stack:
 #    docker compose -f docker-compose.loki.yml down
-#
-# Troubleshooting:
-#
-# - If you get "plugin loki not found" error:
-#   Install the Docker Loki plugin (see step 1 above)
-#
-# - If no logs appear in Grafana:
-#   Check time range (top right) - set to "Last 15 minutes"
-#   Verify logs are flowing: curl http://localhost:3100/loki/api/v1/label
-#
-# - If Grafana shows "Data source not found":
-#   You need to add Loki as a data source (see step 6 above)
-#   Connections → Data sources → Add data source → Loki
-#   URL: http://loki:3100

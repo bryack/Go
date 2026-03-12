@@ -31,11 +31,20 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Build HTTP server Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: false
-          tags: |
-            task-manager:latest
-            task-manager:${{ github.sha }} 
+          build-args: |
+            bin_to_build=server
+          tags: task-manager-http:latest
+
+      - name: Build gRPC server Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          build-args: |
+            bin_to_build=grpcserver
+          tags: task-manager-grpc:latest

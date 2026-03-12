@@ -42,3 +42,26 @@ func (s *StubTaskStore) DeleteTask(id int, userID int) error {
 func (s *StubTaskStore) Close() error {
 	return nil
 }
+
+type StubTokenGenerator struct {
+	Token  string
+	Claims *domain.Claims
+	Err    error
+}
+
+func (tg *StubTokenGenerator) GenerateToken(userID int) (string, error) {
+	if tg.Err != nil {
+		return "", tg.Err
+	}
+	tg.Claims.UserID = userID
+	return tg.Token, nil
+}
+func (tg *StubTokenGenerator) ValidateToken(tokenString string) (*domain.Claims, error) {
+	if tg.Err != nil {
+		return nil, tg.Err
+	}
+	if tokenString == "" {
+		return nil, tg.Err
+	}
+	return tg.Claims, nil
+}

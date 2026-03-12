@@ -10,24 +10,15 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type TokenGenerator interface {
-	GenerateToken(userID int) (string, error)
-	ValidateToken(tokenString string) (*Claims, error)
-}
-
-type Claims struct {
-	UserID int `json:"user_id"`
-}
-
 // AuthService handles authentication operations including user registration and login.
 type AuthService struct {
 	userStorage    domain.UserStorage
-	tokenGenerator TokenGenerator
+	tokenGenerator domain.TokenGenerator
 	logger         *slog.Logger
 }
 
 // NewService creates a new authentication service with the provided dependencies.
-func NewAuthService(userStorage domain.UserStorage, tokenGenerator TokenGenerator, logger *slog.Logger) *AuthService {
+func NewAuthService(userStorage domain.UserStorage, tokenGenerator domain.TokenGenerator, logger *slog.Logger) *AuthService {
 	return &AuthService{
 		userStorage:    userStorage,
 		tokenGenerator: tokenGenerator,

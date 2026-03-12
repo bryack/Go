@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"myproject/adapters/auth"
+	"myproject/application"
+	"myproject/domain"
 	"myproject/logger"
 	"net/http"
 	"strings"
@@ -12,15 +13,15 @@ import (
 
 // AuthMiddleware handles JWT token validation and user authentication for HTTP requests.
 type AuthMiddleware struct {
-	jwtService *auth.JWTService
-	logger     *slog.Logger
+	tokenGenerator domain.TokenGenerator
+	logger         *slog.Logger
 }
 
 // NewAuthMiddleware creates a new authentication middleware with the provided JWT service.
-func NewAuthMiddleware(jwtService *auth.JWTService, logger *slog.Logger) *AuthMiddleware {
+func NewAuthMiddleware(tokenGenerator domain.TokenGenerator, logger *slog.Logger) *AuthMiddleware {
 	return &AuthMiddleware{
-		jwtService: jwtService,
-		logger:     logger,
+		tokenGenerator: tokenGenerator,
+		logger:         logger,
 	}
 }
 
@@ -56,7 +57,7 @@ func (am *AuthMiddleware) Authenticate(handler http.HandlerFunc) http.HandlerFun
 			return
 		}
 
-		claims, err := am.jwtService.ValidateToken(token)
+		claims, err := am.tokenGenerator.ValidateToken(token)
 		if err != nil {
 			am.logger.Warn("Failed to validate token",
 				slog.String(logger.FieldOperation, "authenticate"),
@@ -78,7 +79,7 @@ func (am *AuthMiddleware) Authenticate(handler http.HandlerFunc) http.HandlerFun
 			slog.Int(logger.FieldUserID, userID),
 		)
 
-		ctx := context.WithValue(r.Context(), auth.UserIDKey, userID)
+		ctx := context.WithValue(r.Context(), application.UserIDKey, userID)
 		r = r.WithContext(ctx)
 		handler(w, r)
 	}

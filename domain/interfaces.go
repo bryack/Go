@@ -22,3 +22,12 @@ type AppStorage interface {
 	Storage
 	UserStorage
 }
+
+type TokenGenerator interface {
+	GenerateToken(userID int) (string, error)
+	ValidateToken(tokenString string) (*Claims, error)
+}
+
+type Claims struct {
+	UserID int `json:"user_id"`
+}

@@ -2,7 +2,7 @@ package auth
 
 import (
 	"fmt"
-	"myproject/application"
+	"myproject/domain"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -10,7 +10,7 @@ import (
 
 // Claims represents JWT token payload containing user identification and standard claims.
 type jwtClaims struct {
-	application.Claims
+	domain.Claims
 	jwt.RegisteredClaims
 }
 
@@ -32,7 +32,7 @@ func NewJWTService(secret string, expiration time.Duration) *JWTService {
 // GenerateToken creates a signed JWT token for the specified user ID with configured expiration.
 func (j *JWTService) GenerateToken(userID int) (string, error) {
 	claims := jwtClaims{
-		Claims: application.Claims{
+		Claims: domain.Claims{
 			UserID: userID,
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -51,7 +51,7 @@ func (j *JWTService) GenerateToken(userID int) (string, error) {
 }
 
 // ValidateToken verifies the token signature and expiration, returning the extracted claims.
-func (j *JWTService) ValidateToken(tokenString string) (*application.Claims, error) {
+func (j *JWTService) ValidateToken(tokenString string) (*domain.Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method, got %v", token.Header["alg"])

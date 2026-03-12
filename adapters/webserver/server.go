@@ -3,7 +3,6 @@ package webserver
 import (
 	"errors"
 	"log/slog"
-	"myproject/adapters/auth"
 	"myproject/application"
 	"myproject/domain"
 	"myproject/domain/validation"
@@ -113,7 +112,7 @@ func (ts *TasksServer) rootHandler(w http.ResponseWriter, r *http.Request) {
 
 // tasksHandler handles GET (list all tasks) and POST (create task) requests.
 func (ts *TasksServer) tasksHandler(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromContext(r.Context())
+	userID, err := application.GetUserIDFromContext(r.Context())
 	if err != nil {
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
@@ -165,7 +164,7 @@ func (ts *TasksServer) handleCreateTaskError(w http.ResponseWriter, r *http.Requ
 
 // taskHandler handles GET, PUT, and DELETE operations for individual tasks by ID.
 func (ts *TasksServer) taskHandler(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserIDFromContext(r.Context())
+	userID, err := application.GetUserIDFromContext(r.Context())
 	if err != nil {
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return

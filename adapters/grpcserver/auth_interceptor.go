@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"myproject/adapters/auth"
+	"myproject/application"
 	"myproject/logger"
 	"strings"
 
@@ -60,7 +61,7 @@ func (a *AuthInterceptor) UnaryInterceptor(ctx context.Context, req interface{},
 		slog.Int(logger.FieldUserID, userID),
 	)
 
-	ctx = context.WithValue(ctx, auth.UserIDKey, userID)
+	ctx = context.WithValue(ctx, application.UserIDKey, userID)
 
 	return handler(ctx, req)
 }

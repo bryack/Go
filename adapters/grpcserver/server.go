@@ -2,9 +2,13 @@ package grpcserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"myproject/application"
 	"myproject/domain"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type TaskManageServer struct {
@@ -46,7 +50,7 @@ func (g TaskManageServer) CreateTask(ctx context.Context, request *CreateTaskReq
 
 	task, err := g.taskService.CreateTask(request.Description, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create task for user ID %d: %w", userID, err)
+		return nil, mapError(err)
 	}
 
 	return &CreateTaskReply{TaskId: int32(task.ID)}, nil
@@ -72,4 +76,18 @@ func (g TaskManageServer) GetTasks(ctx context.Context, request *GetTasksRequest
 	}
 
 	return &GetTasksReply{Tasks: reply}, nil
+}
+
+func mapError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	switch {
+	case errors.Is(err, domain.ErrDescriptionRequired),
+		errors.Is(err, domain.ErrDescriptionTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
+	default:
+		return status.Error(codes.Internal, err.Error())
+	}
 }

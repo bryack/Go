@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"myproject/adapters/auth"
 	"myproject/application"
+	"myproject/domain"
 	"myproject/logger"
 	"strings"
 
@@ -17,15 +17,15 @@ import (
 
 // AuthInterceptor handles JWT token validation and user authentication for gRPC requests
 type AuthInterceptor struct {
-	jwtService *auth.JWTService
-	logger     *slog.Logger
+	tokenGenerator domain.TokenGenerator
+	logger         *slog.Logger
 }
 
 // NewAuthInterceptor creates a new authentication interceptor with the provided JWT service
-func NewAuthInterceptor(jwtService *auth.JWTService, logger *slog.Logger) *AuthInterceptor {
+func NewAuthInterceptor(tokenGenerator domain.TokenGenerator, logger *slog.Logger) *AuthInterceptor {
 	return &AuthInterceptor{
-		jwtService: jwtService,
-		logger:     logger,
+		tokenGenerator: tokenGenerator,
+		logger:         logger,
 	}
 }
 
@@ -44,7 +44,7 @@ func (a *AuthInterceptor) UnaryInterceptor(ctx context.Context, req interface{},
 		return nil, status.Error(codes.Unauthenticated, "authorization header required")
 	}
 
-	claims, err := a.jwtService.ValidateToken(token)
+	claims, err := a.tokenGenerator.ValidateToken(token)
 	if err != nil {
 		a.logger.Warn("Failed to validate token",
 			slog.String(logger.FieldOperation, "auth_interceptor"),

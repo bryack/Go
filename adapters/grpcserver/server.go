@@ -53,7 +53,23 @@ func (g TaskManageServer) CreateTask(ctx context.Context, request *CreateTaskReq
 }
 
 func (g TaskManageServer) GetTasks(ctx context.Context, request *GetTasksRequest) (*GetTasksReply, error) {
-	return &GetTasksReply{Tasks: []*GetTasksReply_Task{
-		{Id: 1, Description: "task 1", Done: false},
-	}}, nil
+	userID, err := application.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user ID from context: %w", err)
+	}
+	tasks, err := g.taskService.GetTasks(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tasks for user ID %d: %w", userID, err)
+	}
+
+	reply := make([]*GetTasksReply_Task, len(tasks))
+	for i, task := range tasks {
+		reply[i] = &GetTasksReply_Task{
+			Id:          int32(task.ID),
+			Description: task.Description,
+			Done:        task.Done,
+		}
+	}
+
+	return &GetTasksReply{Tasks: reply}, nil
 }

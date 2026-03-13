@@ -23,6 +23,7 @@ func (ts *SpyTaskService) UpdateTask(taskID, userID int, description *string, do
 }
 
 func (ts *SpyTaskService) GetTasks(userID int) ([]domain.Task, error) {
+	ts.LastUserID = userID
 	return ts.TasksTable, nil
 }
 

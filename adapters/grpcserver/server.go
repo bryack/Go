@@ -29,7 +29,7 @@ func NewTaskManageServer(store domain.Storage, authService domain.AuthService, t
 func (g TaskManageServer) Register(ctx context.Context, request *RegisterRequest) (*RegisterReply, error) {
 	token, err := g.authService.Register(request.Email, request.Password)
 	if err != nil {
-		return nil, err
+		return nil, mapError(err)
 	}
 	return &RegisterReply{Token: token}, nil
 }
@@ -37,7 +37,7 @@ func (g TaskManageServer) Register(ctx context.Context, request *RegisterRequest
 func (g TaskManageServer) Login(ctx context.Context, request *LoginRequest) (*LoginReply, error) {
 	token, err := g.authService.Login(request.Email, request.Password)
 	if err != nil {
-		return nil, err
+		return nil, mapError(err)
 	}
 	return &LoginReply{Token: token}, nil
 }
@@ -63,7 +63,7 @@ func (g TaskManageServer) GetTasks(ctx context.Context, request *GetTasksRequest
 	}
 	tasks, err := g.taskService.GetTasks(userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get tasks for user ID %d: %w", userID, err)
+		return nil, mapError(err)
 	}
 
 	reply := make([]*GetTasksReply_Task, len(tasks))
@@ -85,8 +85,15 @@ func mapError(err error) error {
 
 	switch {
 	case errors.Is(err, domain.ErrDescriptionRequired),
-		errors.Is(err, domain.ErrDescriptionTooLong):
+		errors.Is(err, domain.ErrDescriptionTooLong),
+		errors.Is(err, domain.ErrInvalidEmail):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, domain.ErrStorageFailure):
+		return status.Error(codes.Internal, err.Error())
+	case errors.Is(err, domain.ErrEmailAlreadyExists):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, domain.ErrInvalidCredentials):
+		return status.Error(codes.Unauthenticated, err.Error())
 	default:
 		return status.Error(codes.Internal, err.Error())
 	}

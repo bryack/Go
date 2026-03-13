@@ -69,44 +69,101 @@ func TestGetTasks(t *testing.T) {
 }
 
 func TestErrorsMapping(t *testing.T) {
-	t.Run("CreateTask empty description", func(t *testing.T) {
-		taskService := &testhelpers.SpyTaskService{
-			ResultErr: domain.ErrDescriptionRequired,
-		}
-		store := &testhelpers.StubTaskStore{}
-		authService := &testhelpers.SpyAuthService{}
-		server := NewTaskManageServer(store, authService, taskService)
+	tests := []struct {
+		name         string
+		serviceErr   error
+		wantErr      string
+		expectedCode codes.Code
+		call         func(ctx context.Context, s *TaskManageServer) (any, error)
+	}{
+		{
+			name:         "CreateTask empty description",
+			serviceErr:   domain.ErrDescriptionRequired,
+			wantErr:      domain.ErrDescriptionRequired.Error(),
+			expectedCode: codes.InvalidArgument,
+			call: func(ctx context.Context, s *TaskManageServer) (any, error) {
+				return s.CreateTask(ctx, &CreateTaskRequest{Description: ""})
+			},
+		},
+		{
+			name:         "CreateTask description more than 200 symbols",
+			serviceErr:   domain.ErrDescriptionTooLong,
+			wantErr:      domain.ErrDescriptionTooLong.Error(),
+			expectedCode: codes.InvalidArgument,
+			call: func(ctx context.Context, s *TaskManageServer) (any, error) {
+				return s.CreateTask(ctx, &CreateTaskRequest{Description: fmt.Sprintf("task %s", strings.Repeat("1", 200))})
+			},
+		},
+		{
+			name:         "GetTasks storage failure",
+			serviceErr:   domain.ErrStorageFailure,
+			wantErr:      domain.ErrStorageFailure.Error(),
+			expectedCode: codes.Internal,
+			call: func(ctx context.Context, s *TaskManageServer) (any, error) {
+				return s.GetTasks(ctx, &GetTasksRequest{})
+			},
+		},
+		{
+			name:         "Register email already exists",
+			serviceErr:   domain.ErrEmailAlreadyExists,
+			wantErr:      domain.ErrEmailAlreadyExists.Error(),
+			expectedCode: codes.AlreadyExists,
+			call: func(ctx context.Context, s *TaskManageServer) (any, error) {
+				return s.Register(ctx, &RegisterRequest{
+					Email:    "testRegister@email.com",
+					Password: "Register123",
+				})
+			},
+		},
+		{
+			name:         "Register invalid password",
+			serviceErr:   domain.ErrInvalidCredentials,
+			wantErr:      domain.ErrInvalidCredentials.Error(),
+			expectedCode: codes.Unauthenticated,
+			call: func(ctx context.Context, s *TaskManageServer) (any, error) {
+				return s.Register(ctx, &RegisterRequest{
+					Email:    "testRegister@email.com",
+					Password: "Register123",
+				})
+			},
+		},
+		{
+			name:         "Login invalid emain",
+			serviceErr:   domain.ErrInvalidEmail,
+			wantErr:      domain.ErrInvalidEmail.Error(),
+			expectedCode: codes.InvalidArgument,
+			call: func(ctx context.Context, s *TaskManageServer) (any, error) {
+				return s.Login(ctx, &LoginRequest{
+					Email:    "testLogin@email.com",
+					Password: "Login123",
+				})
+			},
+		},
+	}
 
-		testUserID := 99
-		ctx := context.WithValue(context.Background(), application.UserIDKey, testUserID)
+	store := &testhelpers.StubTaskStore{}
 
-		request := &CreateTaskRequest{Description: ""}
-		_, err := server.CreateTask(ctx, request)
-		require.Error(t, err)
-		status, ok := status.FromError(err)
-		require.True(t, ok)
-		assert.Equal(t, codes.InvalidArgument, status.Code())
-		assert.Contains(t, status.Message(), domain.ErrDescriptionRequired.Error())
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			authService := &testhelpers.SpyAuthService{
+				ResultErr: tt.serviceErr,
+			}
+			taskService := &testhelpers.SpyTaskService{
+				ResultErr:     tt.serviceErr,
+				GetTasksError: tt.serviceErr,
+			}
+			server := NewTaskManageServer(store, authService, taskService)
 
-	t.Run("CreateTask description more than 200 symbols", func(t *testing.T) {
-		taskService := &testhelpers.SpyTaskService{
-			ResultErr: domain.ErrDescriptionTooLong,
-		}
-		store := &testhelpers.StubTaskStore{}
-		authService := &testhelpers.SpyAuthService{}
-		server := NewTaskManageServer(store, authService, taskService)
+			testUserID := 99
+			ctx := context.WithValue(context.Background(), application.UserIDKey, testUserID)
 
-		testUserID := 99
-		ctx := context.WithValue(context.Background(), application.UserIDKey, testUserID)
+			_, err := tt.call(ctx, server)
+			require.Error(t, err)
 
-		desc := fmt.Sprintf("task %s", strings.Repeat("1", 200))
-		request := &CreateTaskRequest{Description: desc}
-		_, err := server.CreateTask(ctx, request)
-		require.Error(t, err)
-		status, ok := status.FromError(err)
-		require.True(t, ok)
-		assert.Equal(t, codes.InvalidArgument, status.Code())
-		assert.Contains(t, status.Message(), domain.ErrDescriptionTooLong.Error())
-	})
+			status, ok := status.FromError(err)
+			require.True(t, ok)
+			assert.Equal(t, tt.expectedCode, status.Code())
+			assert.Contains(t, status.Message(), tt.wantErr)
+		})
+	}
 }

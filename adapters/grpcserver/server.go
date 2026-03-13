@@ -3,7 +3,7 @@ package grpcserver
 import (
 	"context"
 	"errors"
-	"fmt"
+	"log/slog"
 	"myproject/application"
 	"myproject/domain"
 
@@ -13,23 +13,23 @@ import (
 
 type TaskManageServer struct {
 	UnimplementedTaskManagerServer
-	store       domain.Storage
 	authService domain.AuthService
 	taskService domain.TaskService
+	logger      *slog.Logger
 }
 
-func NewTaskManageServer(store domain.Storage, authService domain.AuthService, taskService domain.TaskService) *TaskManageServer {
+func NewTaskManageServer(authService domain.AuthService, taskService domain.TaskService, logger *slog.Logger) *TaskManageServer {
 	return &TaskManageServer{
-		store:       store,
 		authService: authService,
 		taskService: taskService,
+		logger:      logger,
 	}
 }
 
 func (g TaskManageServer) Register(ctx context.Context, request *RegisterRequest) (*RegisterReply, error) {
 	token, err := g.authService.Register(request.Email, request.Password)
 	if err != nil {
-		return nil, mapError(err)
+		return nil, mapError(err, g.logger)
 	}
 	return &RegisterReply{Token: token}, nil
 }
@@ -37,7 +37,7 @@ func (g TaskManageServer) Register(ctx context.Context, request *RegisterRequest
 func (g TaskManageServer) Login(ctx context.Context, request *LoginRequest) (*LoginReply, error) {
 	token, err := g.authService.Login(request.Email, request.Password)
 	if err != nil {
-		return nil, mapError(err)
+		return nil, mapError(err, g.logger)
 	}
 	return &LoginReply{Token: token}, nil
 }
@@ -45,12 +45,12 @@ func (g TaskManageServer) Login(ctx context.Context, request *LoginRequest) (*Lo
 func (g TaskManageServer) CreateTask(ctx context.Context, request *CreateTaskRequest) (*CreateTaskReply, error) {
 	userID, err := application.GetUserIDFromContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user ID from context: %w", err)
+		return nil, status.Errorf(codes.Unauthenticated, "failed to get user ID from context: %v", err)
 	}
 
 	task, err := g.taskService.CreateTask(request.Description, userID)
 	if err != nil {
-		return nil, mapError(err)
+		return nil, mapError(err, g.logger)
 	}
 
 	return &CreateTaskReply{TaskId: int32(task.ID)}, nil
@@ -59,11 +59,11 @@ func (g TaskManageServer) CreateTask(ctx context.Context, request *CreateTaskReq
 func (g TaskManageServer) GetTasks(ctx context.Context, request *GetTasksRequest) (*GetTasksReply, error) {
 	userID, err := application.GetUserIDFromContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user ID from context: %w", err)
+		return nil, status.Errorf(codes.Unauthenticated, "failed to get user ID from context: %v", err)
 	}
 	tasks, err := g.taskService.GetTasks(userID)
 	if err != nil {
-		return nil, mapError(err)
+		return nil, mapError(err, g.logger)
 	}
 
 	reply := make([]*GetTasksReply_Task, len(tasks))
@@ -78,9 +78,13 @@ func (g TaskManageServer) GetTasks(ctx context.Context, request *GetTasksRequest
 	return &GetTasksReply{Tasks: reply}, nil
 }
 
-func mapError(err error) error {
+func mapError(err error, logger *slog.Logger) error {
 	if err == nil {
 		return nil
+	}
+
+	if logger != nil {
+		logger.Error("Domain error", slog.String("error", err.Error()))
 	}
 
 	switch {
@@ -89,12 +93,12 @@ func mapError(err error) error {
 		errors.Is(err, domain.ErrInvalidEmail):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, domain.ErrStorageFailure):
-		return status.Error(codes.Internal, err.Error())
+		return status.Error(codes.Internal, "internal server error")
 	case errors.Is(err, domain.ErrEmailAlreadyExists):
-		return status.Error(codes.AlreadyExists, err.Error())
+		return status.Error(codes.AlreadyExists, "email already registered")
 	case errors.Is(err, domain.ErrInvalidCredentials):
-		return status.Error(codes.Unauthenticated, err.Error())
+		return status.Error(codes.Unauthenticated, "invalid credentials")
 	default:
-		return status.Error(codes.Internal, err.Error())
+		return status.Error(codes.Internal, "internal server error")
 	}
 }

@@ -3,6 +3,8 @@ package grpcserver
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"myproject/application"
 	"myproject/domain"
 	"myproject/infrastructure/testhelpers"
@@ -19,9 +21,9 @@ func TestCreateTask(t *testing.T) {
 	taskService := &testhelpers.SpyTaskService{
 		ResultTask: domain.Task{ID: 42},
 	}
-	store := &testhelpers.StubTaskStore{}
 	authService := &testhelpers.SpyAuthService{}
-	server := NewTaskManageServer(store, authService, taskService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	server := NewTaskManageServer(authService, taskService, logger)
 
 	testUserID := 99
 	ctx := context.WithValue(context.Background(), application.UserIDKey, testUserID)
@@ -44,9 +46,9 @@ func TestGetTasks(t *testing.T) {
 			{ID: 2, Description: "task 2", Done: true},
 		},
 	}
-	store := &testhelpers.StubTaskStore{}
 	authService := &testhelpers.SpyAuthService{}
-	server := NewTaskManageServer(store, authService, taskService)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	server := NewTaskManageServer(authService, taskService, logger)
 
 	testUserID := 99
 	ctx := context.WithValue(context.Background(), application.UserIDKey, testUserID)
@@ -72,14 +74,12 @@ func TestErrorsMapping(t *testing.T) {
 	tests := []struct {
 		name         string
 		serviceErr   error
-		wantErr      string
 		expectedCode codes.Code
 		call         func(ctx context.Context, s *TaskManageServer) (any, error)
 	}{
 		{
 			name:         "CreateTask empty description",
 			serviceErr:   domain.ErrDescriptionRequired,
-			wantErr:      domain.ErrDescriptionRequired.Error(),
 			expectedCode: codes.InvalidArgument,
 			call: func(ctx context.Context, s *TaskManageServer) (any, error) {
 				return s.CreateTask(ctx, &CreateTaskRequest{Description: ""})
@@ -88,7 +88,6 @@ func TestErrorsMapping(t *testing.T) {
 		{
 			name:         "CreateTask description more than 200 symbols",
 			serviceErr:   domain.ErrDescriptionTooLong,
-			wantErr:      domain.ErrDescriptionTooLong.Error(),
 			expectedCode: codes.InvalidArgument,
 			call: func(ctx context.Context, s *TaskManageServer) (any, error) {
 				return s.CreateTask(ctx, &CreateTaskRequest{Description: fmt.Sprintf("task %s", strings.Repeat("1", 200))})
@@ -97,7 +96,6 @@ func TestErrorsMapping(t *testing.T) {
 		{
 			name:         "GetTasks storage failure",
 			serviceErr:   domain.ErrStorageFailure,
-			wantErr:      domain.ErrStorageFailure.Error(),
 			expectedCode: codes.Internal,
 			call: func(ctx context.Context, s *TaskManageServer) (any, error) {
 				return s.GetTasks(ctx, &GetTasksRequest{})
@@ -106,7 +104,6 @@ func TestErrorsMapping(t *testing.T) {
 		{
 			name:         "Register email already exists",
 			serviceErr:   domain.ErrEmailAlreadyExists,
-			wantErr:      domain.ErrEmailAlreadyExists.Error(),
 			expectedCode: codes.AlreadyExists,
 			call: func(ctx context.Context, s *TaskManageServer) (any, error) {
 				return s.Register(ctx, &RegisterRequest{
@@ -118,7 +115,6 @@ func TestErrorsMapping(t *testing.T) {
 		{
 			name:         "Register invalid password",
 			serviceErr:   domain.ErrInvalidCredentials,
-			wantErr:      domain.ErrInvalidCredentials.Error(),
 			expectedCode: codes.Unauthenticated,
 			call: func(ctx context.Context, s *TaskManageServer) (any, error) {
 				return s.Register(ctx, &RegisterRequest{
@@ -130,7 +126,6 @@ func TestErrorsMapping(t *testing.T) {
 		{
 			name:         "Login invalid emain",
 			serviceErr:   domain.ErrInvalidEmail,
-			wantErr:      domain.ErrInvalidEmail.Error(),
 			expectedCode: codes.InvalidArgument,
 			call: func(ctx context.Context, s *TaskManageServer) (any, error) {
 				return s.Login(ctx, &LoginRequest{
@@ -140,9 +135,7 @@ func TestErrorsMapping(t *testing.T) {
 			},
 		},
 	}
-
-	store := &testhelpers.StubTaskStore{}
-
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			authService := &testhelpers.SpyAuthService{
@@ -152,7 +145,7 @@ func TestErrorsMapping(t *testing.T) {
 				ResultErr:     tt.serviceErr,
 				GetTasksError: tt.serviceErr,
 			}
-			server := NewTaskManageServer(store, authService, taskService)
+			server := NewTaskManageServer(authService, taskService, logger)
 
 			testUserID := 99
 			ctx := context.WithValue(context.Background(), application.UserIDKey, testUserID)
@@ -163,7 +156,6 @@ func TestErrorsMapping(t *testing.T) {
 			status, ok := status.FromError(err)
 			require.True(t, ok)
 			assert.Equal(t, tt.expectedCode, status.Code())
-			assert.Contains(t, status.Message(), tt.wantErr)
 		})
 	}
 }

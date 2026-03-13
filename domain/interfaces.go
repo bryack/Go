@@ -3,6 +3,7 @@ package domain
 type TaskService interface {
 	CreateTask(description string, userID int) (Task, error)
 	UpdateTask(taskID, userID int, description *string, done *bool) (Task, error)
+	GetTasks(userID int) ([]Task, error)
 }
 
 // Storage defines the interface for task persistence operations.

@@ -57,3 +57,7 @@ func (s *Service) CreateTask(description string, userID int) (domain.Task, error
 	newTask.ID = id
 	return newTask, nil
 }
+
+func (s *Service) GetTasks(userID int) ([]domain.Task, error) {
+	return s.store.LoadTasks(userID)
+}

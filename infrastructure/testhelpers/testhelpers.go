@@ -9,6 +9,7 @@ type SpyTaskService struct {
 	LastUserID      int
 	ResultTask      domain.Task
 	ResultErr       error
+	TasksTable      []domain.Task
 }
 
 func (ts *SpyTaskService) CreateTask(description string, userID int) (domain.Task, error) {
@@ -19,6 +20,10 @@ func (ts *SpyTaskService) CreateTask(description string, userID int) (domain.Tas
 
 func (ts *SpyTaskService) UpdateTask(taskID, userID int, description *string, done *bool) (domain.Task, error) {
 	return domain.Task{}, nil
+}
+
+func (ts *SpyTaskService) GetTasks(userID int) ([]domain.Task, error) {
+	return ts.TasksTable, nil
 }
 
 type StubTaskStore struct {

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log/slog"
@@ -60,13 +61,13 @@ func NewDatabaseStorage(dbPath string, logger *slog.Logger) (*DatabaseStorage, e
 }
 
 // CreateTask inserts a new task and returns the generated ID.
-func (ds *DatabaseStorage) CreateTask(task domain.Task, userID int) (int, error) {
+func (ds *DatabaseStorage) CreateTask(ctx context.Context, task domain.Task, userID int) (int, error) {
 	ds.logger.Debug("Creating task",
 		slog.String(logger.FieldOperation, "create_task"),
 		slog.Int(logger.FieldUserID, userID),
 		slog.String("description", task.Description),
 	)
-	result, err := ds.db.Exec(
+	result, err := ds.db.ExecContext(ctx,
 		"INSERT INTO tasks (description, done, user_id) VALUES (?, ?, ?)",
 		task.Description, task.Done, userID,
 	)
@@ -92,14 +93,14 @@ func (ds *DatabaseStorage) CreateTask(task domain.Task, userID int) (int, error)
 }
 
 // UpdateTask modifies a task's description and status, returns ErrTaskNotFound if not owned by user.
-func (ds *DatabaseStorage) UpdateTask(task domain.Task, userID int) error {
+func (ds *DatabaseStorage) UpdateTask(ctx context.Context, task domain.Task, userID int) error {
 	ds.logger.Debug("Updating task",
 		slog.String(logger.FieldOperation, "update_task"),
 		slog.Int(logger.FieldTaskID, task.ID),
 		slog.Int(logger.FieldUserID, userID),
 		slog.Bool("done", task.Done),
 	)
-	result, err := ds.db.Exec(
+	result, err := ds.db.ExecContext(ctx,
 		"UPDATE tasks SET description = ?, done = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
 		task.Description, task.Done, task.ID, userID,
 	)
@@ -139,13 +140,13 @@ func (ds *DatabaseStorage) UpdateTask(task domain.Task, userID int) error {
 }
 
 // DeleteTask removes a task by ID, returns ErrTaskNotFound if not owned by user.
-func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
+func (ds *DatabaseStorage) DeleteTask(ctx context.Context, id int, userID int) error {
 	ds.logger.Debug("Deleting task",
 		slog.String(logger.FieldOperation, "delete_task"),
 		slog.Int(logger.FieldTaskID, id),
 		slog.Int(logger.FieldUserID, userID),
 	)
-	result, err := ds.db.Exec(
+	result, err := ds.db.ExecContext(ctx,
 		"DELETE FROM tasks WHERE id = ? AND user_id = ?",
 		id, userID,
 	)
@@ -184,13 +185,13 @@ func (ds *DatabaseStorage) DeleteTask(id int, userID int) error {
 }
 
 // GetTaskByID retrieves a task by ID, returns ErrTaskNotFound if not owned by user.
-func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task domain.Task, err error) {
+func (ds *DatabaseStorage) GetTaskByID(ctx context.Context, id int, userID int) (task domain.Task, err error) {
 	ds.logger.Debug("Fetching task",
 		slog.String(logger.FieldOperation, "get_task_by_id"),
 		slog.Int(logger.FieldTaskID, id),
 		slog.Int(logger.FieldUserID, userID),
 	)
-	err = ds.db.QueryRow(
+	err = ds.db.QueryRowContext(ctx,
 		"SELECT id, description, done FROM tasks WHERE id = ? AND user_id = ?",
 		id, userID,
 	).Scan(&task.ID, &task.Description, &task.Done)
@@ -212,13 +213,13 @@ func (ds *DatabaseStorage) GetTaskByID(id int, userID int) (task domain.Task, er
 }
 
 // LoadTasks retrieves all tasks for a user ordered by ID.
-func (ds *DatabaseStorage) LoadTasks(userID int) ([]domain.Task, error) {
+func (ds *DatabaseStorage) LoadTasks(ctx context.Context, userID int) ([]domain.Task, error) {
 	ds.logger.Debug("Loading tasks",
 		slog.String(logger.FieldOperation, "load_task"),
 		slog.Int(logger.FieldUserID, userID),
 	)
 	query := "SELECT id, description, done FROM tasks WHERE user_id = ? ORDER BY done ASC, created_at DESC"
-	rows, err := ds.db.Query(query, userID)
+	rows, err := ds.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		ds.logger.Error("Failed to query database select",
 			slog.String(logger.FieldOperation, "load_task"),
@@ -256,7 +257,7 @@ func (ds *DatabaseStorage) LoadTasks(userID int) ([]domain.Task, error) {
 }
 
 // Close closes the database connection and releases resources.
-func (ds *DatabaseStorage) Close() error {
+func (ds *DatabaseStorage) Close(ctx context.Context) error {
 	ds.logger.Debug("Close database connection",
 		slog.String(logger.FieldOperation, "close"),
 	)

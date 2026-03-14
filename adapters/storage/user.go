@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 	"myproject/domain"
@@ -8,12 +9,12 @@ import (
 )
 
 // CreateUser inserts a new user and returns the generated ID.
-func (ds *DatabaseStorage) CreateUser(email, passwordHash string) (int, error) {
+func (ds *DatabaseStorage) CreateUser(ctx context.Context, email, passwordHash string) (int, error) {
 	ds.logger.Debug("Creating user",
 		slog.String(logger.FieldOperation, "create_user"),
 		slog.String(logger.FieldEmail, logger.MaskEmail(email)),
 	)
-	result, err := ds.db.Exec(
+	result, err := ds.db.ExecContext(ctx,
 		"INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
 		email, passwordHash,
 	)
@@ -39,13 +40,13 @@ func (ds *DatabaseStorage) CreateUser(email, passwordHash string) (int, error) {
 }
 
 // GetUserByEmail retrieves a user by email, returns ErrUserNotFound if not exists.
-func (ds *DatabaseStorage) GetUserByEmail(email string) (*domain.User, error) {
+func (ds *DatabaseStorage) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	ds.logger.Debug("Fetching user by email",
 		slog.String(logger.FieldOperation, "get_user_by_email"),
 		slog.String(logger.FieldEmail, logger.MaskEmail(email)),
 	)
 	var user domain.User
-	err := ds.db.QueryRow(
+	err := ds.db.QueryRowContext(ctx,
 		"SELECT id, email, password_hash FROM users WHERE email = ?",
 		email,
 	).Scan(&user.ID, &user.Email, &user.PasswordHash)
@@ -66,13 +67,13 @@ func (ds *DatabaseStorage) GetUserByEmail(email string) (*domain.User, error) {
 }
 
 // GetUserByID retrieves a user by ID, returns ErrUserNotFound if not exists.
-func (ds *DatabaseStorage) GetUserByID(id int) (*domain.User, error) {
+func (ds *DatabaseStorage) GetUserByID(ctx context.Context, id int) (*domain.User, error) {
 	ds.logger.Debug("Fetching user by id",
 		slog.String(logger.FieldOperation, "get_user_by_id"),
 		slog.Int(logger.FieldUserID, id),
 	)
 	var user domain.User
-	err := ds.db.QueryRow(
+	err := ds.db.QueryRowContext(ctx,
 		"SELECT id, email, password_hash FROM users WHERE id = ?",
 		id,
 	).Scan(&user.ID, &user.Email, &user.PasswordHash)
@@ -93,12 +94,12 @@ func (ds *DatabaseStorage) GetUserByID(id int) (*domain.User, error) {
 }
 
 // EmailExists checks if an email is already registered in the database.
-func (ds *DatabaseStorage) EmailExists(email string) (exists bool, err error) {
+func (ds *DatabaseStorage) EmailExists(ctx context.Context, email string) (exists bool, err error) {
 	ds.logger.Debug("Checking email existence",
 		slog.String(logger.FieldOperation, "email_exists"),
 		slog.String(logger.FieldEmail, logger.MaskEmail(email)),
 	)
-	err = ds.db.QueryRow(
+	err = ds.db.QueryRowContext(ctx,
 		"SELECT EXISTS (SELECT 1 FROM users WHERE email = ?)",
 		email,
 	).Scan(&exists)

@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"myproject/domain"
 	"myproject/domain/validation"
@@ -14,12 +15,12 @@ func NewService(store domain.Storage) *Service {
 	return &Service{store: store}
 }
 
-func (s *Service) UpdateTask(taskID, userID int, description *string, done *bool) (domain.Task, error) {
+func (s *Service) UpdateTask(ctx context.Context, taskID, userID int, description *string, done *bool) (domain.Task, error) {
 	if description == nil && done == nil {
 		return domain.Task{}, domain.ErrEmptyFieldsToUpdate
 	}
 
-	task, err := s.store.GetTaskByID(taskID, userID)
+	task, err := s.store.GetTaskByID(ctx, taskID, userID)
 	if err != nil {
 		return domain.Task{}, fmt.Errorf("failed to find task with id %d: %w", taskID, err)
 	}
@@ -37,20 +38,20 @@ func (s *Service) UpdateTask(taskID, userID int, description *string, done *bool
 		task.Done = *done
 	}
 
-	if err := s.store.UpdateTask(task, userID); err != nil {
+	if err := s.store.UpdateTask(ctx, task, userID); err != nil {
 		return domain.Task{}, fmt.Errorf("failed to update task with id %d: %w", taskID, err)
 	}
 	return task, nil
 }
 
-func (s *Service) CreateTask(description string, userID int) (domain.Task, error) {
+func (s *Service) CreateTask(ctx context.Context, description string, userID int) (domain.Task, error) {
 	desc, err := validation.ValidateTaskDescription(description)
 	if err != nil {
 		return domain.Task{}, fmt.Errorf("failed to validate description: %w", err)
 	}
 
 	newTask := domain.Task{Description: desc, Done: false}
-	id, err := s.store.CreateTask(newTask, userID)
+	id, err := s.store.CreateTask(ctx, newTask, userID)
 	if err != nil {
 		return domain.Task{}, fmt.Errorf("failed to create task: %w", err)
 	}
@@ -58,6 +59,6 @@ func (s *Service) CreateTask(description string, userID int) (domain.Task, error
 	return newTask, nil
 }
 
-func (s *Service) GetTasks(userID int) ([]domain.Task, error) {
-	return s.store.LoadTasks(userID)
+func (s *Service) GetTasks(ctx context.Context, userID int) ([]domain.Task, error) {
+	return s.store.LoadTasks(ctx, userID)
 }

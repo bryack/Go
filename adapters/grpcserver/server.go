@@ -27,7 +27,7 @@ func NewTaskManageServer(authService domain.AuthService, taskService domain.Task
 }
 
 func (g TaskManageServer) Register(ctx context.Context, request *RegisterRequest) (*RegisterReply, error) {
-	token, err := g.authService.Register(request.Email, request.Password)
+	token, err := g.authService.Register(ctx, request.Email, request.Password)
 	if err != nil {
 		return nil, mapError(err, g.logger)
 	}
@@ -35,7 +35,7 @@ func (g TaskManageServer) Register(ctx context.Context, request *RegisterRequest
 }
 
 func (g TaskManageServer) Login(ctx context.Context, request *LoginRequest) (*LoginReply, error) {
-	token, err := g.authService.Login(request.Email, request.Password)
+	token, err := g.authService.Login(ctx, request.Email, request.Password)
 	if err != nil {
 		return nil, mapError(err, g.logger)
 	}
@@ -48,7 +48,7 @@ func (g TaskManageServer) CreateTask(ctx context.Context, request *CreateTaskReq
 		return nil, status.Errorf(codes.Unauthenticated, "failed to get user ID from context: %v", err)
 	}
 
-	task, err := g.taskService.CreateTask(request.Description, userID)
+	task, err := g.taskService.CreateTask(ctx, request.Description, userID)
 	if err != nil {
 		return nil, mapError(err, g.logger)
 	}
@@ -61,7 +61,7 @@ func (g TaskManageServer) GetTasks(ctx context.Context, request *GetTasksRequest
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "failed to get user ID from context: %v", err)
 	}
-	tasks, err := g.taskService.GetTasks(userID)
+	tasks, err := g.taskService.GetTasks(ctx, userID)
 	if err != nil {
 		return nil, mapError(err, g.logger)
 	}

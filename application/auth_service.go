@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"myproject/domain"
@@ -61,7 +62,7 @@ func ComparePassword(hash, password string) error {
 }
 
 // Register creates a new user account with the provided credentials and returns a JWT token.
-func (service *AuthService) Register(email, password string) (token string, err error) {
+func (service *AuthService) Register(ctx context.Context, email, password string) (token string, err error) {
 	service.logger.Info("Register",
 		slog.String(logger.FieldOperation, "user_registration"),
 		slog.String(logger.FieldEmail, logger.MaskEmail(email)),
@@ -86,7 +87,7 @@ func (service *AuthService) Register(email, password string) (token string, err 
 		return "", domain.ErrInvalidCredentials
 	}
 
-	exists, err := service.userStorage.EmailExists(email)
+	exists, err := service.userStorage.EmailExists(ctx, email)
 	if err != nil {
 		service.logger.Error("Failed to check email existence in database",
 			slog.String(logger.FieldOperation, "user_registration"),
@@ -115,7 +116,7 @@ func (service *AuthService) Register(email, password string) (token string, err 
 		return "", domain.ErrHashingFailed
 	}
 
-	userID, err := service.userStorage.CreateUser(email, passwordHash)
+	userID, err := service.userStorage.CreateUser(ctx, email, passwordHash)
 	if err != nil {
 		service.logger.Error("Failed to create user in database",
 			slog.String(logger.FieldOperation, "user_registration"),
@@ -140,13 +141,13 @@ func (service *AuthService) Register(email, password string) (token string, err 
 }
 
 // Login authenticates a user with email and password, returning a JWT token on success.
-func (service *AuthService) Login(email, password string) (token string, err error) {
+func (service *AuthService) Login(ctx context.Context, email, password string) (token string, err error) {
 	service.logger.Info("Login attempt",
 		slog.String(logger.FieldOperation, "user_login"),
 		slog.String(logger.FieldEmail, logger.MaskEmail(email)),
 	)
 
-	user, err := service.userStorage.GetUserByEmail(email)
+	user, err := service.userStorage.GetUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
 			service.logger.Warn("Failed login",

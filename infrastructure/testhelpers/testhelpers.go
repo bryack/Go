@@ -1,6 +1,7 @@
 package testhelpers
 
 import (
+	"context"
 	"myproject/domain"
 )
 
@@ -13,17 +14,17 @@ type SpyTaskService struct {
 	GetTasksError   error
 }
 
-func (ts *SpyTaskService) CreateTask(description string, userID int) (domain.Task, error) {
+func (ts *SpyTaskService) CreateTask(ctx context.Context, description string, userID int) (domain.Task, error) {
 	ts.LastDescription = description
 	ts.LastUserID = userID
 	return ts.ResultTask, ts.ResultErr
 }
 
-func (ts *SpyTaskService) UpdateTask(taskID, userID int, description *string, done *bool) (domain.Task, error) {
+func (ts *SpyTaskService) UpdateTask(ctx context.Context, taskID, userID int, description *string, done *bool) (domain.Task, error) {
 	return domain.Task{}, nil
 }
 
-func (ts *SpyTaskService) GetTasks(userID int) ([]domain.Task, error) {
+func (ts *SpyTaskService) GetTasks(ctx context.Context, userID int) ([]domain.Task, error) {
 	ts.LastUserID = userID
 	return ts.TasksTable, ts.GetTasksError
 }
@@ -35,7 +36,7 @@ type StubTaskStore struct {
 	UpdateTaskCalled int
 }
 
-func (s *StubTaskStore) GetTaskByID(id int, userID int) (task domain.Task, err error) {
+func (s *StubTaskStore) GetTaskByID(ctx context.Context, id int, userID int) (task domain.Task, err error) {
 	t, ok := s.Tasks[id]
 	if !ok {
 		return domain.Task{}, domain.ErrTaskNotFound
@@ -43,27 +44,27 @@ func (s *StubTaskStore) GetTaskByID(id int, userID int) (task domain.Task, err e
 	return domain.Task{ID: id, Description: t}, nil
 }
 
-func (s *StubTaskStore) CreateTask(task domain.Task, userID int) (int, error) {
+func (s *StubTaskStore) CreateTask(ctx context.Context, task domain.Task, userID int) (int, error) {
 	s.CreateCall = append(s.CreateCall, task.ID)
 	return task.ID, nil
 }
 
-func (s *StubTaskStore) LoadTasks(userID int) ([]domain.Task, error) {
+func (s *StubTaskStore) LoadTasks(ctx context.Context, userID int) ([]domain.Task, error) {
 	return s.TasksTable, nil
 }
 
-func (s *StubTaskStore) UpdateTask(task domain.Task, userID int) error {
+func (s *StubTaskStore) UpdateTask(ctx context.Context, task domain.Task, userID int) error {
 	s.UpdateTaskCalled++
 	s.Tasks[task.ID] = task.Description
 	return nil
 }
 
-func (s *StubTaskStore) DeleteTask(id int, userID int) error {
+func (s *StubTaskStore) DeleteTask(ctx context.Context, id int, userID int) error {
 	delete(s.Tasks, id)
 	return nil
 }
 
-func (s *StubTaskStore) Close() error {
+func (s *StubTaskStore) Close(ctx context.Context) error {
 	return nil
 }
 
@@ -74,13 +75,13 @@ type SpyAuthService struct {
 	LastPassword string
 }
 
-func (s *SpyAuthService) Register(email, password string) (string, error) {
+func (s *SpyAuthService) Register(ctx context.Context, email, password string) (string, error) {
 	s.LastEmail = email
 	s.LastPassword = password
 	return s.ResultToken, s.ResultErr
 }
 
-func (s *SpyAuthService) Login(email, password string) (string, error) {
+func (s *SpyAuthService) Login(ctx context.Context, email, password string) (string, error) {
 	s.LastEmail = email
 	s.LastPassword = password
 	return s.ResultToken, s.ResultErr

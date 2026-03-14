@@ -24,11 +24,11 @@ type slowStorage struct {
 	started chan struct{}
 }
 
-func (s *slowStorage) LoadTasks(userID int) ([]domain.Task, error) {
+func (s *slowStorage) LoadTasks(ctx context.Context, userID int) ([]domain.Task, error) {
 	close(s.started)
 
 	time.Sleep(s.delay)
-	return s.AppStorage.LoadTasks(userID)
+	return s.AppStorage.LoadTasks(ctx, userID)
 }
 
 func TestApp_GracefulShutdown(t *testing.T) {

@@ -39,12 +39,12 @@ type StubAuthService struct {
 	LoginCalled    []string
 }
 
-func (sas *StubAuthService) Register(email, password string) (token string, err error) {
+func (sas *StubAuthService) Register(ctx context.Context, email, password string) (token string, err error) {
 	sas.RegisterCalled = append(sas.RegisterCalled, RegisterRequest{email, password})
 	return "", nil
 }
 
-func (sas *StubAuthService) Login(email, password string) (token string, err error) {
+func (sas *StubAuthService) Login(ctx context.Context, email, password string) (token string, err error) {
 	sas.LoginCalled = append(sas.LoginCalled, email)
 	return "", nil
 }

@@ -110,7 +110,7 @@ func (a *App) shutdown() error {
 		errs = append(errs, fmt.Errorf("server shutdown: %w", err))
 	}
 
-	if err := a.storage.Close(); err != nil {
+	if err := a.storage.Close(shutdownCtx); err != nil {
 		errs = append(errs, fmt.Errorf("storage close: %w", err))
 	}
 

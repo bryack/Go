@@ -114,7 +114,7 @@ func (ts *TasksServer) tasksHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
-		ts.processLoadTasks(w, userID)
+		ts.processLoadTasks(w, r, userID)
 	case http.MethodPost:
 		ts.processCreateTask(w, r, userID)
 	default:
@@ -123,8 +123,8 @@ func (ts *TasksServer) tasksHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ts *TasksServer) processLoadTasks(w http.ResponseWriter, userID int) {
-	response, err := ts.store.LoadTasks(userID)
+func (ts *TasksServer) processLoadTasks(w http.ResponseWriter, r *http.Request, userID int) {
+	response, err := ts.store.LoadTasks(r.Context(), userID)
 	if err != nil {
 		JSONError(w, http.StatusInternalServerError, "Failed to load tasks")
 		return
@@ -138,7 +138,7 @@ func (ts *TasksServer) processCreateTask(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	task, err := ts.service.CreateTask(taskRequest.Description, userID)
+	task, err := ts.service.CreateTask(r.Context(), taskRequest.Description, userID)
 	if err != nil {
 		ts.handleCreateTaskError(w, r, userID, err)
 		return
@@ -182,7 +182,7 @@ func (ts *TasksServer) taskHandler(w http.ResponseWriter, r *http.Request) {
 
 func (ts *TasksServer) processGetTaskByID(w http.ResponseWriter, r *http.Request, taskID int, userID int) {
 
-	response, err := ts.store.GetTaskByID(taskID, userID)
+	response, err := ts.store.GetTaskByID(r.Context(), taskID, userID)
 	if err != nil {
 		ts.logTaskError(r, slog.LevelWarn, "Failed to get task by ID from database", userID, taskID, err)
 		JSONError(w, http.StatusNotFound, "Task not found")
@@ -197,7 +197,7 @@ func (ts *TasksServer) processUpdateTask(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	task, err := ts.service.UpdateTask(taskID, userID, taskRequest.Description, taskRequest.Done)
+	task, err := ts.service.UpdateTask(r.Context(), taskID, userID, taskRequest.Description, taskRequest.Done)
 	if err != nil {
 		ts.handleUpdateTaskError(w, r, userID, taskID, err)
 		return
@@ -223,7 +223,7 @@ func (ts *TasksServer) handleUpdateTaskError(w http.ResponseWriter, r *http.Requ
 }
 
 func (ts *TasksServer) processDeleteTask(w http.ResponseWriter, r *http.Request, taskID, userID int) {
-	if err := ts.store.DeleteTask(taskID, userID); err != nil {
+	if err := ts.store.DeleteTask(r.Context(), taskID, userID); err != nil {
 		ts.logTaskError(r, slog.LevelWarn, "Failed to delete task from database", userID, taskID, err)
 		JSONError(w, http.StatusNotFound, "Task not found")
 		return
@@ -257,7 +257,7 @@ func (ts *TasksServer) registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := ts.authService.Register(registerRequest.Email, registerRequest.Password)
+	token, err := ts.authService.Register(r.Context(), registerRequest.Email, registerRequest.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidEmail), errors.Is(err, domain.ErrPasswordTooLong), errors.Is(err, domain.ErrPasswordTooShort):
@@ -293,7 +293,7 @@ func (ts *TasksServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := ts.authService.Login(loginRequest.Email, loginRequest.Password)
+	token, err := ts.authService.Login(r.Context(), loginRequest.Email, loginRequest.Password)
 	if err != nil {
 		ts.logger.Warn("Login failed",
 			slog.String(logger.FieldOperation, "login_handler"),

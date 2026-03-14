@@ -2,6 +2,7 @@ package webserver_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"myproject/adapters/auth"
 	"myproject/adapters/storage"
@@ -66,6 +67,7 @@ func loadTasksRequest(t *testing.T, token string) *http.Request {
 }
 
 func setupIntegrationTest(t *testing.T) (*webserver.TasksServer, string) {
+	ctx := context.Background()
 	testLogger, err := logger.NewLogger(&logger.Config{
 		Level:       "error",
 		Format:      "text",
@@ -84,7 +86,7 @@ func setupIntegrationTest(t *testing.T) (*webserver.TasksServer, string) {
 	}
 
 	t.Cleanup(func() {
-		store.Close()
+		store.Close(ctx)
 	})
 
 	jwtService := auth.NewJWTService("test-secret-key-minimum-32-chars!", 24*time.Hour)
@@ -93,8 +95,8 @@ func setupIntegrationTest(t *testing.T) (*webserver.TasksServer, string) {
 
 	server := webserver.NewTasksServer(store, authService, authMiddleware, testLogger)
 
-	authService.Register("test@email.com", "password123")
-	token, err := authService.Login("test@email.com", "password123")
+	authService.Register(ctx, "test@email.com", "password123")
+	token, err := authService.Login(ctx, "test@email.com", "password123")
 	if err != nil {
 		t.Fatalf("failed to login: %v", err)
 	}

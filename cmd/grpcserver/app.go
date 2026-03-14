@@ -30,7 +30,7 @@ func NewApp(cfg *config.Config, l *slog.Logger, store domain.AppStorage) (*App, 
 	jwtService := auth.NewJWTService(cfg.JWTConfig.Secret, cfg.JWTConfig.Expiration)
 	authService := application.NewAuthService(store, jwtService, l)
 	taskService := application.NewService(store)
-	grpcSrv := grpcserver.NewTaskManageServer(store, authService, taskService)
+	grpcSrv := grpcserver.NewTaskManageServer(authService, taskService, l)
 	authInterceptor := grpcserver.NewAuthInterceptor(jwtService, l)
 
 	server := grpc.NewServer(
@@ -98,7 +98,7 @@ func (a *App) shutdown() error {
 		a.server.Stop()
 	}
 
-	if err := a.storage.Close(); err != nil {
+	if err := a.storage.Close(shutdownCtx); err != nil {
 		errs = append(errs, fmt.Errorf("failed storage close: %w", err))
 	}
 

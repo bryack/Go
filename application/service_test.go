@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"myproject/domain"
 	"myproject/infrastructure/testhelpers"
 	"testing"
@@ -89,12 +90,13 @@ func TestUpdateTask(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := tt.setupStore
 			service := NewService(store)
 
-			task, err := service.UpdateTask(tt.up.taskID, tt.up.userID, tt.up.description, tt.up.done)
+			task, err := service.UpdateTask(ctx, tt.up.taskID, tt.up.userID, tt.up.description, tt.up.done)
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.ErrorIs(t, err, tt.expectedError)
@@ -135,12 +137,13 @@ func TestCreateTask(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := &testhelpers.StubTaskStore{}
 			service := NewService(store)
 
-			task, err := service.CreateTask(tt.description, 1)
+			task, err := service.CreateTask(ctx, tt.description, 1)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
